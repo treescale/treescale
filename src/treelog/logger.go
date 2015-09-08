@@ -12,6 +12,6 @@ func Error(from string, messages...string) {
 	log.Println(from, ": ", messages)
 }
 
-func Info(from, message string) {
+func Info(from, messages...string) {
 	log.Println(from, ": ", message)
 }
