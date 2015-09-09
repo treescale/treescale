@@ -1,4 +1,4 @@
-package treenet
+package treelib
 
 import (
 	"net"
@@ -79,8 +79,4 @@ func SendJson(v interface{}, conn *net.TCPConn) (len int, err error) {
 
 	len, err = SendMessage(s_data, conn)
 	return
-}
-
-func CheckPath() {
-
 }
