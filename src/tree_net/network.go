@@ -1,4 +1,4 @@
-package treenet
+package tree_net
 
 var (
 	// This should be set before starting Networking

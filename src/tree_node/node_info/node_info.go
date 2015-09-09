@@ -1,4 +1,4 @@
-package nodeinfo
+package node_info
 
 // This file contains global variables for information about Tree node
 

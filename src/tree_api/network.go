@@ -1,4 +1,4 @@
-package treeapi
+package tree_api
 import "net"
 
 var (

@@ -1,4 +1,4 @@
-package treelog
+package tree_log
 
 import (
 	"log"
@@ -12,6 +12,6 @@ func Error(from string, messages...string) {
 	log.Println(from, ": ", messages)
 }
 
-func Info(from, messages...string) {
-	log.Println(from, ": ", message)
+func Info(from string, messages...string) {
+	log.Println(from, ": ", messages)
 }
