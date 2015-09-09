@@ -23,18 +23,16 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	var (
 		body_index	int
 		path		tree_graph.Path
-		msg_body	[]byte
 		node_names	[]string
 	)
 	body_index, path, err = tree_graph.PathFromMessage(msg)
 	if err != nil {
 		return
 	}
-	msg_body = msg[body_index:]
 
 	// If we got this data on node, then just firing event
 	// don't meed to check is it right data received or not
-	go tree_event.HandleEventData(msg_body)
+	go tree_event.HandleEventData(msg[body_index:])
 
 	if !is_api {
 		if api_names, ok :=path.NodePaths[node_info.CurrentNodeInfo.Name]; ok {
@@ -48,7 +46,7 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 			}
 		}
 
-		err = SendToNames(msg_body, &path, node_names...)
+		err = SendToNames(msg[body_index:], &path, node_names...)
 	}
 	return
 }
