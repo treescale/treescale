@@ -110,5 +110,7 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 		handle_message(is_api, true, msg_data)
 	}
 
+	parentConnection = nil
+
 	// TODO: Trigger about parent connection close
 }
