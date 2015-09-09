@@ -7,6 +7,8 @@ import (
 	"tree_lib"
 	"strings"
 	"tree_api"
+	"tree_event"
+	"tree_node"
 )
 
 // This file contains functionality for handling parent connections
@@ -93,9 +95,15 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 
 	// TODO: Trigger about new parent connection with parent name
 
-	// Listening parent events
+	// Listening parent messages
 	for {
 		msg_data, err = tree_lib.ReadMessage(conn)
+
+		// Handle Data with path and event
+		go tree_node.SendDataPath(msg_data)
+
+		// Handling message events
+		tree_event.HandleEventData(msg_data)
 	}
 
 	// TODO: Trigger about parent connection close
