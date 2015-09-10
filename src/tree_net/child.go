@@ -8,6 +8,7 @@ import (
 	"tree_lib"
 	"strings"
 	"tree_api"
+	"tree_event"
 )
 
 // This file contains functionality for handling parent connections
@@ -20,7 +21,7 @@ var (
 	log_from_child		=	"Parent connection handler"
 )
 
-func listen_parent() (err error) {
+func ListenParent() (err error) {
 	var (
 		addr	*net.TCPAddr
 		conn	*net.TCPConn
@@ -88,6 +89,7 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 	}
 
 	if strings.Contains(conn_name, tree_api.API_NAME_PREFIX) {
+		tree_event.TriggerWithData(tree_event.ON_API_CONNECTED, []byte(conn_name), nil)
 		api_connections[conn_name] = conn
 		is_api = true
 	} else {
@@ -100,17 +102,30 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 		parentConnection = conn
 	}
 
-	// TODO: Trigger about new parent connection with parent name
+	if is_api {
+		tree_event.TriggerWithData(tree_event.ON_API_CONNECTED, []byte(conn_name), nil)
+	} else {
+		tree_event.TriggerWithData(tree_event.ON_PARENT_CONNECTED, []byte(conn_name), nil)
+	}
 
 	// Listening parent messages
 	for {
 		msg_data, err = tree_lib.ReadMessage(conn)
+		if err != nil {
+			tree_log.Error(log_from_child, " reading data from -> ", conn_name, " ", err.Error())
+			break
+		}
 
 		// Handling message events
 		handle_message(is_api, true, msg_data)
 	}
 
-	parentConnection = nil
-
-	// TODO: Trigger about parent connection close
+	if is_api {
+		api_connections[conn_name] = nil
+		delete(api_connections, conn_name)
+		tree_event.TriggerWithData(tree_event.ON_API_DISCONNECTED, []byte(conn_name), nil)
+	} else {
+		parentConnection = nil
+		tree_event.TriggerWithData(tree_event.ON_PARENT_DISCONNECTED, []byte(conn_name), nil)
+	}
 }

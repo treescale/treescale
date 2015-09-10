@@ -8,6 +8,7 @@ import (
 	"tree_log"
 	"github.com/pquerna/ffjson/ffjson"
 	"encoding/binary"
+	"fmt"
 )
 
 var (
@@ -18,6 +19,12 @@ const (
 	// This is just a random string, using to notify Parent or Child Node that one of them going to close connection
 	CLOSE_CONNECTION_MARK = "***###***"
 )
+
+
+func Start() {
+	go ListenParent()
+	go ChildListener(1000)
+}
 
 func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	var (
@@ -32,7 +39,7 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 
 	// If we got this data on node, then just firing event
 	// don't meed to check is it right data received or not
-	go tree_event.HandleEventData(msg[body_index:])
+	go tree_event.TriggerFromData(msg[body_index:])
 
 	if !is_api {
 		if api_names, ok :=path.NodePaths[node_info.CurrentNodeInfo.Name]; ok {
@@ -95,5 +102,18 @@ func SendToConn(data []byte, path *tree_graph.Path, conn *net.TCPConn) (err erro
 	buf.Write(data)
 
 	_, err = conn.Write(buf.Bytes())
+	return
+}
+
+func TcpConnect(ip string, port int) (conn *net.TCPConn, err error) {
+	var (
+		tcpAddr *net.TCPAddr
+	)
+	tcpAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ip, port))
+	if err != nil {
+		return
+	}
+
+	conn, err = net.DialTCP("tcp", nil, tcpAddr)
 	return
 }
