@@ -41,20 +41,20 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	// don't meed to check is it right data received or not
 	go tree_event.TriggerFromData(msg[body_index:])
 
-	if !is_api {
-		if api_names, ok :=path.NodePaths[node_info.CurrentNodeInfo.Name]; ok {
-			delete(path.NodePaths, node_info.CurrentNodeInfo.Name)
-			node_names = api_names
-		} else {
-			if from_parent {
-				node_names = path.ExtractNames(node_info.CurrentNodeInfo, node_info.ChildsNodeInfo)
-			} else {
-				node_names = path.ExtractNames(node_info.CurrentNodeInfo, node_info.ParentNodeInfo, node_info.ChildsNodeInfo...)
-			}
-		}
-
-		err = SendToNames(msg[body_index:], &path, node_names...)
+	if is_api {
+		// If message came from API then it need's to be handled only on this node
+		//	then if there would be path to send , handler will send it from event callback
+		return
 	}
+
+	if from_parent {
+		node_names = path.ExtractNames(node_info.CurrentNodeInfo, node_info.ChildsNodeInfo)
+	} else {
+		node_names = path.ExtractNames(node_info.CurrentNodeInfo, node_info.ParentNodeInfo, node_info.ChildsNodeInfo...)
+	}
+
+	err = SendToNames(msg[body_index:], &path, node_names...)
+
 	return
 }
 
