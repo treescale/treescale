@@ -1,6 +1,9 @@
 package tree_event
 
 const (
+	ON_PROGRAM_EXIT				=	"program_exit"
+
+
 	ON_PARENT_CONNECTED			=	"parent_connected"
 	ON_PARENT_DISCONNECTED		=	"parent_disconnected"
 	ON_CHILD_CONNECTED			=	"child_connected"
