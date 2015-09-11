@@ -21,9 +21,34 @@ const (
 )
 
 
+func init() {
+	// Child listener should be running without any condition
+	go ChildListener(1000)
+}
+
 func Start() {
 	go ListenParent()
-	go ChildListener(1000)
+}
+
+func Restart() {
+	if parentConnection != nil {
+		parentConnection.Close()
+		parentConnection = nil
+	}
+
+	if listener != nil {
+		listener.Close()
+		listener = nil
+	}
+
+	for n, c :=range child_connections {
+		if c != nil {
+			c.Close()
+		}
+		delete(child_connections, n)
+	}
+
+	Start()
 }
 
 func handle_message(is_api, from_parent bool, msg []byte) (err error) {
