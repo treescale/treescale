@@ -3,6 +3,7 @@ package tree_db
 import (
 	"tree_node/node_info"
 	"github.com/pquerna/ffjson/ffjson"
+	"strings"
 )
 
 
@@ -63,7 +64,29 @@ func SetNodeInfo(name string, nf node_info.NodeInfo) (err error) {
 	return
 }
 
+// Key -> value ..... node_name -> node1,node2,node3
+// []byte -> []string{}.Join(",")
+// First element of string array should be parent node
 func SetRelations(node string) (err error) {
-	// TODO: Calculate relations for this node
+	// TODO: should be done during database sync
 	return
+}
+
+func GetRelations(node string) ([]string, error) {
+	nodes_byte, err := Get(DB_RANDOM, []byte(node))
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(string(nodes_byte), ","), nil
+}
+
+func GetParentInfo(node string) (node_info.NodeInfo, error) {
+	nr, err := GetRelations(node)
+	if err != nil {
+		return
+	}
+
+	// Node relations firs element should be parent node
+	return GetNodeInfo(nr[0])
 }

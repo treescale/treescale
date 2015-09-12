@@ -17,8 +17,3 @@ var (
 	ParentNodeInfo		*NodeInfo
 	ChildsNodeInfo	=	make(map[string]*NodeInfo)
 )
-
-func SetParentNode(name string) (ok bool) {
-	//TODO: connect to database and get node info using node name , and check if it is parent or not
-	return
-}
