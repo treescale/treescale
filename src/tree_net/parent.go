@@ -72,6 +72,7 @@ func ChildConnect(name string) (err error) {
 	// Then we connected to wrong server, just returning
 	// defer will close connection
 	if string(ch_name_data) != name {
+		tree_lib.SendMessage([]byte(CLOSE_CONNECTION_MARK), conn)
 		return
 	}
 
