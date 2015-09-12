@@ -4,6 +4,7 @@ import (
 	"tree_graph"
 	"tree_log"
 	"github.com/pquerna/ffjson/ffjson"
+	"reflect"
 )
 
 
@@ -64,7 +65,7 @@ func ON(name string, f func(*Event)) {
 func OFF(name string, f func(*Event)) {
 	if funcs, ok :=events[name]; ok {
 		for i, ff :=range funcs {
-			if f == ff {
+			if reflect.ValueOf(f).Pointer() == reflect.ValueOf(ff).Pointer() {
 				// Deleting function by index
 				events[name] = events[name][:i+copy(events[name][i:], events[name][i+1:])]
 				break

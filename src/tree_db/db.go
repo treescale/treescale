@@ -73,10 +73,9 @@ func init() {
 	})
 }
 
-func CloseDB() (err error) {
+func CloseDB() {
 	if tree_db == nil {
 		return
 	}
-	err = tree_db.Close()
-	return
+	tree_db.Close()
 }

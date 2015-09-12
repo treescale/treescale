@@ -13,7 +13,7 @@ type NodeInfo struct {
 
 var (
 	// Node Info for current running node
-	CurrentNodeInfo		*NodeInfo
-	ParentNodeInfo		*NodeInfo
-	ChildsNodeInfo	=	make(map[string]*NodeInfo)
+	CurrentNodeInfo		NodeInfo
+	ParentNodeInfo		NodeInfo
+	ChildsNodeInfo	=	make(map[string]NodeInfo)
 )

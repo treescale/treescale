@@ -111,7 +111,9 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	if from_parent {
 		node_names = path.ExtractNames(node_info.CurrentNodeInfo, node_info.ChildsNodeInfo)
 	} else {
-		node_names = path.ExtractNames(node_info.CurrentNodeInfo, node_info.ParentNodeInfo, node_info.ChildsNodeInfo...)
+		snf := node_info.ChildsNodeInfo
+		snf[node_info.ParentNodeInfo.Name] = node_info.ParentNodeInfo
+		node_names = path.ExtractNames(node_info.CurrentNodeInfo, snf)
 	}
 
 	err = SendToNames(msg[body_index:], &path, node_names...)

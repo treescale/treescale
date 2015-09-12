@@ -36,7 +36,7 @@ func node_init() {
 		tree_log.Error(log_from_node, "Getting current node info from Node database, ", err.Error())
 		return
 	}
-	for _, child :=range node_info.ChildsNodeInfo {
+	for _, child :=range node_info.CurrentNodeInfo.Childs {
 		node_info.ChildsNodeInfo[child], err = tree_db.GetNodeInfo(child)
 		if err != nil {
 			tree_log.Error(log_from_node, fmt.Sprintf("Getting child (%s) node info from Node database, ", child), err.Error())
@@ -47,7 +47,11 @@ func node_init() {
 	// Setting relations
 	tree_db.SetRelations(current_node_name)
 
-	node_info.ParentNodeInfo == tree_db.GetParentInfo(current_node_name)
+	node_info.ParentNodeInfo, err = tree_db.GetParentInfo(current_node_name)
+	if err != nil {
+		tree_log.Error(log_from_node, "Getting parent node info from Node database, ", err.Error())
+		return
+	}
 }
 
 func Start() {

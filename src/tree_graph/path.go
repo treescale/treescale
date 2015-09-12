@@ -20,7 +20,7 @@ func PathFromMessage(msg []byte) (body_index int, p Path, err error) {
 	return
 }
 
-func (path *Path) ExtractNames(current_node node_info.NodeInfo, nodes_info...node_info.NodeInfo) (p_nodes []string) {
+func (path *Path) ExtractNames(current_node node_info.NodeInfo, nodes_info map[string]node_info.NodeInfo) (p_nodes []string) {
 	var (
 		ok			bool
 	)

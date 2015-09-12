@@ -16,7 +16,7 @@ var (
 	log_from_parent		=	"Child connection handler"
 )
 
-func ChildListener(interval int) {
+func ChildListener(interval time.Duration) {
 
 	// TODO: this logic should be changed to evented, start reconnecting if child disconnected or there is connection error
 

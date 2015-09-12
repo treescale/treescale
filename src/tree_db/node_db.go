@@ -84,7 +84,7 @@ func GetRelations(node string) ([]string, error) {
 func GetParentInfo(node string) (node_info.NodeInfo, error) {
 	nr, err := GetRelations(node)
 	if err != nil {
-		return
+		return node_info.NodeInfo{}, err
 	}
 
 	// Node relations firs element should be parent node

@@ -34,7 +34,7 @@ func ReadMessage(conn *net.TCPConn) (msg []byte, err error) {
 		return
 	}
 
-	if rlen != msg_len {
+	if rlen != int(msg_len) {
 		err = errors.New(fmt.Sprintf("Message length not equal to given length. Check API details. Given %d message length, but recieved %d", int(msg_len), rlen))
 		return
 	}
@@ -56,15 +56,14 @@ func ReadJson(v interface{}, conn *net.TCPConn) (err error) {
 	return
 }
 
-func SendMessage(data []byte, conn *net.TCPConn) (len int, err error) {
+func SendMessage(data []byte, conn *net.TCPConn) (int, error) {
 	var (
 		data_len 	= 	make([]byte, 4)
 		send_data		[]byte
 	)
 	binary.LittleEndian.PutUint32(data_len, uint32(len(data)))
-	send_data = append(data_len, data)
-	len, err = conn.Write(send_data)
-	return
+	send_data = append(data_len, data...)
+	return conn.Write(send_data)
 }
 
 func SendJson(v interface{}, conn *net.TCPConn) (len int, err error) {
