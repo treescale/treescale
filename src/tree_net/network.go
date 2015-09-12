@@ -56,15 +56,51 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 		body_index	int
 		path		tree_graph.Path
 		node_names	[]string
+		handle_ev	bool
 	)
 	body_index, path, err = tree_graph.PathFromMessage(msg)
 	if err != nil {
 		return
 	}
+	handle_ev = false
 
-	// If we got this data on node, then just firing event
-	// don't meed to check is it right data received or not
-	go tree_event.TriggerFromData(msg[body_index:])
+
+
+	if p, ok :=path.NodePaths[node_info.CurrentNodeInfo.Name]; ok && len(p) == 0 {
+		handle_ev = true
+	}
+
+	if !handle_ev {
+		for _, g :=range path.Groups {
+			for _, g1 :=range node_info.CurrentNodeInfo.Groups {
+				if g1 == g {
+					handle_ev = true
+					break
+				}
+			}
+			if handle_ev {
+				break
+			}
+		}
+
+		if !handle_ev {
+			for _, t :=range path.Tags {
+				for _, t1 :=range node_info.CurrentNodeInfo.Groups {
+					if t1 == t {
+						handle_ev = true
+						break
+					}
+				}
+				if handle_ev {
+					break
+				}
+			}
+		}
+	}
+
+	if handle_ev {
+		go tree_event.TriggerFromData(msg[body_index:])
+	}
 
 	if is_api {
 		// If message came from API then it need's to be handled only on this node
