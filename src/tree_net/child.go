@@ -93,11 +93,6 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 		api_connections[conn_name] = conn
 		is_api = true
 	} else {
-		if !node_info.SetParentNode(conn_name) {
-			// If parent not set, just returning
-			tree_log.Info(log_from_child, "Parent node not set for name ", conn_name)
-			return
-		}
 		parent_name = conn_name
 		parentConnection = conn
 	}
