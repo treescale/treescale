@@ -3,6 +3,7 @@ package tree_graph
 import (
 	"tree_db"
 	"tree_node/node_info"
+	tree_path "tree_graph/path"
 )
 
 func GroupPath(group_name string) (map[string][]string, error){
@@ -142,10 +143,10 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 	return next
 }
 
-func GetPath(nodes []string, tags []string, groups []string) (*Path, error){
+func GetPath(nodes []string, tags []string, groups []string) (*tree_path.Path, error){
 	var (
 		err					error
-		path 				*Path
+		path 				*tree_path.Path
 		nodes_path =		make(map[string]map[string][]string)
 		tags_path =			make(map[string]map[string][]string)
 		groups_path = 		make(map[string]map[string][]string)

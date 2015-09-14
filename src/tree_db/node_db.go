@@ -4,6 +4,7 @@ import (
 	"tree_node/node_info"
 	"github.com/pquerna/ffjson/ffjson"
 	"strings"
+	"tree_lib"
 )
 
 
@@ -68,7 +69,41 @@ func SetNodeInfo(name string, nf node_info.NodeInfo) (err error) {
 // []byte -> []string{}.Join(",")
 // First element of string array should be parent node
 func SetRelations(node string) (err error) {
-	// TODO: should be done during database sync
+	parent_name := ""
+	inf := node_info.NodeInfo{}
+	inf, err = GetNodeInfo(node)
+	if err != nil {
+		return
+	}
+
+	rels := inf.Childs
+
+	// Getting parent node
+	err = AllKeys(DB_RELATIONS, "", func(keys [][]byte)bool {
+		nf := node_info.NodeInfo{}
+		for _, k :=range keys {
+			nf, err = GetNodeInfo(string(k))
+			if err != nil {
+				return false
+			}
+			if _, ok :=tree_lib.ArrayContains(nf.Childs, node); ok {
+				parent_name = nf.Name
+				return false
+			}
+		}
+
+		return true
+	})
+
+	if err != nil {
+		return
+	}
+
+	if len(parent_name) != 0 {
+		rels = append([]string{}, parent_name, rels...)
+	}
+
+	err = Set(DB_RELATIONS, []byte(node), []byte(strings.Join(rels, ",")))
 	return
 }
 

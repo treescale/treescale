@@ -34,7 +34,7 @@ func Get(db int, key []byte) (ret []byte, err error) {
 
 // Getting all keys as a callback, because there could be a lot of records and we don't want to fill RAM
 // On every callback function you will receive up to 500 keys, if you will receive 0 keys then it is the last time
-func AllKeys(db int, match string, cb func([][]byte)) (err error) {
+func AllKeys(db int, match string, cb func([][]byte)bool) (err error) {
 	if !CheckDB(db) {
 		err = errors.New("Node database is not selected, please select before making query")
 		return
@@ -60,7 +60,9 @@ func AllKeys(db int, match string, cb func([][]byte)) (err error) {
 		if err != nil {
 			return
 		}
-		cb(cb_data)
+		if !cb(cb_data) {
+			break
+		}
 		cursor = cb_data[len(cb_data) - 1]  // getting last key as a cursor for the next time
 		first = false
 	}

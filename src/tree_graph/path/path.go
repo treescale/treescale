@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_node/node_info"
+	"tree_lib"
 )
 
 type Path struct {
@@ -32,43 +33,16 @@ func (path *Path) ExtractNames(current_node node_info.NodeInfo, nodes_info map[s
 
 	for name, info :=range nodes_info {
 		contains := false
-		for   _, pt :=range path.Tags {
-			for _, nt :=range info.Tags {
-				if nt == pt {
-					contains = true
-					break
-				}
-			}
 
-			if contains {
-				break
-			}
-		}
-
-		if !contains {
-			for _, pg :=range path.Tags {
-				for _, ng :=range info.Groups {
-					if ng == pg {
-						contains = true
-						break
-					}
-				}
-
-				if contains {
-					break
-				}
-			}
+		if _, _, ok :=tree_lib.ArrayMatchElement(path.Groups, info.Groups); ok {
+			contains = true
+		} else if _, _, ok := tree_lib.ArrayMatchElement(path.Tags, info.Tags); ok {
+			contains = true
 		}
 
 		if contains {
-			duplicate := false
-			for _, pn :=range p_nodes {
-				if pn == name {
-					duplicate = true
-					break
-				}
-			}
-			if !duplicate {
+			// If there is no duplicates
+			if _, ok :=tree_lib.ArrayContains(p_nodes, name); !ok {
 				p_nodes = append(p_nodes, name)
 			}
 		}
