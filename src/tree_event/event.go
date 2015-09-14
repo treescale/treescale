@@ -1,7 +1,7 @@
 package tree_event
 
 import (
-	"tree_graph"
+	tree_path "tree_graph/path"
 	"tree_log"
 	"github.com/pquerna/ffjson/ffjson"
 	"reflect"
@@ -10,7 +10,7 @@ import (
 
 type Event struct {
 	Name		string				`json:"name" toml:"name" yaml:"name"`
-	Path		tree_graph.Path		`json:"path" toml:"path" yaml:"path"`
+	Path		tree_path.Path		`json:"path" toml:"path" yaml:"path"`
 	Data		[]byte				`json:"data" toml:"data" yaml:"data"`
 }
 
@@ -33,7 +33,7 @@ func TriggerFromData(data []byte) {
 	Trigger(e)
 }
 
-func TriggerWithData(name string, data []byte, path *tree_graph.Path) {
+func TriggerWithData(name string, data []byte, path *tree_path.Path) {
 	var (
 		e	=	new(Event)
 	)

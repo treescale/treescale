@@ -1,4 +1,4 @@
-package tree_graph
+package path
 
 import (
 	"encoding/binary"

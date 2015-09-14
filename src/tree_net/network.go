@@ -1,6 +1,6 @@
 package tree_net
 import (
-	"tree_graph"
+	tree_path "tree_graph/path"
 	"tree_event"
 	"tree_node/node_info"
 	"net"
@@ -54,11 +54,11 @@ func Restart() {
 func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	var (
 		body_index	int
-		path		tree_graph.Path
+		path		tree_path.Path
 		node_names	[]string
 		handle_ev	bool
 	)
-	body_index, path, err = tree_graph.PathFromMessage(msg)
+	body_index, path, err = tree_path.PathFromMessage(msg)
 	if err != nil {
 		return
 	}
@@ -121,7 +121,7 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	return
 }
 
-func SendToNames(data []byte, path *tree_graph.Path, names...string) (err error) {
+func SendToNames(data []byte, path *tree_path.Path, names...string) (err error) {
 	for _, n :=range names {
 		var send_conn *net.TCPConn
 		send_conn = nil
@@ -148,7 +148,7 @@ func SendToNames(data []byte, path *tree_graph.Path, names...string) (err error)
 	return
 }
 
-func SendToConn(data []byte, path *tree_graph.Path, conn *net.TCPConn) (err error) {
+func SendToConn(data []byte, path *tree_path.Path, conn *net.TCPConn) (err error) {
 	var (
 		p_data	[]byte
 		p_len	=	make([]byte, 4)

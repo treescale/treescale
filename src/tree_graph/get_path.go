@@ -1,7 +1,7 @@
 package tree_graph
 
 import (
-	 "tree_db"
+	"tree_db"
 	"tree_node/node_info"
 )
 
