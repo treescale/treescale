@@ -81,6 +81,22 @@ func GetRelations(node string) ([]string, error) {
 	return strings.Split(string(nodes_byte), ","), nil
 }
 
+func GetGroupNodes(group string) ([]string, error) {
+	nodes_byte, err := Get(DB_GROUP, []byte(group))
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(string(nodes_byte), ","), nil
+}
+func GetNodesByTagName(tag string) ([]string, error) {
+	nodes_byte, err := Get(DB_TAG, []byte(tag))
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(string(nodes_byte), ","), nil
+}
+
 func GetParentInfo(node string) (node_info.NodeInfo, error) {
 	nr, err := GetRelations(node)
 	if err != nil {
