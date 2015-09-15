@@ -9,7 +9,7 @@ import (
 
 
 func ListNodeInfos() (nfs []node_info.NodeInfo, err error) {
-	err = AllKeys(DB_NODE, "", func(ns_data [][]byte){
+	err = AllKeys(DB_NODE, "", func(ns_data [][]byte)bool {
 		n_data := []byte{}
 		for _, n_byte :=range ns_data {
 			n := node_info.NodeInfo{}
@@ -25,14 +25,16 @@ func ListNodeInfos() (nfs []node_info.NodeInfo, err error) {
 
 			nfs = append(nfs, n)
 		}
+		return true
 	})
 	return
 }
 func ListNodeNames() (names []string, err error) {
-	err = AllKeys(DB_NODE, "", func(ns_data [][]byte){
+	err = AllKeys(DB_NODE, "", func(ns_data [][]byte) bool{
 		for _, n_byte :=range ns_data {
 			names = append(names, string(n_byte))
 		}
+		return true
 	})
 	return
 }
@@ -100,7 +102,7 @@ func SetRelations(node string) (err error) {
 	}
 
 	if len(parent_name) != 0 {
-		rels = append([]string{}, parent_name, rels...)
+		rels = append(append([]string{}, parent_name), rels...)
 	}
 
 	err = Set(DB_RELATIONS, []byte(node), []byte(strings.Join(rels, ",")))
