@@ -31,7 +31,7 @@ func Start() {
 	go ListenParent()
 }
 
-func Restart() {
+func Stop() {
 	if parentConnection != nil {
 		parentConnection.Close()
 		parentConnection = nil
@@ -48,7 +48,10 @@ func Restart() {
 		}
 		delete(child_connections, n)
 	}
+}
 
+func Restart() {
+	Stop()
 	Start()
 }
 

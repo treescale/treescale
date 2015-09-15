@@ -1,10 +1,9 @@
 package tree_console
 import (
-	"fmt"
-	"tree_node"
+	"os"
 )
 
 func HandleConsoleArgs() {
-	fmt.Println("From Console")
-	tree_node.Start()
+	TreeScaleCMD.SetArgs(os.Args[1:])
+	TreeScaleCMD.Execute()
 }
