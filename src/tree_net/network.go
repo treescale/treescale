@@ -28,7 +28,7 @@ func init() {
 }
 
 func Start() {
-	go ListenParent()
+	ListenParent()
 }
 
 func Stop() {

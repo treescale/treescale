@@ -6,16 +6,18 @@ import (
 	"tree_log"
 	"os"
 	"tree_event"
+	"tree_lib"
 )
 
 var (
-	DB_DIR		=	"/etc/treescale/db"
+	DB_DIR		=	tree_lib.GetEnv("TREE_DB_PATH", "/etc/treescale/db")
 	tree_db			*ledis.Ledis
 	db_conf		=	new(config.Config)
 	log_from_db	=	"Tree Database"
 
 	// DB identifiers created by init function, and keeping as a shortcuts
 	DATABASES	=	make(map[int]*ledis.DB)
+	DUMP_PATH	=	tree_lib.GetEnv("TREE_DB_DUMP_PATH", "/etc/treescale/dump.db")
 )
 
 const (
@@ -78,4 +80,22 @@ func CloseDB() {
 		return
 	}
 	tree_db.Close()
+}
+
+func LoadFromDump() error {
+	return LoadFromDumpPath(DUMP_PATH)
+}
+
+func DumpDB() error {
+	return DumpDBPath(DUMP_PATH)
+}
+
+func LoadFromDumpPath(path string) (err error) {
+	_, err = tree_db.LoadDumpFile(path)
+	return
+}
+
+func DumpDBPath(path string) (err error) {
+	err = tree_db.DumpFile(path)
+	return
 }

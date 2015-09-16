@@ -23,6 +23,11 @@ func SetParent(name string) bool {
 	return true
 }
 
+func SetCurrentNode(name string) (err error) {
+	err = tree_db.Set(tree_db.DB_RANDOM, []byte("current_node"), []byte(name))
+	return
+}
+
 func node_init() {
 	// Getting current node name
 	current_node_byte, err := tree_db.Get(tree_db.DB_RANDOM, []byte("current_node"))

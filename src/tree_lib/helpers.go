@@ -2,8 +2,17 @@ package tree_lib
 
 import (
 	"reflect"
+	"os"
 )
 
+
+func GetEnv(name, def_value string) string {
+	val := os.Getenv(name)
+	if len(val) > 0 {
+		return val
+	}
+	return def_value
+}
 
 func ArrayContains(array interface{}, v interface{}) (int, bool) {
 	if reflect.TypeOf(array).Kind() != reflect.Slice && reflect.TypeOf(array).Kind() != reflect.Array {
