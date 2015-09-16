@@ -63,6 +63,9 @@ func AllKeys(db int, match string, cb func([][]byte)bool) (err error) {
 		if !cb(cb_data) {
 			break
 		}
+		if len(cb_data) == 0 {
+			break
+		}
 		cursor = cb_data[len(cb_data) - 1]  // getting last key as a cursor for the next time
 		first = false
 	}
