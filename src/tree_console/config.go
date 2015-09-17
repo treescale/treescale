@@ -11,6 +11,7 @@ import (
 	"tree_log"
 	"tree_db"
 	"os"
+	"fmt"
 )
 
 const (
@@ -61,6 +62,12 @@ func ParseFiles(conf_type string, files...string) (err error) {
 	var combine_data []byte
 	for _, f :=range files {
 		var fdata []byte
+		_, err = ParseConfigFile(f)
+		if err {
+			fmt.Println("error while reading ", f)
+			fmt.Println("ignoring ", f)
+			continue
+		}
 		fdata, err = ioutil.ReadFile(f)
 		if err != nil {
 			return
@@ -84,6 +91,51 @@ func ParseFiles(conf_type string, files...string) (err error) {
 	}
 	return
 }
+
+func PathFiles(conf_type string, paths []string) ([]string, error){
+	var (
+		err 		error
+		names 		[]string
+		FileNames 	func(names *[]string, conf_type string, path string)
+	)
+
+	FileNames = func(path string) (err error) {
+		files_in_dir, err := ioutil.ReadDir(path)
+		if err != nil {
+			tree_log.Error(log_from_config, err.Error())
+			return
+		}
+
+		for _, a := range files_in_dir {
+			if !a.IsDir() {
+				if filepath.Ext(a.Name())[0:] == conf_type {
+					names = append(names, a.Name() + "." + conf_type)
+				}
+			} else {
+				err = FileNames(path + "/" + a.Name())
+				if err != nil {
+					tree_log.Error(log_from_config, err.Error())
+					return
+				}
+			}
+		}
+		return
+	}
+
+	for _, a := range paths {
+		if string(rune(a)[len(a) - 1]) == "/" {
+			a = a[:len(a)-1]
+		}
+		err = FileNames(a)
+		if err != nil {
+			tree_log.Error(log_from_config, err.Error())
+			return nil, err
+		}
+	}
+	return names, nil
+}
+
+
 
 func DBFromConfig() {
 	for n, nf :=range GLOBAL_CONFIG.TreeNode {
@@ -112,8 +164,19 @@ func CompileConfig(cmd *cobra.Command, args []string) {
 		tree_log.Error(log_from_config, err.Error())
 		return
 	}
-
-
+	paths, err := cmd.Flags().GetStringSlice("path")
+	if err != nil {
+		tree_log.Error(log_from_config, err.Error())
+		return
+	}
+	files_in_path, err := PathFiles(conf_type, paths)
+	if err != nil {
+		tree_log.Error(log_from_config, err.Error())
+		return
+	}
+	for _, a := range files_in_path {
+		files = append(files, a)
+	}
 	err = ParseFiles(conf_type, files...)
 	if err != nil {
 		tree_log.Error(log_from_config, err.Error())
