@@ -63,7 +63,7 @@ func ParseFiles(conf_type string, files...string) (err error) {
 	for _, f :=range files {
 		var fdata []byte
 		_, err = ParseConfigFile(f)
-		if err {
+		if err != nil {
 			fmt.Println("error while reading ", f)
 			fmt.Println("ignoring ", f)
 			continue
@@ -96,7 +96,7 @@ func PathFiles(conf_type string, paths []string) ([]string, error){
 	var (
 		err 		error
 		names 		[]string
-		FileNames 	func(names *[]string, conf_type string, path string)
+		FileNames 	func(path string) (err error)
 	)
 
 	FileNames = func(path string) (err error) {
@@ -112,7 +112,7 @@ func PathFiles(conf_type string, paths []string) ([]string, error){
 					names = append(names, a.Name() + "." + conf_type)
 				}
 			} else {
-				err = FileNames(path + "/" + a.Name())
+				err = FileNames(string(path + "/" + a.Name()))
 				if err != nil {
 					tree_log.Error(log_from_config, err.Error())
 					return
@@ -123,7 +123,7 @@ func PathFiles(conf_type string, paths []string) ([]string, error){
 	}
 
 	for _, a := range paths {
-		if string(rune(a)[len(a) - 1]) == "/" {
+		if string([]rune(a)[len(a) - 1]) == "/" {
 			a = a[:len(a)-1]
 		}
 		err = FileNames(a)
