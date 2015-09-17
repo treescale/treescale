@@ -139,6 +139,9 @@ func GetParentInfo(node string) (node_info.NodeInfo, error) {
 	if err != nil {
 		return node_info.NodeInfo{}, err
 	}
+	if len(nr[0]) == 0 {
+		return node_info.NodeInfo{}, nil
+	}
 
 	// Node relations firs element should be parent node
 	return GetNodeInfo(nr[0])
