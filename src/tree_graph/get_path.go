@@ -45,8 +45,8 @@ func NodePath(node_name string) (map[string][]string, error){
 	}
 
 	from = bfs(node_name, relations)
-	node = node_info.CurrentNodeInfo.Name
-	for node != node_name {
+	node = node_name
+	for node != node_info.CurrentNodeInfo.Name {
 		path1 = append(path1, node)
 		node = from[node]
 	}
