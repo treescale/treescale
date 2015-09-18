@@ -110,7 +110,7 @@ func SetRelations(node string) (err error) {
 }
 
 func GetRelations(node string) ([]string, error) {
-	nodes_byte, err := Get(DB_RANDOM, []byte(node))
+	nodes_byte, err := Get(DB_RELATIONS, []byte(node))
 	if err != nil {
 		return nil, err
 	}
