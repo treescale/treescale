@@ -4,6 +4,7 @@ import (
 	"tree_db"
 	"tree_node/node_info"
 	tree_path "tree_graph/path"
+	"fmt"
 )
 
 func GroupPath(group_name string) (map[string][]string, error){
@@ -43,10 +44,11 @@ func NodePath(node_name string) (map[string][]string, error){
 			return nil, err
 		}
 	}
-
+	fmt.Println(relations)
 	from = bfs(node_name, relations)
 	node = node_name
-	for node != node_info.CurrentNodeInfo.Name {
+	fmt.Println(from, node_info.CurrentNodeInfo.Name)
+	for len(from) > 0 && node != node_info.CurrentNodeInfo.Name {
 		path1 = append(path1, node)
 		node = from[node]
 	}
@@ -76,11 +78,12 @@ func TagPath(tag_name string) (map[string][]string, error){
 			return nil, err
 		}
 	}
-	path = merge(paths, nil, nil)
+	//path = merge(paths, nil, nil)
 	return path, nil
 }
 
 func merge(nodes_path map[string]map[string][]string, groups_path map[string]map[string][]string, tags_path map[string]map[string][]string) (path map[string][]string){
+	path = make(map[string][]string)
 	for _, a := range nodes_path {
 		for i, b := range a{
 			for _, c := range b {
@@ -88,7 +91,7 @@ func merge(nodes_path map[string]map[string][]string, groups_path map[string]map
 			}
 		}
 	}
-	if groups_path != nil {
+	if len(groups_path) > 0 {
 		for _, a := range groups_path {
 			for i, b := range a{
 				for _, c := range b {
@@ -97,7 +100,7 @@ func merge(nodes_path map[string]map[string][]string, groups_path map[string]map
 			}
 		}
 	}
-	if tags_path != nil {
+	if len(tags_path) > 0 {
 		for _, a := range tags_path {
 			for i, b := range a{
 				for _, c := range b {
@@ -119,12 +122,12 @@ func bfs(end string, nodes map[string][]string) map[string]string{
 		next = []string{}
 		for _, node := range frontier {
 			visited[node] = true
-			if node == end {
-				return from
-			}
 			for _, n := range bfs_frontier(node, nodes, visited) {
 				next = append(next, n)
 				from[n] = node
+				if n == end {
+					return from
+				}
 			}
 		}
 		frontier = next
@@ -146,7 +149,7 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 func GetPath(nodes []string, tags []string, groups []string) (*tree_path.Path, error){
 	var (
 		err					error
-		path 				*tree_path.Path
+		path =				new(tree_path.Path)
 		nodes_path =		make(map[string]map[string][]string)
 		tags_path =			make(map[string]map[string][]string)
 		groups_path = 		make(map[string]map[string][]string)
