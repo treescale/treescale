@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"tree_lib"
+	"tree_graph"
 )
 
 var (
@@ -23,6 +24,8 @@ const (
 
 
 func init() {
+	// Adding event emmit callback
+	tree_event.NetworkEmitCB = NetworkEmmit
 	// Child listener should be running without any condition
 	go ChildListener(1000)
 }
@@ -158,5 +161,28 @@ func TcpConnect(ip string, port int) (conn *net.TCPConn, err error) {
 	}
 
 	conn, err = net.DialTCP("tcp", nil, tcpAddr)
+	return
+}
+
+func NetworkEmmit(em *tree_event.EventEmitter) (err error) {
+	var (
+		path 		*tree_path.Path
+		ev		=	em.Event
+		sdata		[]byte
+	)
+
+	fmt.Println(em)
+
+	path, err = tree_graph.GetPath(em.ToNodes, em.ToTags, em.ToGroups)
+	if err != nil {
+		return
+	}
+	ev.Path = (*path)
+	sdata, err = ffjson.Marshal(ev)
+	if err != nil {
+		return
+	}
+
+	err = SendToNames(sdata, path, path.NodePaths[node_info.CurrentNodeInfo.Name]...)
 	return
 }

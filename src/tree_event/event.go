@@ -14,9 +14,17 @@ type Event struct {
 	Data		[]byte				`json:"data" toml:"data" yaml:"data"`
 }
 
+type EventEmitter struct {
+	Event
+	ToNodes		[]string			`json:"to_nodes" toml:"to_nodes" yaml:"to_nodes"`
+	ToTags		[]string			`json:"to_tags" toml:"to_tags" yaml:"to_tags"`
+	ToGroups	[]string			`json:"to_groups" toml:"to_groups" yaml:"to_groups"`
+}
+
 var (
 	events			=	make(map[string][]func(*Event)bool)
 	log_from_event	=	"Event handling and firing "
+	NetworkEmitCB		func(*EventEmitter)error
 )
 
 func TriggerFromData(data []byte) {
@@ -83,4 +91,9 @@ func Delete(name string) {
 	}
 
 	delete(events, name)
+}
+
+// Shortcut network event emitter callback
+func Emit(em *EventEmitter) error {
+	return NetworkEmitCB(em)
 }

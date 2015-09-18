@@ -5,6 +5,8 @@ import (
 	"tree_log"
 	"fmt"
 	"tree_db"
+	"tree_event"
+	"time"
 )
 
 const (
@@ -35,6 +37,25 @@ func HandleNodeCommand(cmd *cobra.Command, args []string) {
 			return
 		}
 	}
+
+	tree_event.ON("test", func(e *tree_event.Event) bool {
+		fmt.Println(e.Data)
+		return true
+	})
+
+	go func() {
+		time.Sleep(time.Second * 2)
+		if name == "tree1" {
+			em := &tree_event.EventEmitter{}
+			em.Name = "test"
+			em.Data = []byte("aaaaaaaaaaaaaaaa")
+			em.ToNodes = []string{"tree2"}
+			err := tree_event.Emit(em)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}
+	}()
 
 	tree_node.Start()
 }
