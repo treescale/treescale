@@ -41,7 +41,7 @@ func init() {
 			Run: CompileConfig,
 		}
 		compile_config.Flags().StringP("type", "t", "toml", "Configuration file format [toml, json, yaml] default is TOML")
-		compile_config.Flags().StringP("path", "p", ".", "Give a Path to directory of configuration files")
+		compile_config.Flags().StringSliceP("path", "p", []string{"."}, "Give a Path to directory of configuration files")
 		compile_config.Flags().StringSliceP("files", "f", []string{"console.toml", "treescale.toml"}, "Give file path list of configuration files")
 		compile_config.Flags().StringP("out", "o", "tree.db", "Output file for compiled config files")
 
