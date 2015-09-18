@@ -65,15 +65,16 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 		node_names	[]string
 		handle_ev	bool
 	)
+	fmt.Println(string(msg))
 	body_index, path, err = tree_path.PathFromMessage(msg)
+	fmt.Println(path, err)
 	if err != nil {
 		return
 	}
 	handle_ev = false
 
 
-
-	if p, ok :=path.NodePaths[node_info.CurrentNodeInfo.Name]; ok && len(p) == 0 {
+	if _, ok :=path.NodePaths[node_info.CurrentNodeInfo.Name]; !ok {
 		handle_ev = true
 	} else if _, _, ok :=tree_lib.ArrayMatchElement(path.Groups, node_info.CurrentNodeInfo.Groups); ok {
 		handle_ev = true
@@ -140,7 +141,7 @@ func SendToConn(data []byte, path *tree_path.Path, conn *net.TCPConn) (err error
 	)
 	p_data, err = ffjson.Marshal(path)
 	binary.LittleEndian.PutUint32(p_len, uint32(len(p_data)))
-	binary.LittleEndian.PutUint32(msg_len, uint32(len(p_data)) + uint32(len(data)))
+	binary.LittleEndian.PutUint32(msg_len, uint32(len(p_data)) + uint32(len(data)) + uint32(4))
 
 	buf.Write(msg_len)
 	buf.Write(p_len)
@@ -182,7 +183,7 @@ func NetworkEmmit(em *tree_event.EventEmitter) (err error) {
 	if err != nil {
 		return
 	}
-
+	fmt.Println(string(sdata))
 	err = SendToNames(sdata, path, path.NodePaths[node_info.CurrentNodeInfo.Name]...)
 	return
 }
