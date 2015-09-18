@@ -70,8 +70,9 @@ func init() {
 
 	// Closing database before program will be exited
 	// Just in case if program exiting force or we don't want to make dead lock
-	tree_event.ON(tree_event.ON_PROGRAM_EXIT, func(e *tree_event.Event){
+	tree_event.ON(tree_event.ON_PROGRAM_EXIT, func(e *tree_event.Event)bool{
 		CloseDB()
+		return true
 	})
 }
 

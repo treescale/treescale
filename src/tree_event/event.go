@@ -15,7 +15,7 @@ type Event struct {
 }
 
 var (
-	events			=	make(map[string][]func(*Event))
+	events			=	make(map[string][]func(*Event)bool)
 	log_from_event	=	"Event handling and firing "
 )
 
@@ -51,18 +51,20 @@ func Trigger(e *Event) {
 	// but if we have, then calling concurrent functions for handling event
 	if funcs, ok :=events[e.Name]; ok {
 		for _, f :=range funcs {
-			go f(e)
+			if !f(e) {
+				break
+			}
 		}
 	}
 }
 
 // Set new event handler
-func ON(name string, f func(*Event)) {
+func ON(name string, f func(*Event)bool) {
 	events[name] = append(events[name], f)
 }
 
 // Delete event handler function from handlers list
-func OFF(name string, f func(*Event)) {
+func OFF(name string, f func(*Event)bool) {
 	if funcs, ok :=events[name]; ok {
 		for i, ff :=range funcs {
 			if reflect.ValueOf(f).Pointer() == reflect.ValueOf(ff).Pointer() {
