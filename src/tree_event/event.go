@@ -23,7 +23,7 @@ type EventEmitter struct {
 }
 
 var (
-	events			=	make(map[string][]func(*Event)bool)
+	events			=	make(map[string][]func(*Event))
 	log_from_event	=	"Event handling and firing "
 	NetworkEmitCB		func(*EventEmitter)error
 )
@@ -60,20 +60,18 @@ func Trigger(e *Event) {
 	// but if we have, then calling concurrent functions for handling event
 	if funcs, ok :=events[e.Name]; ok {
 		for _, f :=range funcs {
-			if !f(e) {
-				break
-			}
+			go f(e)
 		}
 	}
 }
 
 // Set new event handler
-func ON(name string, f func(*Event)bool) {
+func ON(name string, f func(*Event)) {
 	events[name] = append(events[name], f)
 }
 
 // Delete event handler function from handlers list
-func OFF(name string, f func(*Event)bool) {
+func OFF(name string, f func(*Event)) {
 	if funcs, ok :=events[name]; ok {
 		for i, ff :=range funcs {
 			if reflect.ValueOf(f).Pointer() == reflect.ValueOf(ff).Pointer() {

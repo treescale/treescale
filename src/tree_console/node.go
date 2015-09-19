@@ -38,9 +38,8 @@ func HandleNodeCommand(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	tree_event.ON("test", func(e *tree_event.Event) bool {
+	tree_event.ON("test", func(e *tree_event.Event) {
 		fmt.Println(e.Data)
-		return true
 	})
 
 	go func() {
