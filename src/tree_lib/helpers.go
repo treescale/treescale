@@ -3,6 +3,8 @@ package tree_lib
 import (
 	"reflect"
 	"os"
+	"time"
+"math/rand"
 )
 
 
@@ -68,4 +70,16 @@ func ArrayMatchElement(array1 interface{}, array2 interface{}) (int, int, bool) 
 	}
 
 	return -1, -1, false
+}
+
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789!&$#*-_~()}{][|"
+
+func RandomString(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
