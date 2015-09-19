@@ -12,6 +12,7 @@ type Event struct {
 	Name		string				`json:"name" toml:"name" yaml:"name"`
 	Path		tree_path.Path		`json:"path" toml:"path" yaml:"path"`
 	Data		[]byte				`json:"data" toml:"data" yaml:"data"`
+	From		string				`json:"from" toml:"from" yaml:"from"` // Name who sending this event
 }
 
 type EventEmitter struct {

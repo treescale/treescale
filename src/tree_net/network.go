@@ -172,12 +172,16 @@ func NetworkEmmit(em *tree_event.EventEmitter) (err error) {
 		sdata		[]byte
 	)
 
-	fmt.Println(em)
-
 	path, err = tree_graph.GetPath(em.ToNodes, em.ToTags, em.ToGroups)
 	if err != nil {
 		return
 	}
+
+	// If from not set, setting it before network sending
+	if len(em.From) == 0 {
+		em.From = node_info.CurrentNodeInfo.Name
+	}
+
 	ev.Path = (*path)
 	sdata, err = ffjson.Marshal(ev)
 	if err != nil {
