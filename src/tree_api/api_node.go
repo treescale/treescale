@@ -14,7 +14,8 @@ const (
 )
 
 var (
-	EmitApi		func(*tree_event.Event, ...string)error
+	EmitApi			func(*tree_event.Event, ...string)error
+	EmitToApi		func(*tree_event.Event, ...string)error
 )
 
 func init() {
@@ -46,6 +47,6 @@ func API_INIT(targets...string) bool {
 		Name: fmt.Sprintf("%s|%s", API_NAME_PREFIX, tree_lib.RandomString(10)),
 		Childs: targets,
 	}
-	
+
 	return true
 }

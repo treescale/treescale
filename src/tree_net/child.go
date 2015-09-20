@@ -89,7 +89,6 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 	}
 
 	if strings.Contains(conn_name, tree_api.API_NAME_PREFIX) {
-		tree_event.TriggerWithData(tree_event.ON_API_CONNECTED, []byte(conn_name), nil)
 		api_connections[conn_name] = conn
 		is_api = true
 	} else {

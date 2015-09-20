@@ -68,5 +68,21 @@ func init() {
 	node_cmd.Flags().BoolP("daemon", "d", false, "Run Node in daemon mode")
 	node_cmd.Flags().StringP("name", "n", "", "Set Node name for running it (needs to set for the first time and if it needs to be changed)")
 
-	TreeScaleCMD.AddCommand(version, config, node_cmd)
+
+	// API commands
+	api_cmd := &cobra.Command{
+		Use: "api [commands]",
+		Short: "Send API commands to nodes and get results",
+	}
+		api_cmd_exec := &cobra.Command{
+			Use: "exec [options]",
+			Short: "Execute shell commands on specific Nodes",
+			Run: HandleApiExec,
+		}
+		api_cmd_exec.Flags().StringSliceP("nodes", "n", []string{""}, "Array of Nodes for sending API command")
+		api_cmd_exec.Flags().StringP("cmd", "c", "uname", "Shell command to execute")
+	api_cmd.AddCommand(api_cmd_exec)
+
+
+	TreeScaleCMD.AddCommand(version, config, node_cmd, api_cmd)
 }

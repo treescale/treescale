@@ -3,7 +3,6 @@ package tree_graph
 import (
 	"tree_db"
 	tree_path "tree_graph/path"
-	"fmt"
 )
 
 func GroupPath(from_node, group_name string) (map[string][]string, error){
@@ -43,7 +42,7 @@ func NodePath(from_node, node_name string) (map[string][]string, error){
 			return nil, err
 		}
 	}
-	fmt.Println(relations)
+
 	from = bfs(from_node, node_name, relations)
 	node = node_name
 

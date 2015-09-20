@@ -28,6 +28,7 @@ func init() {
 	// Adding event emmit callback
 	tree_event.NetworkEmitCB = NetworkEmmit
 	tree_api.EmitApi	=	ApiEmit
+	tree_api.EmitToApi	=	EmitToAPI
 	// Child listener should be running without any condition
 	go ChildListener(1000)
 }
@@ -67,9 +68,8 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 		node_names	[]string
 		handle_ev	bool
 	)
-	fmt.Println(string(msg))
+
 	body_index, path, err = tree_path.PathFromMessage(msg)
-	fmt.Println(path, err)
 	if err != nil {
 		return
 	}
@@ -201,6 +201,12 @@ func ApiEmit(e *tree_event.Event, nodes...string) (err error) {
 		sdata	[]byte
 	)
 
+	// If from not set, setting it before network sending
+	if len(e.From) == 0 {
+		e.From = node_info.CurrentNodeInfo.Name
+	}
+
+
 	sdata, err = ffjson.Marshal(e)
 	if err != nil {
 		return
@@ -214,6 +220,36 @@ func ApiEmit(e *tree_event.Event, nodes...string) (err error) {
 			}
 		} else {
 			tree_log.Error("Api emitter", "Please connect to Node <", n, "> before sending data")
+		}
+	}
+
+	return
+}
+
+func EmitToAPI(e *tree_event.Event, apis...string) (err error) {
+	var (
+		sdata	[]byte
+	)
+
+	// If from not set, setting it before network sending
+	if len(e.From) == 0 {
+		e.From = node_info.CurrentNodeInfo.Name
+	}
+
+
+	sdata, err = ffjson.Marshal(e)
+	if err != nil {
+		return
+	}
+
+	for _, n :=range apis {
+		if c, ok :=api_connections[n]; ok && c != nil {
+			err = SendToConn(sdata, &tree_path.Path{}, c)
+			if err != nil {
+				tree_log.Error("Emit to API", "Unable to send data to api <", n, "> ", err.Error())
+			}
+		} else {
+			tree_log.Error("Emit to API", "Please connect to api <", n, "> before sending data")
 		}
 	}
 
