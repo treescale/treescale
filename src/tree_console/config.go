@@ -144,6 +144,14 @@ func DBFromConfig() {
 			tree_log.Error(log_from_config, err.Error())
 		}
 	}
+
+	// Setting relations for every Node
+	for n, _ :=range GLOBAL_CONFIG.TreeNode {
+		err := tree_db.SetRelations(n)
+		if err != nil {
+			tree_log.Error(log_from_config, err.Error())
+		}
+	}
 }
 
 func CompileConfig(cmd *cobra.Command, args []string) {

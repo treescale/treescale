@@ -5,11 +5,15 @@ import (
 	"tree_lib"
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_log"
+	tree_path "tree_graph/path"
 )
 
 const (
 	API_OUTPUT_BUFFER_SIZE = 1024
 	log_from_api_command = "API command functionality"
+
+	// Command Types
+	COMMAND_EXEC	=	0
 )
 
 
@@ -23,10 +27,25 @@ var (
 )
 
 func init() {
-	tree_event.ON(tree_event.ON_API_COMMAND, func(ev *tree_event.Event){
 
+	// This event will be triggered from Node, when API client will send some command to implement
+	tree_event.ON(tree_event.ON_API_COMMAND, func(ev *tree_event.Event){
+		cmd := Command{}
+		err := ffjson.Unmarshal(ev.Data, &cmd)
+		if err != nil {
+			tree_log.Error(log_from_api_command, "unable to unmarshal event data as a command -> ", err.Error())
+			return
+		}
+
+		switch cmd.CommandType {
+		case COMMAND_EXEC:
+			{
+				HandleExecCommand(ev, cmd)
+			}
+		}
 	})
 
+	// This event will be triggered from API client when Node will give callback for specific commands
 	tree_event.ON(tree_event.ON_API_COMMAND_CALLBACK, func(ev *tree_event.Event){
 		cmd := Command{}
 		err := ffjson.Unmarshal(ev.Data, &cmd)
@@ -82,15 +101,28 @@ func (cb *WriterCallback) End() {
 	cb.trigger_callback(true)
 }
 
-func SendCommand(cmd *Command, cb func(ev *tree_event.Event, cmd Command)bool) (err error) {
+func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*tree_event.Event, Command)bool) (err error) {
 	// If command ID not set just setting random string
 	if len(cmd.ID) == 0 {
 		cmd.ID = tree_lib.RandomString(10)
 	}
 
-	tree_event.Emit(&tree_event.EventEmitter{
+	var (
+		cmd_data	[]byte
+	)
 
-	})
+	cmd_data, err = ffjson.Marshal(cmd)
+	if err != nil {
+		return
+	}
+
+	e := &tree_event.Event{
+		Name: tree_event.ON_API_COMMAND,
+		Data: cmd_data,
+		Path: (*path),
+	}
+
+	EmitApi(e, targets...)
 
 	if cb != nil {
 		subscribed_command_callbacks[cmd.ID] = cb_str{f: cb, c: make(chan bool)}

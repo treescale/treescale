@@ -2,12 +2,11 @@ package tree_graph
 
 import (
 	"tree_db"
-	"tree_node/node_info"
 	tree_path "tree_graph/path"
 	"fmt"
 )
 
-func GroupPath(group_name string) (map[string][]string, error){
+func GroupPath(from_node, group_name string) (map[string][]string, error){
 	var (
 		path = 			make(map[string][]string)
 		err 			error
@@ -17,14 +16,14 @@ func GroupPath(group_name string) (map[string][]string, error){
 	if err != nil {
 		return nil, err
 	}
-	path, err = NodePath(nodes_in_group[0])
+	path, err = NodePath(from_node, nodes_in_group[0])
 	if err != nil {
 		return nil, err
 	}
 	return path, nil
 }
 
-func NodePath(node_name string) (map[string][]string, error){
+func NodePath(from_node, node_name string) (map[string][]string, error){
 	var (
 		node					string
 		err						error
@@ -45,14 +44,14 @@ func NodePath(node_name string) (map[string][]string, error){
 		}
 	}
 	fmt.Println(relations)
-	from = bfs(node_name, relations)
+	from = bfs(from_node, node_name, relations)
 	node = node_name
-	fmt.Println(from, node_info.CurrentNodeInfo.Name)
-	for len(from) > 0 && node != node_info.CurrentNodeInfo.Name {
+
+	for len(from) > 0 && node != from_node {
 		path1 = append(path1, node)
 		node = from[node]
 	}
-	path1 = append(path1, node_info.CurrentNodeInfo.Name)
+	path1 = append(path1, from_node)
 
 	for i := len(path1)-1; i>0; i-- {
 		path[path1[i]] = append(path[path1[i]], path1[i-1])
@@ -61,7 +60,7 @@ func NodePath(node_name string) (map[string][]string, error){
 	return path, nil
 }
 
-func TagPath(tag_name string) (map[string][]string, error){
+func TagPath(from_node, tag_name string) (map[string][]string, error){
 	var (
 		err						error
 		path =					make(map[string][]string)
@@ -73,7 +72,7 @@ func TagPath(tag_name string) (map[string][]string, error){
 		return nil, err
 	}
 	for _, a := range nodes_by_tagname {
-		paths[a], err = NodePath(a)
+		paths[a], err = NodePath(from_node, a)
 		if err != nil {
 			return nil, err
 		}
@@ -112,8 +111,8 @@ func merge(nodes_path map[string]map[string][]string, groups_path map[string]map
 	return
 }
 
-func bfs(end string, nodes map[string][]string) map[string]string{
-	frontier := []string{node_info.CurrentNodeInfo.Name}
+func bfs(from_node, end string, nodes map[string][]string) map[string]string{
+	frontier := []string{from_node}
 	visited := map[string]bool{}
 	next := []string{}
 	from := map[string]string{}
@@ -146,7 +145,7 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 	return next
 }
 
-func GetPath(nodes []string, tags []string, groups []string) (*tree_path.Path, error){
+func GetPath(from_node string, nodes []string, tags []string, groups []string) (*tree_path.Path, error){
 	var (
 		err					error
 		path =				new(tree_path.Path)
@@ -156,19 +155,19 @@ func GetPath(nodes []string, tags []string, groups []string) (*tree_path.Path, e
 		final_path =		make(map[string][]string)
 	)
 	for _, a := range nodes {
-		nodes_path[a], err = NodePath(a)
+		nodes_path[a], err = NodePath(from_node, a)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, a := range groups {
-		groups_path[a], err = GroupPath(a)
+		groups_path[a], err = GroupPath(from_node, a)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, a := range tags {
-		tags_path[a], err = TagPath(a)
+		tags_path[a], err = TagPath(from_node, a)
 		if err != nil {
 			return nil, err
 		}
