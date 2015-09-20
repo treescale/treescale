@@ -1,72 +1,48 @@
 package tree_db
 
 import (
-	"github.com/siddontang/ledisdb/ledis"
-	"github.com/siddontang/ledisdb/config"
 	"tree_log"
 	"os"
 	"tree_event"
 	"tree_lib"
+	"github.com/boltdb/bolt"
 )
 
 var (
-	DB_DIR		=	tree_lib.GetEnv("TREE_DB_PATH", "/etc/treescale/db")
-	tree_db			*ledis.Ledis
-	db_conf		=	new(config.Config)
+	DB_DIR		=	tree_lib.GetEnv("TREE_DB_PATH", "/etc/treescale/tree.db")
+	tree_db			*bolt.DB
 	log_from_db	=	"Tree Database"
 
-	// DB identifiers created by init function, and keeping as a shortcuts
-	DATABASES	=	make(map[int]*ledis.DB)
-	DUMP_PATH	=	tree_lib.GetEnv("TREE_DB_DUMP_PATH", "/etc/treescale/dump.db")
+// Keeping different database lists
+	DB_NODE			=	[]byte("node")
+	DB_BALANCER		=	[]byte("balancer")
+	DB_RANDOM		=	[]byte("random")  // This will hold random data with Key -> Value []byte
+	DB_GROUP		=	[]byte("group")  // Database with group name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
+	DB_TAG			=	[]byte("tag")  // Database with tag name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
+	DB_RELATIONS	=	[]byte("relations")  // Database for storing node relations (parent or child connections) strings.Join(node_list, ",")
 )
 
-const (
-	// Keeping different database lists
-	DB_NODE			=	0
-	DB_BALANCER		=	1
-	DB_RANDOM		=	2  // This will hold random data with Key -> Value []byte
-	DB_GROUP		=	3  // Database with group name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
-	DB_TAG			=	4  // Database with tag name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
-	DB_RELATIONS	=	5  // Database for storing node relations (parent or child connections) strings.Join(node_list, ",")
-)
 
 func init() {
-	DATABASES[DB_NODE] = nil
-	DATABASES[DB_BALANCER] = nil
-	DATABASES[DB_RANDOM] = nil
-	DATABASES[DB_TAG] = nil
-	DATABASES[DB_GROUP] = nil
-	DATABASES[DB_RELATIONS] = nil
-
-	// Configuring Database
-	db_conf.DataDir = DB_DIR
-	db_conf.AccessLog = "" // don't need access log
-	db_conf.Addr = "" // don't need server to run
-	db_conf.SlaveOf = ""
-	db_conf.Readonly = false
-
-	// default databases number
-	db_conf.Databases = len(DATABASES)
-	db_conf.UseReplication = false
-	db_conf.Snapshot.MaxNum = 1
-	db_conf.DBName = "goleveldb"
 	var err error
-	tree_db, err = ledis.Open(db_conf)
+	tree_db, err = bolt.Open(DB_DIR, 0600, nil)
 	if err != nil {
 		tree_log.Error(log_from_db, " unable to open database", err.Error())
 		tree_db = nil
 		os.Exit(1) // Without database we can't keep and share configurations, so program should be exited
 	}
 
-	// Setting databases
-	for _, d :=range []int{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS} {
-		DATABASES[d], err = tree_db.Select(d)
-		if err != nil {
-			tree_log.Error(log_from_db, " unable to select 'node' database", err.Error())
-			tree_db = nil
-			os.Exit(1) // Without database we can't keep and share configurations, so program should be exited
+	// creating Buckets in database
+	tree_db.Update(func(tx *bolt.Tx) error{
+		// Setting databases
+		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS} {
+			_, err := tx.CreateBucketIfNotExists(d)
+			if err != nil {
+				return err
+			}
 		}
-	}
+		return nil
+	})
 
 	// Closing database before program will be exited
 	// Just in case if program exiting force or we don't want to make dead lock
@@ -82,20 +58,12 @@ func CloseDB() {
 	tree_db.Close()
 }
 
-func LoadFromDump() error {
-	return LoadFromDumpPath(DUMP_PATH)
-}
-
-func DumpDB() error {
-	return DumpDBPath(DUMP_PATH)
-}
-
 func LoadFromDumpPath(path string) (err error) {
-	_, err = tree_db.LoadDumpFile(path)
+	tree_lib.CopyFile(path, DB_DIR)
 	return
 }
 
 func DumpDBPath(path string) (err error) {
-	err = tree_db.DumpFile(path)
+	tree_lib.CopyFile(DB_DIR, path)
 	return
 }

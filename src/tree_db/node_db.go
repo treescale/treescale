@@ -5,36 +5,26 @@ import (
 	"github.com/pquerna/ffjson/ffjson"
 	"strings"
 	"tree_lib"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 )
 
 
 func ListNodeInfos() (nfs []node_info.NodeInfo, err error) {
-	err = AllKeys(DB_NODE, "", func(ns_data [][]byte)bool {
-		n_data := []byte{}
-		for _, n_byte :=range ns_data {
-			n := node_info.NodeInfo{}
-			n_data, err = Get(DB_NODE, n_byte)
-			if err != nil {
-				continue
-			}
-
-			err = ffjson.Unmarshal(n_data, &n)
-			if err != nil {
-				continue
-			}
-
-			nfs = append(nfs, n)
+	err = ForEach(DB_NODE, func(key []byte, val []byte)error {
+		n := node_info.NodeInfo{}
+		err = ffjson.Unmarshal(val, &n)
+		if err != nil {
+			return err
 		}
-		return true
+		nfs = append(nfs, n)
+		return nil
 	})
 	return
 }
 func ListNodeNames() (names []string, err error) {
-	err = AllKeys(DB_NODE, "", func(ns_data [][]byte) bool{
-		for _, n_byte :=range ns_data {
-			names = append(names, string(n_byte))
-		}
-		return true
+	err = ForEach(DB_NODE, func(key []byte, value []byte)error {
+		names = append(names, string(key))
+		return nil
 	})
 	return
 }
@@ -81,20 +71,18 @@ func SetRelations(node string) (err error) {
 	rels := inf.Childs
 
 	// Getting parent node
-	err = AllKeys(DB_RELATIONS, "", func(keys [][]byte)bool {
+	err = ForEach(DB_NODE, func(key []byte, val []byte)error {
 		nf := node_info.NodeInfo{}
-		for _, k :=range keys {
-			nf, err = GetNodeInfo(string(k))
-			if err != nil {
-				return false
-			}
-			if _, ok :=tree_lib.ArrayContains(nf.Childs, node); ok {
-				parent_name = nf.Name
-				return false
-			}
+		err = ffjson.Unmarshal(val, &nf)
+		if err != nil {
+			return err
+		}
+		if _, ok :=tree_lib.ArrayContains(nf.Childs, node); ok {
+			parent_name = nf.Name
+			return errors.New("")  // Just ending the ForEach with empty error
 		}
 
-		return true
+		return nil
 	})
 
 	if err != nil {

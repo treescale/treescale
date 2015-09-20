@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 "math/rand"
+	"io"
 )
 
 
@@ -82,4 +83,24 @@ func RandomString(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+func CopyFile(src, dst string) (err error) {
+	var (
+		db_f, new_db_f	*os.File
+	)
+	db_f, err = os.Open(src)
+	if err != nil {
+		return
+	}
+	defer db_f.Close()
+
+	new_db_f, err = os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer new_db_f.Close()
+
+	_, err = io.Copy(new_db_f, db_f)
+	return
 }
