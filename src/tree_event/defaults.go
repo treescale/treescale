@@ -12,6 +12,12 @@ const (
 		ON_DOCKER_IMAGE_CREATE		=	"docker_image_create"
 		ON_DOCKER_IMAGE_DELETE		=	"docker_image_delete"
 
+		// Balancer Events
+		ON_BALANCER_INIT			=	"balancer_init"
+		ON_BALANCER_END				=	"balancer_end"
+		ON_BALANCER_SERVICE_START	=	"balancer_service_start"
+		ON_BALANCER_SERVICE_STOP	=	"balancer_service_stop"
+
 	// Networking events
 	ON_PARENT_CONNECTED			=	"parent_connected"
 	ON_PARENT_DISCONNECTED		=	"parent_disconnected"

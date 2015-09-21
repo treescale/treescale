@@ -1,4 +1,4 @@
-package tree_container
+package tree_docker
 
 import (
 	"strings"

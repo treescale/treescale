@@ -20,7 +20,7 @@ func init() {
 		<-c
 		if funcs, ok :=events[ON_PROGRAM_EXIT]; ok {
 			for _, f :=range funcs {
-				f(nil)
+				go f(nil)
 			}
 		}
 		os.Exit(1)
