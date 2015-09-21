@@ -78,12 +78,14 @@ type BalancingService struct {
 
 
 type BalancerConfig struct {
-	Name		string				`toml:"name" json:"name"`
-	Server		string				`toml:"server" json:"server"`				// name of the server for adding balancer for this IP
-	IP			string				`toml:"ip" json:"port"`
-	Port		int					`toml:"port" json:"port"`
-	Algorithm	string				`toml:"alg" json:"alg"`						// Algorithm for load balancing, default rr (Round Rubin)
-	Images		[]string			`toml:"images" json:"images"`				// Image name -> port combination for balancing
+	Name		string				`toml:"name" json:"name" yaml:"name"`
+	Server		string				`toml:"server" json:"server" yaml:"server"`				// name of the server for adding balancer for this IP
+	IP			string				`toml:"ip" json:"ip" yaml:"ip"`
+	Port		int					`toml:"port" json:"port" yaml:"port"`
+	Algorithm	string				`toml:"alg" json:"alg" yaml:"alg"`						// Algorithm for load balancing, default rr (Round Rubin)
+	// Image List with following format
+	// []string{"img_name:tag|port"}
+	Images		[]string			`toml:"images" json:"images" yaml:"images"`
 }
 
 func NewBalancerFromConfig(bc BalancerConfig) (bs BalancingService, err error) {
@@ -104,6 +106,7 @@ func NewBalancerFromConfig(bc BalancerConfig) (bs BalancingService, err error) {
 	}
 	bs.BalancerConfig = bc
 	bs.SubscribeEvents()
+	tree_event.Trigger(&tree_event.Event{Name: tree_event.ON_BALANCER_SERVICE_START, LocalVar: &bs.BalancerConfig})
 	return
 }
 
@@ -116,6 +119,8 @@ func NewBalancer(addr Address, algorithm string) (bs BalancingService, err error
 	if err != nil {
 		return
 	}
+	// Deleting service before we will add it
+	// In case if it is registered already
 	DropService(addr.ToString())
 	err = bs.CreateService()
 	if err != nil {
@@ -126,8 +131,6 @@ func NewBalancer(addr Address, algorithm string) (bs BalancingService, err error
 	tree_event.ON(tree_event.ON_PROGRAM_EXIT, func(e *tree_event.Event){
 		bs.DropService()
 	})
-
-	tree_event.Trigger(&tree_event.Event{Name: tree_event.ON_BALANCER_SERVICE_START, LocalVar: &bs.BalancerConfig})
 	return
 }
 

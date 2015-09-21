@@ -85,12 +85,12 @@ func (bs *BalancingService) SubscribeEvents() {
 		if cont_addr, ok := containerAddressMap[cont_id]; ok {
 			bs.DeleteDestination(cont_addr)
 			delete(containerAddressMap, cont_id)
-			bs.CheckForStop()
+			bs.CheckForStopEvent()
 		}
 	})
 }
 
-func (bs *BalancingService) CheckForStop() (err error) {
+func (bs *BalancingService) CheckForStopEvent() (err error) {
 	// If our balancer don't have any destination we need to stop it and call global callback about it
 	if len(bs.destinations) > 0 {
 		return
@@ -99,6 +99,6 @@ func (bs *BalancingService) CheckForStop() (err error) {
 	tree_event.Trigger(&tree_event.Event{Name: tree_event.ON_BALANCER_SERVICE_STOP, LocalVar: &bs.BalancerConfig})
 
 	// Deleting service from LVS
-	err = bs.DropService()
+//	err = bs.DropService()  // We don't need to delete service from here
 	return
 }
