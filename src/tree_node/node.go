@@ -5,6 +5,10 @@ import (
 	"tree_log"
 	"fmt"
 	"tree_net"
+	"tree_balancer"
+	"github.com/pquerna/ffjson/ffjson"
+	"tree_container/tree_docker"
+	"time"
 )
 
 
@@ -61,6 +65,8 @@ func node_init() {
 
 func Start() {
 	node_init()
+	InitBalancers()
+	InitContainerClient()
 	tree_net.Start()
 	return
 }
@@ -68,4 +74,33 @@ func Start() {
 func Restart() {
 	node_init()
 	tree_net.Restart()
+}
+
+func InitBalancers() {
+	err := tree_db.ForEach(tree_db.DB_BALANCER, func(k []byte, v []byte)error{
+		var err  error
+		bc := tree_balancer.BalancerConfig{Name: string(k)}
+		err = ffjson.Unmarshal(v, &bc)
+		if err != nil {
+			return err
+		}
+		// TODO: Maybe we need to collect balancer services in MAP or Array
+		_, err = tree_balancer.NewBalancerFromConfig(bc)
+		return err
+	})
+
+	if err != nil {
+		tree_log.Error(log_from_node, "Unable to Init Balancers", err.Error())
+		return
+	}
+}
+
+func InitContainerClient() {
+	go func() {
+		for {
+			// When Docker Client will be exited it will try to init again every 2 seconds
+			tree_docker.StartEventListener()
+			time.Sleep(time.Second * 2)
+		}
+	}()
 }
