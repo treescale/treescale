@@ -4,7 +4,9 @@ import (
 	"tree_db"
 	tree_path "tree_graph/path"
 )
-
+var (
+	check =		make(map[string]bool)
+)
 func GroupPath(from_node, group_name string) (map[string][]string, error){
 	var (
 		path = 			make(map[string][]string)
@@ -15,14 +17,17 @@ func GroupPath(from_node, group_name string) (map[string][]string, error){
 	if err != nil {
 		return nil, err
 	}
-	path, err = NodePath(from_node, nodes_in_group[0])
+	for _, a := range nodes_in_group {
+		check[a] = true
+	}
+	path, err = NodePath(from_node, group_name, true)
 	if err != nil {
 		return nil, err
 	}
 	return path, nil
 }
 
-func NodePath(from_node, node_name string) (map[string][]string, error){
+func NodePath(from_node, node_name string, isgroup bool) (map[string][]string, error){
 	var (
 		node					string
 		err						error
@@ -32,6 +37,7 @@ func NodePath(from_node, node_name string) (map[string][]string, error){
 		nodes  					[]string
 		from = 					make(map[string]string)
 	)
+
 	nodes, err = tree_db.ListNodeNames()
 	if err != nil {
 		return nil, err
@@ -43,8 +49,7 @@ func NodePath(from_node, node_name string) (map[string][]string, error){
 		}
 	}
 
-	from = bfs(from_node, node_name, relations)
-	node = node_name
+	from, node = bfs(from_node, node_name, relations, isgroup)
 
 	for len(from) > 0 && node != from_node {
 		path1 = append(path1, node)
@@ -71,12 +76,12 @@ func TagPath(from_node, tag_name string) (map[string][]string, error){
 		return nil, err
 	}
 	for _, a := range nodes_by_tagname {
-		paths[a], err = NodePath(from_node, a)
+		paths[a], err = NodePath(from_node, a, false)
 		if err != nil {
 			return nil, err
 		}
 	}
-	//path = merge(paths, nil, nil)
+	path = merge(paths, nil, nil)
 	return path, nil
 }
 
@@ -110,7 +115,7 @@ func merge(nodes_path map[string]map[string][]string, groups_path map[string]map
 	return
 }
 
-func bfs(from_node, end string, nodes map[string][]string) map[string]string{
+func bfs(from_node, end string, nodes map[string][]string, isgroup bool) (map[string]string, string){
 	frontier := []string{from_node}
 	visited := map[string]bool{}
 	next := []string{}
@@ -123,14 +128,20 @@ func bfs(from_node, end string, nodes map[string][]string) map[string]string{
 			for _, n := range bfs_frontier(node, nodes, visited) {
 				next = append(next, n)
 				from[n] = node
-				if n == end {
-					return from
+				if !isgroup {
+					if n == end {
+						return from, n
+					}
+				} else {
+					if check[n]{
+						return from, n
+					}
 				}
 			}
 		}
 		frontier = next
 	}
-	return nil
+	return nil, nil
 }
 
 func bfs_frontier(node string, nodes map[string][]string, visited map[string]bool) []string {
@@ -154,7 +165,7 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 		final_path =		make(map[string][]string)
 	)
 	for _, a := range nodes {
-		nodes_path[a], err = NodePath(from_node, a)
+		nodes_path[a], err = NodePath(from_node, a, false)
 		if err != nil {
 			return nil, err
 		}
@@ -164,6 +175,7 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 		if err != nil {
 			return nil, err
 		}
+		check = make(map[string]bool)
 	}
 	for _, a := range tags {
 		tags_path[a], err = TagPath(from_node, a)
