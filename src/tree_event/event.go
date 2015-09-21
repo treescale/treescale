@@ -13,6 +13,10 @@ type Event struct {
 	Path		tree_path.Path		`json:"path" toml:"path" yaml:"path"`
 	Data		[]byte				`json:"data" toml:"data" yaml:"data"`
 	From		string				`json:"from" toml:"from" yaml:"from"` // Name who sending this event
+
+	// Keeping variable for making local events inside current process
+	// Example: Docker Events, Balancer Events etc..
+	LocalVar	interface{}			`json:"-" toml:"-" yaml:"-"`
 }
 
 type EventEmitter struct {
