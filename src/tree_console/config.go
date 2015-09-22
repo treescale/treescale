@@ -12,6 +12,8 @@ import (
 	"tree_db"
 	"os"
 	"fmt"
+	"tree_balancer"
+	"tree_container/tree_docker"
 )
 
 const (
@@ -19,10 +21,10 @@ const (
 )
 
 type TreeScaleConf struct {
-	SSH				map[string]SSHConfig				`toml:"ssh" json:"ssh" yaml:"ssh"`
-	TreeNode		map[string]node_info.NodeInfo		`toml:"tree_node" json:"tree_node" yaml:"tree_node"`
-	// TODO: Add docker registry config here
-	// TODO: Add balancer config here
+	SSH				map[string]SSHConfig						`toml:"ssh" json:"ssh" yaml:"ssh"`
+	TreeNode		map[string]node_info.NodeInfo				`toml:"tree_node" json:"tree_node" yaml:"tree_node"`
+	Balancer		map[string]tree_balancer.BalancerConfig		`toml:"balancer" json:"balancer" yaml:"balancer"`
+	Registry		map[string]tree_docker.DockerRegistry		`toml:"registry" json:"registry" yaml:"registry"`
 }
 
 var (
@@ -145,11 +147,50 @@ func DBFromConfig() {
 		}
 	}
 
-	// Setting relations for every Node
+	// After having All nodes information now we can set related things for every node
 	for n, _ :=range GLOBAL_CONFIG.TreeNode {
+		// Setting relations for every Node
 		err := tree_db.SetRelations(n)
 		if err != nil {
 			tree_log.Error(log_from_config, err.Error())
+		}
+
+		// Setting Groups with node lists in Group database
+		err = tree_db.AddNodeToHisGroups(n)
+		if err != nil {
+			tree_log.Error(log_from_config, err.Error())
+		}
+
+		// Setting Tags with node lists in Group database
+		err = tree_db.AddNodeToHisTags(n)
+		if err != nil {
+			tree_log.Error(log_from_config, err.Error())
+		}
+	}
+
+	// Setting Balancers
+	for b, b_conf :=range GLOBAL_CONFIG.Balancer {
+		b_data, err := ffjson.Marshal(b_conf)
+		if err != nil {
+			tree_log.Error(log_from_config, "Error encoding balancer config", b, " -> ", err.Error())
+			continue
+		}
+		err = tree_db.Set(tree_db.DB_BALANCER, []byte(b), b_data)
+		if err != nil {
+			tree_log.Error(log_from_config, "Error setting balancer config", b, " -> ", err.Error())
+		}
+	}
+
+	// Setting Registry
+	for r, r_conf :=range GLOBAL_CONFIG.Registry {
+		r_data, err := ffjson.Marshal(r_conf)
+		if err != nil {
+			tree_log.Error(log_from_config, "Error encoding registry config", r, " -> ", err.Error())
+			continue
+		}
+		err = tree_db.Set(tree_db.DB_REGISTRY, []byte(r), r_data)
+		if err != nil {
+			tree_log.Error(log_from_config, "Error setting registry config", r, " -> ", err.Error())
 		}
 	}
 }

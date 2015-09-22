@@ -16,6 +16,7 @@ var (
 // Keeping different database lists
 	DB_NODE			=	[]byte("node")
 	DB_BALANCER		=	[]byte("balancer")
+	DB_REGISTRY		=	[]byte("registry")	// Containers registry
 	DB_RANDOM		=	[]byte("random")  // This will hold random data with Key -> Value []byte
 	DB_GROUP		=	[]byte("group")  // Database with group name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
 	DB_TAG			=	[]byte("tag")  // Database with tag name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
@@ -35,7 +36,7 @@ func init() {
 	// creating Buckets in database
 	tree_db.Update(func(tx *bolt.Tx) error{
 		// Setting databases
-		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS} {
+		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS, DB_REGISTRY} {
 			_, err := tx.CreateBucketIfNotExists(d)
 			if err != nil {
 				return err

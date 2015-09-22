@@ -9,6 +9,7 @@ type NodeInfo struct {
 	Tags			[]string		`json:"tags" toml:"tags" yaml:"tags"`
 	Groups			[]string		`json:"groups" toml:"groups" yaml:"groups"`
 	Childs			[]string		`json:"childs" toml:"childs" yaml:"childs"`
+	AutoBalance		bool			`json:"auto_balance" toml:"auto_balance" yaml:"auto_balance"`
 }
 
 var (

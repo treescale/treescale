@@ -114,6 +114,37 @@ func GetGroupNodes(group string) ([]string, error) {
 
 	return strings.Split(string(nodes_byte), ","), nil
 }
+
+func GroupAddNode(group, node string) (err error) {
+	var gB []byte
+	gB, err = Get(DB_GROUP, []byte(group))
+	if err != nil {
+		return
+	}
+
+	group_nodes := strings.Split(string(gB), ",")
+	group_nodes = append(group_nodes, node)
+
+	err = Set(DB_GROUP, []byte(group), []byte(strings.Join(group_nodes, ",")))
+	return
+}
+
+func AddNodeToHisGroups(node string) (err error) {
+	var nf node_info.NodeInfo
+	nf, err = GetNodeInfo(node)
+	if err != nil {
+		return
+	}
+
+	for _, g :=range nf.Groups {
+		err = GroupAddNode(g, node)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
 func GetNodesByTagName(tag string) ([]string, error) {
 	nodes_byte, err := Get(DB_TAG, []byte(tag))
 	if err != nil {
@@ -121,6 +152,37 @@ func GetNodesByTagName(tag string) ([]string, error) {
 	}
 	return strings.Split(string(nodes_byte), ","), nil
 }
+
+func TagAddNode(tag, node string) (err error) {
+	var gB []byte
+	gB, err = Get(DB_TAG, []byte(tag))
+	if err != nil {
+		return
+	}
+
+	tag_nodes := strings.Split(string(gB), ",")
+	tag_nodes = append(tag_nodes, node)
+
+	err = Set(DB_TAG, []byte(tag), []byte(strings.Join(tag_nodes, ",")))
+	return
+}
+
+func AddNodeToHisTags(node string) (err error) {
+	var nf node_info.NodeInfo
+	nf, err = GetNodeInfo(node)
+	if err != nil {
+		return
+	}
+
+	for _, t :=range nf.Tags {
+		err = TagAddNode(t, node)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
 
 func GetParentInfo(node string) (node_info.NodeInfo, error) {
 	nr, err := GetRelations(node)
