@@ -177,7 +177,7 @@ func installDocker(ssh_conf SSHConfig) (err error) {
 	)
 
 	cmd = `
-	apt-get update && sudo apt-get install -y curl && curl -sSL https://get.docker.com/ | sudo sh
+	((apt-get update && apt-get install -y curl); yum install -y curl) && curl -sSL https://get.docker.com/ | sudo sh
 	`
 
 	err = ssh_conf.Exec(runSudo(ssh_conf.Password, cmd), os.Stdout, os.Stderr, input)
@@ -192,9 +192,7 @@ func installTreeScale(ssh_conf SSHConfig) (err error) {
 	)
 
 	cmd = `
-	apt-get update && \
-	sudo apt-get install -y curl && \
-	curl -sSL https://console.treescale.com/install | sudo sh
+	((sudo apt-get update && apt-get install -y curl); yum install -y curl) && curl -sSL https://console.treescale.com/install | sudo sh
 	`
 
 	err = ssh_conf.Exec(runSudo(ssh_conf.Password, cmd), os.Stdout, os.Stderr, input)
