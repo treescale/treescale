@@ -12,8 +12,8 @@ function go_build
 {
     echo "Building TreeScale executable"
     cd "$SRC/src"
-    export CGO_CFLAGS="-I$SRC/src/balancer/treelvs -I$SRC/src/balancer/libipvs -I$SRC/src/balancer/libipvs/libnl1/include"
-    export CGO_LDFLAGS="$SRC/src/balancer/treelvs/libtreelvs.a $SRC/src/balancer/libipvs/libnl1/build/lib/libnl.a -lm"
+    export CGO_CFLAGS="-I$SRC/src/tree_balancer/treelvs -I$SRC/src/tree_balancer/libipvs"
+    export CGO_LDFLAGS="$SRC/src/tree_balancer/treelvs/libtreelvs.a -lnl-genl-3 -lnl-3"
     go build treescale.go
     mv treescale "$SRC"
     cd "$SRC"
@@ -21,13 +21,8 @@ function go_build
 function build
 {
     echo "Building TreeScale Source"
-    echo "Compiling Letlink Library"
-    cd "$SRC/src/balancer/libipvs/libnl1/"
-    ./configure --prefix=`pwd`/build
-    make
-    make install
+    cd "$SRC/src/tree_balancer/libipvs/"
     echo "Compiling LibLVS"
-    cd ./../
     make
     cp libipvs.a ./../treelvs/
     echo "Compiling TreeLVS"
@@ -43,10 +38,7 @@ function build
 
 function clean
 {
-    cd src/balancer/libipvs/libnl1
-    make clean
-    rm -rf build
-    cd ../
+    cd "src/tree_balancer/libipvs/"
     make clean
     cd ../treelvs
     rm -f *.[ao] *~ *.orig *.rej core *.so

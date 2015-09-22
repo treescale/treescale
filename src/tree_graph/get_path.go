@@ -141,7 +141,7 @@ func bfs(from_node, end string, nodes map[string][]string, isgroup bool) (map[st
 		}
 		frontier = next
 	}
-	return nil, nil
+	return nil, ""
 }
 
 func bfs_frontier(node string, nodes map[string][]string, visited map[string]bool) []string {
