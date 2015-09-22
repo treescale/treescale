@@ -67,6 +67,7 @@ func init() {
 	}
 	node_cmd.Flags().BoolP("daemon", "d", false, "Run Node in daemon mode")
 	node_cmd.Flags().StringP("name", "n", "", "Set Node name for running it (needs to set for the first time and if it needs to be changed)")
+	node_cmd.Flags().String("set-name", "", "Set Node name as a current node name in database")
 
 
 	// API commands

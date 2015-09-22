@@ -7,6 +7,9 @@ import (
 	"tree_db"
 	"tree_event"
 	"time"
+	"os/exec"
+	"os"
+	"log"
 )
 
 const (
@@ -14,7 +17,33 @@ const (
 )
 
 func HandleNodeCommand(cmd *cobra.Command, args []string) {
-	name, err := cmd.Flags().GetString("name")
+	name, err := cmd.Flags().GetString("set-name")
+	if err != nil {
+		tree_log.Error(log_from_node_console, err.Error())
+	}
+
+	// If we have set-name flag then we just setting current_node in database and exiting
+	if len(name) > 0 {
+		tree_db.Set(tree_db.DB_RANDOM, []byte("current_node"), []byte(name))
+		return
+	}
+	daemon := false
+	daemon, err = cmd.Flags().GetBool("daemon")
+	if err != nil {
+		tree_log.Error(log_from_node_console, err.Error())
+		return
+	}
+
+	if daemon {
+		cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("%s node > %s 2>&1 &", os.Args[0], tree_log.LogFile))
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	name, err = cmd.Flags().GetString("name")
 	if err != nil {
 		tree_log.Error(log_from_node_console, err.Error())
 		return
