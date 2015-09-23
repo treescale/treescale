@@ -12,15 +12,21 @@ import (
 
 
 func HandleApiExec(cmd *cobra.Command, args []string) {
-	nodes, err := cmd.Flags().GetStringSlice("nodes")
-	if err != nil {
-		tree_log.Error("Handle Api console", err.Error())
+	var (
+		nodes 			[]string
+		cmd_line		string
+		err 			tree_lib.TreeError
+	)
+	err.From = tree_lib.FROM_HANDLE_API_EXEC
+	nodes, err.Err = cmd.Flags().GetStringSlice("nodes")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
-	cmd_line, err := cmd.Flags().GetString("cmd")
-	if err != nil {
-		tree_log.Error("Handle Api console", err.Error())
+	cmd_line, err.Err = cmd.Flags().GetString("cmd")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 

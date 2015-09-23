@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"tree_balancer"
 	"tree_container/tree_docker"
+	"tree_lib"
 )
 
 const (
@@ -31,47 +32,49 @@ var (
 	GLOBAL_CONFIG	TreeScaleConf
 )
 
-func ParseConfigFile(file string) (conf TreeScaleConf, err error) {
+func ParseConfigFile(file string) (conf TreeScaleConf, err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_PARSE_CONFIG_FILE
 	switch strings.Replace(filepath.Ext(file), ".", "", 1) {
 	case "toml":
 		{
-			_, err = toml.DecodeFile(file, &conf)
+			_, err.Err = toml.DecodeFile(file, &conf)
 		}
 	case "yaml":
 		{
 			var fdata []byte
-			fdata, err = ioutil.ReadFile(file)
-			if err != nil {
+			fdata, err.Err = ioutil.ReadFile(file)
+			if !err.IsNull() {
 				return
 			}
-			err = yaml.Unmarshal(fdata, &conf)
+			err.Err = yaml.Unmarshal(fdata, &conf)
 		}
 	case "json":
 		{
 			var fdata []byte
-			fdata, err = ioutil.ReadFile(file)
-			if err != nil {
+			fdata, err.Err = ioutil.ReadFile(file)
+			if !err.IsNull() {
 				return
 			}
-			err = ffjson.Unmarshal(fdata, &conf)
+			err.Err = ffjson.Unmarshal(fdata, &conf)
 		}
 	}
 
 	return
 }
 
-func ParseFiles(conf_type string, files...string) (err error) {
+func ParseFiles(conf_type string, files...string) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_PARSE_FILE
 	var combine_data []byte
 	for _, f :=range files {
 		var fdata []byte
-		_, err = ParseConfigFile(f)
-		if err != nil {
+		_, err.Err = ParseConfigFile(f)
+		if !err.IsNull() {
 			fmt.Println("error while reading ", f)
 			fmt.Println("ignoring ", f)
 			continue
 		}
-		fdata, err = ioutil.ReadFile(f)
-		if err != nil {
+		fdata, err.Err = ioutil.ReadFile(f)
+		if !err.IsNull() {
 			return
 		}
 		combine_data = append(combine_data, fdata...)
@@ -80,31 +83,33 @@ func ParseFiles(conf_type string, files...string) (err error) {
 	switch conf_type {
 	case "toml":
 		{
-			err = toml.Unmarshal(combine_data, &GLOBAL_CONFIG)
+			err.Err = toml.Unmarshal(combine_data, &GLOBAL_CONFIG)
 		}
 	case "yaml":
 		{
-			err = yaml.Unmarshal(combine_data, &GLOBAL_CONFIG)
+			err.Err = yaml.Unmarshal(combine_data, &GLOBAL_CONFIG)
 		}
 	case "json":
 		{
-			err = ffjson.Unmarshal(combine_data, &GLOBAL_CONFIG)
+			err.Err = ffjson.Unmarshal(combine_data, &GLOBAL_CONFIG)
 		}
 	}
 	return
 }
 
-func PathFiles(conf_type string, paths []string) ([]string, error){
+func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 	var (
-		err 		error
+		err 		tree_lib.TreeError
 		names 		[]string
-		FileNames 	func(path string) (err error)
+		FileNames 	func(path string) (err tree_lib.TreeError)
 	)
-
-	FileNames = func(path string) (err error) {
-		files_in_dir, err := ioutil.ReadDir(path)
-		if err != nil {
-			tree_log.Error(log_from_config, err.Error())
+	err.From = tree_lib.FROM_PATH_FILES
+	FileNames = func(path string) (err tree_lib.TreeError) {
+		err.From = tree_lib.FROM_PATH_FILES
+		files_in_dir, e := ioutil.ReadDir(path)
+		err.Err = e
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 			return
 		}
 
@@ -116,7 +121,7 @@ func PathFiles(conf_type string, paths []string) ([]string, error){
 			} else {
 				err = FileNames(string(path + "/" + a.Name()))
 				if err != nil {
-					tree_log.Error(log_from_config, err.Error())
+					tree_log.Error(err.From, err.Error())
 					return
 				}
 			}
@@ -129,8 +134,8 @@ func PathFiles(conf_type string, paths []string) ([]string, error){
 			a = a[:len(a)-1]
 		}
 		err = FileNames(a)
-		if err != nil {
-			tree_log.Error(log_from_config, err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 			return nil, err
 		}
 	}

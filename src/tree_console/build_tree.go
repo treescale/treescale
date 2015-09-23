@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"time"
 	"tree_db"
+	"tree_lib"
 )
 
 
@@ -19,10 +20,10 @@ func runSudo(pass, cmd string) string {
 
 func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 	var (
-		err			error
+		err			tree_lib.TreeError
 		db_dump	=	"tree.db"
 	)
-
+	err.From = tree_lib.FROM_BUILD_TREE
 	fmt.Println("Dumping Database file for transfer -> ", db_dump)
 	tree_db.DumpDBPath(db_dump)
 
@@ -34,7 +35,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println("Connecting to Server -> ", name)
 		err = ssh_conf.Connect()
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
@@ -42,12 +43,12 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println(name, " -> ", "Checking Docker availability")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "docker -v"), os.Stdout, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			if reflect.TypeOf(err).AssignableTo(reflect.TypeOf(test_err)) {
 				fmt.Println(name, " -> ", "Docker is not Installed, Do you want to install it ? [Y/N]")
 				if  silent_build || consoleYesNoWait() {
 					err = installDocker(ssh_conf)
-					if err != nil {
+					if !err.IsNull() {
 						fmt.Println(err.Error())
 						fmt.Println("Terminating...")
 						return
@@ -64,12 +65,12 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println(name, " -> ", "Checking TreeScale availability")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "treescale -v"), os.Stdout, os.Stderr, input)
-		if force || err != nil {
-			if force || reflect.TypeOf(err).AssignableTo(reflect.TypeOf(test_err)) {
+		if force || !err.IsNull() {
+			if force || reflect.TypeOf(err.Err).AssignableTo(reflect.TypeOf(test_err)) {
 				fmt.Println(name, " -> ", "TreeScale is not Installed, Do you want to install it ? [Y/N]")
 				if silent_build || consoleYesNoWait() {
 					err = installTreeScale(ssh_conf)
-					if err != nil {
+					if !err.IsNull() {
 						fmt.Println(err.Error())
 						fmt.Println("Terminating...")
 						return
@@ -88,14 +89,14 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 		fmt.Println(name, " -> ", "Getting home directory for user ", ssh_conf.Username)
 		home_dir_buf := bytes.NewBuffer([]byte{})
 		err = ssh_conf.Exec("echo $HOME", home_dir_buf, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
 		}
 		fmt.Println(name, " -> ", "Copeing Database dump file ", fmt.Sprintf("%s/tree.db", strings.Replace(home_dir_buf.String(), "\n", "", -1)))
 		err = ssh_conf.CopyFile(db_dump, fmt.Sprintf("%s/tree.db", strings.Replace(home_dir_buf.String(), "\n", "", -1)))
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
@@ -103,7 +104,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println(name, " -> ", "Moving remote file to ", tree_db.DB_DIR)
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, fmt.Sprintf("mv $HOME/tree.db %s", tree_db.DB_DIR)), os.Stdout, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
@@ -111,7 +112,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println(name, " -> ", "Setting name for current node")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, fmt.Sprintf("treescale node --set-name=%s", name)), os.Stdout, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
@@ -119,14 +120,14 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println("Adding private registry SSL exception")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "treescale ssl-exception"), os.Stdout, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
 		}
 		fmt.Println("Restarting Docker")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "service docker restart"), os.Stdout, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
@@ -138,7 +139,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 			if name == reg.Server {
 				fmt.Println(name, " -> ", "Installing Docker registery")
 				err = ssh_conf.Exec(runSudo(ssh_conf.Password, "docker pull registry:2"), os.Stdout, os.Stderr, input)
-				if err != nil {
+				if !err.IsNull() {
 					fmt.Println(err.Error())
 					fmt.Println("Terminating...")
 					return
@@ -146,7 +147,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 				fmt.Println(fmt.Sprintf("Running Registery container on Port %d", reg.Port))
 				err = ssh_conf.Exec(runSudo(ssh_conf.Password, fmt.Sprintf("docker run -d -p %d:%d registry:2", reg.Port, reg.Port)), os.Stdout, os.Stderr, input)
-				if err != nil {
+				if !err.IsNull() {
 					fmt.Println(err.Error())
 					fmt.Println("Terminating...")
 					return
@@ -159,7 +160,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 		fmt.Println(name, " -> ", "Running TreeScale in daemon mode")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "killall treescale"), os.Stdout, os.Stderr, input)
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "treescale -d"), os.Stdout, os.Stderr, input)
-		if err != nil {
+		if !err.IsNull() {
 			fmt.Println(err.Error())
 			fmt.Println("Terminating...")
 			return
@@ -170,12 +171,12 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 	}
 }
 
-func installDocker(ssh_conf SSHConfig) (err error) {
+func installDocker(ssh_conf SSHConfig) (err tree_lib.TreeError) {
 	var (
 		input 	= 	make(chan string)
 		cmd			string
 	)
-
+	err.From = tree_lib.FROM_INSTALL_DOCKER
 	cmd = `
 	apt-get update && sudo apt-get install -y curl && curl -sSL https://get.docker.com/ | sudo sh
 	`
@@ -185,12 +186,12 @@ func installDocker(ssh_conf SSHConfig) (err error) {
 }
 
 
-func installTreeScale(ssh_conf SSHConfig) (err error) {
+func installTreeScale(ssh_conf SSHConfig) (err tree_lib.TreeError) {
 	var (
 		input 	= 	make(chan string)
 		cmd			string
 	)
-
+	err.From = tree_lib.FROM_INSTALL_TREESCALE
 	cmd = `
 	apt-get update && \
 	sudo apt-get install -y curl && \

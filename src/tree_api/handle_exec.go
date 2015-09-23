@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"tree_log"
 	"github.com/pquerna/ffjson/ffjson"
+	"tree_lib"
 )
 
 
@@ -19,16 +20,17 @@ func HandleExecCommand(e *tree_event.Event, api_cmd Command) {
 		cmd_str		=	string(api_cmd.Data)
 		cmd_options	= 	strings.Split(cmd_str, " ")
 		cmd			=	exec.Command(cmd_options[0], cmd_options[1:]...)
-		err 			error
+		err 			tree_lib.TreeError
+		ev_data			[]byte
 	)
-
+	err.From = tree_lib.FROM_HANDLE_EXEC_COMMAND
 	out.OutCallback = func(data []byte, ended bool) {
 		cb_cmd := api_cmd
 		cb_cmd.Ended = ended
 		cb_cmd.Data = data
-		ev_data, err := ffjson.Marshal(cb_cmd)
-		if err != nil {
-			tree_log.Error(log_from_node_api, err.Error())
+		ev_data, err.Err = ffjson.Marshal(cb_cmd)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 			return
 		}
 		cb_ev := &tree_event.Event{}
@@ -41,8 +43,8 @@ func HandleExecCommand(e *tree_event.Event, api_cmd Command) {
 
 	cmd.Stdout = out
 	cmd.Stderr = out
-	err = cmd.Run()
-	if err != nil {
-		tree_log.Error(log_from_handle_exec, err.Error())
+	err.Err = cmd.Run()
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 	}
 }

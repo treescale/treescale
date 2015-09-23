@@ -3,16 +3,18 @@ package tree_graph
 import (
 	"tree_db"
 	tree_path "tree_graph/path"
+	"tree_lib"
 )
 var (
 	check =		make(map[string]bool)
 )
-func GroupPath(from_node, group_name string) (map[string][]string, error){
+func GroupPath(from_node, group_name string) (map[string][]string, tree_lib.TreeError){
 	var (
 		path = 			make(map[string][]string)
-		err 			error
+		err 			tree_lib.TreeError
 		nodes_in_group	[]string
 	)
+	err.From = "GroupPath"
 	nodes_in_group, err = tree_db.GetGroupNodes(group_name)
 	if err != nil {
 		return nil, err

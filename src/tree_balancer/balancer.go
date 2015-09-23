@@ -5,6 +5,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"tree_event"
 	"tree_log"
+	"tree_lib"
 )
 
 const (
@@ -16,22 +17,24 @@ var (
 	containerAddressMap = make(map[string]Address)		// Keeping container and Address for deleting
 )
 
-func AddService(addr string, alg string) (err error) {
+func AddService(addr string, alg string) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_ADD_SERVICE
 	if _, ok := AvailableServices[addr]; ok {
 		return
 	}
 	var a Address
-	a, err = AddressFromString(addr)
-	if err != nil {
+	a, err.Err = AddressFromString(addr)
+	if !err.IsNull() {
 		return
 	}
-	AvailableServices[addr], err = NewBalancer(a, alg)
+	AvailableServices[addr], err.Err = NewBalancer(a, alg)
 	return
 }
 
-func DropService(addr string) (err error) {
+func DropService(addr string) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_DROP_SERVICE
 	if s, ok := AvailableServices[addr]; ok {
-		err = s.DropService()
+		err.Err = s.DropService()
 		return
 	}
 	return
@@ -39,20 +42,23 @@ func DropService(addr string) (err error) {
 
 func (bs *BalancingService) SubscribeEvents() {
 	tree_event.ON(tree_event.ON_DOCKER_INIT, func(e *tree_event.Event){
+		var err tree_lib.TreeError
+		err.From = tree_lib.FROM_SUBSCRIBE_EVENTS
 		if e.LocalVar == nil {
-			tree_log.Info(log_from_balancer, "Containers list is nil during INIT event")
+			tree_log.Info(err.From, "Containers list is nil during INIT event")
 			return
 		}
 
 		for _, c := range e.LocalVar.([]docker.APIContainers) {
 			if port, ok := bs.DockerImages[c.Image]; ok {
-				ci, err := tree_docker.DockerClient.InspectContainer(c.ID)
-				if err != nil {
+				var ci *docker.Container
+				ci, err.Err = tree_docker.DockerClient.InspectContainer(c.ID)
+				if !err.IsNull() {
 					continue
 				}
 				cont_addr := Address{IP:ci.NetworkSettings.IPAddress, Port:port}
-				err = bs.AddDestination(cont_addr)
-				if err != nil {
+				err.Err = bs.AddDestination(cont_addr)
+				if !err.IsNull() {
 					return
 				}
 				containerAddressMap[c.ID] = cont_addr
@@ -60,6 +66,7 @@ func (bs *BalancingService) SubscribeEvents() {
 		}
 	})
 	tree_event.ON(tree_event.ON_DOCKER_CONTAINER_START, func(e *tree_event.Event){
+		var err tree_lib.TreeError
 		if e.LocalVar == nil {
 			tree_log.Info(log_from_balancer, "Container Info is nil during container Start event")
 			return
@@ -68,8 +75,8 @@ func (bs *BalancingService) SubscribeEvents() {
 		ci := e.LocalVar.(*tree_docker.ContainerInfo)
 		if port, ok := bs.DockerImages[ci.Image]; ok {
 			cont_addr := Address{IP:ci.InspectContainer.NetworkSettings.IPAddress, Port:port}
-			err := bs.AddDestination(cont_addr)
-			if err != nil {
+			err.Err = bs.AddDestination(cont_addr)
+			if !err.IsNull() {
 				return
 			}
 			containerAddressMap[ci.ID] = cont_addr
@@ -90,7 +97,7 @@ func (bs *BalancingService) SubscribeEvents() {
 	})
 }
 
-func (bs *BalancingService) CheckForStopEvent() (err error) {
+func (bs *BalancingService) CheckForStopEvent() (err tree_lib.TreeError) {
 	// If our balancer don't have any destination we need to stop it and call global callback about it
 	if len(bs.destinations) > 0 {
 		return

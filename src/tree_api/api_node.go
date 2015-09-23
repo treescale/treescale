@@ -30,15 +30,16 @@ func init() {
 
 // Init API node for connection to targets
 func API_INIT(targets...string) bool {
+	var err tree_lib.TreeError
+	err.From = tree_lib.FROM_API_INIT
 	if len(targets) == 0 {
-		tree_log.Error(log_from_node_api, "For running API client you need to specify target node(s) to connect")
+		tree_log.Error(err.From,"For running API client you need to specify target node(s) to connect")
 		return false
 	}
-	var err error
 	for _, n :=range targets {
 		node_info.ChildsNodeInfo[n], err = tree_db.GetNodeInfo(n)
-		if err != nil {
-			tree_log.Error(log_from_node_api, fmt.Sprintf("Unable Getting target (%s) node info from Node database, ", n), err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, fmt.Sprintf("Unable Getting target (%s) node info from Node database, ", n), err.Error())
 			return false
 		}
 	}

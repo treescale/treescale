@@ -11,7 +11,6 @@ import (
 const (
 	API_OUTPUT_BUFFER_SIZE = 1024
 	log_from_api_command = "API command functionality"
-
 	// Command Types
 	COMMAND_EXEC	=	0
 )
@@ -27,13 +26,14 @@ var (
 )
 
 func init() {
-
 	// This event will be triggered from Node, when API client will send some command to implement
 	tree_event.ON(tree_event.ON_API_COMMAND, func(ev *tree_event.Event){
+		var err tree_lib.TreeError;
+		err.From = tree_lib.FROM_INIT
 		cmd := Command{}
-		err := ffjson.Unmarshal(ev.Data, &cmd)
-		if err != nil {
-			tree_log.Error(log_from_api_command, "unable to unmarshal event data as a command -> ", err.Error())
+		err.Err = ffjson.Unmarshal(ev.Data, &cmd)
+		if  !err.IsNull() {
+			tree_log.Error(err.From, "unable to unmarshal event data as a command -> ", err.Error())
 			return
 		}
 
@@ -47,10 +47,12 @@ func init() {
 
 	// This event will be triggered from API client when Node will give callback for specific commands
 	tree_event.ON(tree_event.ON_API_COMMAND_CALLBACK, func(ev *tree_event.Event){
+		var err tree_lib.TreeError
+		err.From = tree_lib.FROM_INIT
 		cmd := Command{}
-		err := ffjson.Unmarshal(ev.Data, &cmd)
-		if err != nil {
-			tree_log.Error(log_from_api_command, "unable to unmarshal event data as a command -> ", err.Error())
+		err.Err = ffjson.Unmarshal(ev.Data, &cmd)
+		if !err.IsNull(){
+			tree_log.Error(err.From, "unable to unmarshal event data as a command -> ", err.Error())
 			return
 		}
 
@@ -79,9 +81,10 @@ type WriterCallback struct {
 	out_data			bytes.Buffer			`json:"-" toml:"-" yaml:"-"`
 }
 
-func (cb *WriterCallback) Write(p []byte) (n int, err error) {
-	n, err = cb.out_data.Write(p)
-	if err != nil {
+func (cb *WriterCallback) Write(p []byte) (n int, err tree_lib.TreeError) {
+	n, err.Err = cb.out_data.Write(p)
+	if !err.IsNull() {
+		err.From = tree_lib.FROM_WRITE
 		return
 	}
 
@@ -101,7 +104,7 @@ func (cb *WriterCallback) End() {
 	cb.trigger_callback(true)
 }
 
-func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*tree_event.Event, Command)bool) (err error) {
+func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*tree_event.Event, Command)bool) (err tree_lib.TreeError) {
 	// If command ID not set just setting random string
 	if len(cmd.ID) == 0 {
 		cmd.ID = tree_lib.RandomString(10)
@@ -111,8 +114,9 @@ func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*
 		cmd_data	[]byte
 	)
 
-	cmd_data, err = ffjson.Marshal(cmd)
-	if err != nil {
+	cmd_data, err.Err = ffjson.Marshal(cmd)
+	if !err.IsNull() {
+		err.From = tree_lib.FROM_SEND_COMMAND
 		return
 	}
 

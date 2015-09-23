@@ -25,20 +25,22 @@ var (
 
 
 func init() {
-	var err error
-	tree_db, err = bolt.Open(DB_DIR, 0600, nil)
-	if err != nil {
+	var err tree_lib.TreeError
+	err.From = tree_lib.FROM_INIT
+	tree_db, err.Err = bolt.Open(DB_DIR, 0600, nil)
+	if !err.IsNull() {
 		tree_log.Error(log_from_db, " unable to open database", err.Error())
 		tree_db = nil
 		os.Exit(1) // Without database we can't keep and share configurations, so program should be exited
 	}
 
 	// creating Buckets in database
-	tree_db.Update(func(tx *bolt.Tx) error{
+	tree_db.Update(func(tx *bolt.Tx) (err tree_lib.TreeError) {
+		err.From = tree_lib.FROM_INIT
 		// Setting databases
 		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS, DB_REGISTRY} {
-			_, err := tx.CreateBucketIfNotExists(d)
-			if err != nil {
+			_, err.Err = tx.CreateBucketIfNotExists(d)
+			if !err.IsNull() {
 				return err
 			}
 		}
