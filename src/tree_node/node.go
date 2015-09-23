@@ -9,6 +9,7 @@ import (
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_container/tree_docker"
 	"time"
+	"tree_lib"
 )
 
 
@@ -18,16 +19,18 @@ var (
 )
 
 func SetParent(name string) bool {
-	var err error
+	var err tree_lib.TreeError
+	err.From = tree_lib.FROM_SET_PARENT
 	node_info.ParentNodeInfo, err = tree_db.GetNodeInfo(name)
-	if err != nil {
-		tree_log.Error(log_from_node, "Getting parent node info from Node database, ", err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Getting parent node info from Node database, ", err.Error())
 		return false
 	}
 	return true
 }
 
-func SetCurrentNode(name string) (err error) {
+func SetCurrentNode(name string) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_SET_CURRENT_NODE
 	err = tree_db.Set(tree_db.DB_RANDOM, []byte("current_node"), []byte(name))
 	return
 }
@@ -35,20 +38,21 @@ func SetCurrentNode(name string) (err error) {
 func node_init() {
 	// Getting current node name
 	current_node_byte, err := tree_db.Get(tree_db.DB_RANDOM, []byte("current_node"))
-	if err != nil {
-		tree_log.Error(log_from_node, "Getting current node name from Random database, ", err.Error())
+	err.From = tree_lib.FROM_NODE_INIT
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Getting current node name from Random database, ", err.Error())
 		return
 	}
 	current_node_name = string(current_node_byte)
 	node_info.CurrentNodeInfo, err = tree_db.GetNodeInfo(current_node_name)
-	if err != nil {
-		tree_log.Error(log_from_node, "Getting current node info from Node database, ", err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Getting current node info from Node database, ", err.Error())
 		return
 	}
 	for _, child :=range node_info.CurrentNodeInfo.Childs {
 		node_info.ChildsNodeInfo[child], err = tree_db.GetNodeInfo(child)
-		if err != nil {
-			tree_log.Error(log_from_node, fmt.Sprintf("Getting child (%s) node info from Node database, ", child), err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, fmt.Sprintf("Getting child (%s) node info from Node database, ", child), err.Error())
 			return
 		}
 	}
@@ -57,8 +61,8 @@ func node_init() {
 	tree_db.SetRelations(current_node_name)
 
 	node_info.ParentNodeInfo, err = tree_db.GetParentInfo(current_node_name)
-	if err != nil {
-		tree_log.Error(log_from_node, "Getting parent node info from Node database, ", err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Getting parent node info from Node database, ", err.Error())
 		return
 	}
 }
@@ -88,9 +92,9 @@ func InitBalancers() {
 		_, err = tree_balancer.NewBalancerFromConfig(bc)
 		return err
 	})
-
-	if err != nil {
-		tree_log.Error(log_from_node, "Unable to Init Balancers", err.Error())
+	err.From = tree_lib.FROM_INIT_BALANCER
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Unable to Init Balancers", err.Error())
 		return
 	}
 }

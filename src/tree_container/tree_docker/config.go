@@ -6,6 +6,7 @@ import (
 	"os"
 	"io/ioutil"
 	"os/exec"
+	"tree_lib"
 )
 
 
@@ -18,7 +19,7 @@ type DockerRegistry struct {
 
 
 // Adding SSL exceptions for Docker private registry, because mostly it would be IP address or without any HTTPS
-func (reg *DockerRegistry) SSLExceptions() (err error) {
+func (reg *DockerRegistry) SSLExceptions() (err tree_lib.TreeError) {
 	var (
 		f_data			[]byte
 		lines			[]string
@@ -26,11 +27,12 @@ func (reg *DockerRegistry) SSLExceptions() (err error) {
 		combine_str 	[]string
 		filename		string
 	)
+	err.From = tree_lib.FROM_SSL_EXCEPTIONS
 	// SystemD service
 	filename = "/lib/systemd/system/docker.service"
-	if _, err = os.Stat(filename); !os.IsNotExist(err) {
-		f_data, err = ioutil.ReadFile(filename)
-		if err != nil {
+	if _, err.Err = os.Stat(filename); !os.IsNotExist(err.Err) {
+		f_data, err.Err = ioutil.ReadFile(filename)
+		if !err.IsNull() {
 			return
 		}
 
@@ -59,8 +61,8 @@ func (reg *DockerRegistry) SSLExceptions() (err error) {
 			}
 		}
 
-		err = ioutil.WriteFile(filename, []byte(strings.Join(lines, "\n")), 0644)
-		if err != nil {
+		err.Err = ioutil.WriteFile(filename, []byte(strings.Join(lines, "\n")), 0644)
+		if !err.IsNull() {
 			return
 		}
 	}
@@ -68,9 +70,9 @@ func (reg *DockerRegistry) SSLExceptions() (err error) {
 
 	// SystemD service
 	filename = "/etc/default/docker"
-	if _, err = os.Stat(filename); !os.IsNotExist(err) {
-		f_data, err = ioutil.ReadFile(filename)
-		if err != nil {
+	if _, err.Err = os.Stat(filename); !os.IsNotExist(err.Err) {
+		f_data, err.Err = ioutil.ReadFile(filename)
+		if !err.IsNull() {
 			return
 		}
 
@@ -105,13 +107,13 @@ func (reg *DockerRegistry) SSLExceptions() (err error) {
 			}
 		}
 
-		err = ioutil.WriteFile(filename, []byte(strings.Join(lines, "\n")), 0644)
-		if err != nil {
+		err.Err = ioutil.WriteFile(filename, []byte(strings.Join(lines, "\n")), 0644)
+		if !err.IsNull() {
 			return
 		}
 	}
 
 	cmd := exec.Command("service", "docker", "restart")
-	err = cmd.Run()
+	err.Err = cmd.Run()
 	return
 }

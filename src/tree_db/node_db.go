@@ -9,10 +9,11 @@ import (
 )
 
 
-func ListNodeInfos() (nfs []node_info.NodeInfo, err error) {
+func ListNodeInfos() (nfs []node_info.NodeInfo, err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_LIST_NODE_INFOS
 	err = ForEach(DB_NODE, func(key []byte, val []byte)error {
 		n := node_info.NodeInfo{}
-		err = ffjson.Unmarshal(val, &n)
+		err := ffjson.Unmarshal(val, &n)
 		if err != nil {
 			return err
 		}
@@ -21,7 +22,8 @@ func ListNodeInfos() (nfs []node_info.NodeInfo, err error) {
 	})
 	return
 }
-func ListNodeNames() (names []string, err error) {
+func ListNodeNames() (names []string, err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_LIST_NODE_NAMES
 	err = ForEach(DB_NODE, func(key []byte, value []byte)error {
 		names = append(names, string(key))
 		return nil
@@ -29,27 +31,27 @@ func ListNodeNames() (names []string, err error) {
 	return
 }
 
-func GetNodeInfo(name string) (nf node_info.NodeInfo, err error) {
+func GetNodeInfo(name string) (nf node_info.NodeInfo, err tree_lib.TreeError) {
 	var (
 		value	[]byte
 	)
-
+	err.From = tree_lib.FROM_GET_NODE_INFO
 	value, err = Get(DB_NODE, []byte(name))
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
-	err = ffjson.Unmarshal(value, &nf)
+	err.Err = ffjson.Unmarshal(value, &nf)
 	return
 }
 
-func SetNodeInfo(name string, nf node_info.NodeInfo) (err error) {
+func SetNodeInfo(name string, nf node_info.NodeInfo) (err tree_lib.TreeError) {
 	var (
 		value	[]byte
 	)
-
-	value, err = ffjson.Marshal(nf)
-	if err != nil {
+	err.From = tree_lib.FROM_SET_NODE_INFO
+	value, err.Err = ffjson.Marshal(nf)
+	if !err.IsNull() {
 		return
 	}
 
@@ -60,11 +62,12 @@ func SetNodeInfo(name string, nf node_info.NodeInfo) (err error) {
 // Key -> value ..... node_name -> node1,node2,node3
 // []byte -> []string{}.Join(",")
 // First element of string array should be parent node
-func SetRelations(node string) (err error) {
+func SetRelations(node string) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_SET_RELATIONS
 	parent_name := ""
 	inf := node_info.NodeInfo{}
 	inf, err = GetNodeInfo(node)
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
@@ -73,7 +76,7 @@ func SetRelations(node string) (err error) {
 	// Getting parent node
 	err = ForEach(DB_NODE, func(key []byte, val []byte)error {
 		nf := node_info.NodeInfo{}
-		err = ffjson.Unmarshal(val, &nf)
+		err := ffjson.Unmarshal(val, &nf)
 		if err != nil {
 			return err
 		}
@@ -85,7 +88,7 @@ func SetRelations(node string) (err error) {
 		return nil
 	})
 
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
@@ -97,28 +100,31 @@ func SetRelations(node string) (err error) {
 	return
 }
 
-func GetRelations(node string) ([]string, error) {
+func GetRelations(node string) ([]string, tree_lib.TreeError) {
 	nodes_byte, err := Get(DB_RELATIONS, []byte(node))
-	if err != nil {
+	err.From = tree_lib.FROM_GET_RELATIONS
+	if !err.IsNull() {
 		return nil, err
 	}
 
-	return strings.Split(string(nodes_byte), ","), nil
+	return strings.Split(string(nodes_byte), ","), err
 }
 
-func GetGroupNodes(group string) ([]string, error) {
+func GetGroupNodes(group string) ([]string, tree_lib.TreeError) {
 	nodes_byte, err := Get(DB_GROUP, []byte(group))
-	if err != nil {
+	err.From = tree_lib.FROM_GET_GROUP_NODES
+	if !err.IsNull() {
 		return nil, err
 	}
 
-	return strings.Split(string(nodes_byte), ","), nil
+	return strings.Split(string(nodes_byte), ","), err
 }
 
-func GroupAddNode(group, node string) (err error) {
+func GroupAddNode(group, node string) (err tree_lib.TreeError) {
 	var gB []byte
+	err.From = tree_lib.FROM_GROUP_ADD_NODE
 	gB, err = Get(DB_GROUP, []byte(group))
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
@@ -129,34 +135,37 @@ func GroupAddNode(group, node string) (err error) {
 	return
 }
 
-func AddNodeToHisGroups(node string) (err error) {
+func AddNodeToHisGroups(node string) (err tree_lib.TreeError) {
 	var nf node_info.NodeInfo
+	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_GROUPS
 	nf, err = GetNodeInfo(node)
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
 	for _, g :=range nf.Groups {
 		err = GroupAddNode(g, node)
-		if err != nil {
+		if !err.IsNull() {
 			return
 		}
 	}
 	return
 }
 
-func GetNodesByTagName(tag string) ([]string, error) {
+func GetNodesByTagName(tag string) ([]string, tree_lib.TreeError) {
 	nodes_byte, err := Get(DB_TAG, []byte(tag))
-	if err != nil {
+	err.From = tree_lib.FROM_GET_NODES_BY_TAG_NAME
+	if !err.IsNull() {
 		return nil, err
 	}
-	return strings.Split(string(nodes_byte), ","), nil
+	return strings.Split(string(nodes_byte), ","), err
 }
 
-func TagAddNode(tag, node string) (err error) {
+func TagAddNode(tag, node string) (err tree_lib.TreeError) {
 	var gB []byte
+	err.From = tree_lib.FROM_TAG_ADD_NODE
 	gB, err = Get(DB_TAG, []byte(tag))
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
@@ -167,16 +176,17 @@ func TagAddNode(tag, node string) (err error) {
 	return
 }
 
-func AddNodeToHisTags(node string) (err error) {
+func AddNodeToHisTags(node string) (err tree_lib.TreeError) {
 	var nf node_info.NodeInfo
+	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_TAGS
 	nf, err = GetNodeInfo(node)
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
 	for _, t :=range nf.Tags {
 		err = TagAddNode(t, node)
-		if err != nil {
+		if !err.IsNull() {
 			return
 		}
 	}
@@ -184,13 +194,14 @@ func AddNodeToHisTags(node string) (err error) {
 }
 
 
-func GetParentInfo(node string) (node_info.NodeInfo, error) {
+func GetParentInfo(node string) (node_info.NodeInfo, tree_lib.TreeError) {
 	nr, err := GetRelations(node)
-	if err != nil {
+	err.From = tree_lib.FROM_GET_PARENT_INFO
+	if !err.IsNull() {
 		return node_info.NodeInfo{}, err
 	}
 	if len(nr[0]) == 0 {
-		return node_info.NodeInfo{}, nil
+		return node_info.NodeInfo{}, err
 	}
 
 	// Node relations firs element should be parent node

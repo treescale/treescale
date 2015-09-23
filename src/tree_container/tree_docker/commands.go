@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"github.com/pquerna/ffjson/ffjson"
 	"strings"
+	"tree_lib"
 )
 
 
@@ -51,11 +52,12 @@ func writeDcOutput(out io.Writer, dc_out DockerCmdOutput) {
 
 func HandleApiCommand(cmd_data []byte, api_out io.Writer) {
 	var (
-		err error
+		err tree_lib.TreeError
 		cmd DockerCmd
 	)
-	err = ffjson.Unmarshal(cmd_data, &cmd)
-	if err != nil {
+	err.From = tree_lib.FROM_HANDLE_API_COMMAND
+	err.Err = ffjson.Unmarshal(cmd_data, &cmd)
+	if !err.IsNull() {
 		writeOutput(api_out, true, fmt.Sprintf("--- Unable to parse Container command data: %s", string(cmd_data)), map[string]string{})
 		return
 	}
@@ -66,9 +68,9 @@ func HandleApiCommand(cmd_data []byte, api_out io.Writer) {
 
 func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 	var (
-		err error
+		err tree_lib.TreeError
 	)
-
+	err.From = tree_lib.FROM_CONTAINER_COMMANDS
 	switch cmd.Command {
 	case COMMAND_DOCKER_CONTAINER_CREATE, COMMAND_DOCKER_CONTAINER_START:
 		{
@@ -80,8 +82,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				start_cont = false
 			)
 			if cc, ok := cmd.Content["count"]; ok {
-				cont_count, err = strconv.Atoi(cc)
-				if err != nil {
+				cont_count, err.Err = strconv.Atoi(cc)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Invalid number given for Containers count: %s", cc), cmd.Content)
 					return
 				}
@@ -104,8 +106,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 
 			if cs, ok := cmd.Content["cpu"]; ok {
 				var cs_int int
-				cs_int, err = strconv.Atoi(cs)
-				if err != nil {
+				cs_int, err.Err = strconv.Atoi(cs)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Invalid number given for CPU Shares: %s", cs), cmd.Content)
 					return
 				}
@@ -114,8 +116,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 
 			if ram, ok := cmd.Content["ram"]; ok {
 				var ram_int int
-				ram_int, err = strconv.Atoi(ram)
-				if err != nil {
+				ram_int, err.Err = strconv.Atoi(ram)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Invalid number given for RAM: %s", ram), cmd.Content)
 					return
 				}
@@ -134,8 +136,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 			// If we just want to start container by ID just running it and returning
 			if cmd.Command == COMMAND_DOCKER_CONTAINER_START {
 				if cid, ok := cmd.Content["container"]; ok {
-					err = DockerClient.StartContainer(cid, host_conf)
-					if err != nil {
+					err.Err = DockerClient.StartContainer(cid, host_conf)
+					if !err.IsNull() {
 						writeOutput(out, true, fmt.Sprintf("--- Unable to start container: %s", err.Error()), cmd.Content)
 						return
 					}
@@ -145,19 +147,19 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 			}
 
 			for i := 0; i < cont_count; i++ {
-				cont, err = DockerClient.CreateContainer(docker.CreateContainerOptions{
+				cont, err.Err = DockerClient.CreateContainer(docker.CreateContainerOptions{
 					Config: conf,
 					HostConfig: host_conf,
 				})
 
-				if err != nil {
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Container creation error: %s", err.Error()), cmd.Content)
 					return
 				}
 				writeOutput(out, false, fmt.Sprintf("Container Created \n  ID -> %s\n  Name -> %s\n", cont.ID, cont.Name), cmd.Content)
 				if start_cont {
-					err = DockerClient.StartContainer(cont.ID, host_conf)
-					if err != nil {
+					err.Err = DockerClient.StartContainer(cont.ID, host_conf)
+					if !err.IsNull() {
 						writeOutput(out, true, fmt.Sprintf("--- Unable to start container: %s", err.Error()), cmd.Content)
 						return
 					}
@@ -168,8 +170,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 	case COMMAND_DOCKER_CONTAINER_PAUSE:
 		{
 			if cid, ok := cmd.Content["container"]; ok {
-				err = DockerClient.PauseContainer(cid)
-				if err != nil {
+				err.Err = DockerClient.PauseContainer(cid)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Unable to pause container: %s", err.Error()), cmd.Content)
 					return
 				}
@@ -179,8 +181,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 	case COMMAND_DOCKER_CONTAINER_RESUME:
 		{
 			if cid, ok := cmd.Content["container"]; ok {
-				err = DockerClient.UnpauseContainer(cid)
-				if err != nil {
+				err.Err = DockerClient.UnpauseContainer(cid)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Unable to Resume container: %s", err.Error()), cmd.Content)
 					return
 				}
@@ -191,8 +193,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 		{
 			if cid, ok := cmd.Content["container"]; ok {
 				DockerClient.StopContainer(cid, 0)  // Stopping container if it exists
-				err = DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: cid, Force: true})
-				if err != nil {
+				err.Err = DockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: cid, Force: true})
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Unable to Resume container: %s", err.Error()), cmd.Content)
 					return
 				}
@@ -207,8 +209,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 			)
 
 			if tm, ok := cmd.Content["timeout"]; ok {
-				st_int, err = strconv.Atoi(tm)
-				if err != nil {
+				st_int, err.Err = strconv.Atoi(tm)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Invalid number given for Timeout: %s", tm), cmd.Content)
 					return
 				}
@@ -216,8 +218,8 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 			}
 
 			if cid, ok := cmd.Content["container"]; ok {
-				err = DockerClient.StopContainer(cid, stop_timeout)
-				if err != nil {
+				err.Err = DockerClient.StopContainer(cid, stop_timeout)
+				if !err.IsNull() {
 					writeOutput(out, true, fmt.Sprintf("--- Unable to Stop container: %s", err.Error()), cmd.Content)
 					return
 				}
@@ -276,7 +278,7 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				registery_address = raddr
 			}
 
-			err = DockerClient.PullImage(docker.PullImageOptions{
+			err.Err = DockerClient.PullImage(docker.PullImageOptions{
 				Registry: registry,
 				Repository: img_repo,
 				Tag: tag,
@@ -288,18 +290,18 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				ServerAddress: registery_address,
 			})
 
-			if err != nil {
+			if !err.IsNull() {
 				writeOutput(out, true, fmt.Sprintf("--- Pulling image error: %s", err.Error()), cmd.Content)
 				return
 			}
 
-			err = DockerClient.TagImage(fmt.Sprintf("%s:%s", img_repo, tag), docker.TagImageOptions{
+			err.Err = DockerClient.TagImage(fmt.Sprintf("%s:%s", img_repo, tag), docker.TagImageOptions{
 				Repo: repository,
 				Tag: tag,
 				Force: true,
 			})
 
-			if err != nil {
+			if !err.IsNull() {
 				writeOutput(out, true, fmt.Sprintf("--- Error Renaming pulled image %s : %s", fmt.Sprintf("%s:%s", img_repo, tag), err.Error()), cmd.Content)
 				DockerClient.RemoveImageExtended(fmt.Sprintf("%s:%s", img_repo, tag), docker.RemoveImageOptions{Force:true})
 				return
@@ -331,9 +333,9 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				}
 			}
 
-			err = DockerClient.RemoveImageExtended(image, docker.RemoveImageOptions{Force:force})
+			err.Err = DockerClient.RemoveImageExtended(image, docker.RemoveImageOptions{Force:force})
 
-			if err != nil {
+			if !err.IsNull() {
 				writeOutput(out, true, fmt.Sprintf("--- Error Deleting image %s : %s", image, err.Error()), cmd.Content)
 				return
 			}
@@ -356,7 +358,7 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				return
 			}
 
-			container[cont_id], err = DockerClient.InspectContainer(cont_id)
+			container[cont_id], err.Err = DockerClient.InspectContainer(cont_id)
 			writeDcOutput(out, DockerCmdOutput{
 				Error: false,
 				Message: "Container Inspected Successfully",
@@ -383,15 +385,15 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				}
 			}
 
-			containers, err = DockerClient.ListContainers(docker.ListContainersOptions{All:all})
-			if err != nil {
+			containers, err.Err = DockerClient.ListContainers(docker.ListContainersOptions{All:all})
+			if !err.IsNull() {
 				writeOutput(out, true, "--- Error Getting Container list", cmd.Content)
 				return
 			}
 
 			for _, c :=range containers {
-				w_list[c.ID], err = DockerClient.InspectContainer(c.ID)
-				if err != nil {
+				w_list[c.ID], err.Err = DockerClient.InspectContainer(c.ID)
+				if !err.IsNull() {
 					writeDcOutput(out, DockerCmdOutput{
 						Error: true,
 						Message: fmt.Sprintf("--- Error Inspecting container %s", c.ID),
@@ -425,15 +427,15 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				}
 			}
 
-			images, err = DockerClient.ListImages(docker.ListImagesOptions{All:all})
-			if err != nil {
+			images, err.Err = DockerClient.ListImages(docker.ListImagesOptions{All:all})
+			if !err.IsNull() {
 				writeOutput(out, true, "--- Error Getting Image list", cmd.Content)
 				return
 			}
 
 			for _, im :=range images {
-				w_list[im.ID], err = DockerClient.InspectImage(im.ID)
-				if err != nil {
+				w_list[im.ID], err.Err = DockerClient.InspectImage(im.ID)
+				if !err.IsNull() {
 					writeDcOutput(out, DockerCmdOutput{
 						Error: true,
 						Message: fmt.Sprintf("--- Error Inspecting image %s", im.ID),

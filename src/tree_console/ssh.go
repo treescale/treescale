@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"os"
 	"net"
+	"tree_lib"
 )
 
 
@@ -28,11 +29,11 @@ func ssh_agent() ssh.AuthMethod {
 	return nil
 }
 
-func (ssc *SSHConfig) Connect() (err error) {
+func (ssc *SSHConfig) Connect() (err tree_lib.TreeError) {
 	var (
 		client_conf		ssh.ClientConfig
 	)
-
+	err.From = tree_lib.FROM_SSH_CONNECT
 	client_conf.User = ssc.Username
 	if len(ssc.Password) > 0 {
 		client_conf.Auth = []ssh.AuthMethod{ssh.Password(ssc.Password)}
@@ -40,26 +41,27 @@ func (ssc *SSHConfig) Connect() (err error) {
 		client_conf.Auth = []ssh.AuthMethod{ssh_agent()}
 	}
 
-	ssc.conn, err = ssh.Dial("tcp", fmt.Sprintf("%s:%d", ssc.Host, ssc.Port), &client_conf)
+	ssc.conn, err.Err = ssh.Dial("tcp", fmt.Sprintf("%s:%d", ssc.Host, ssc.Port), &client_conf)
 	return
 }
 
-func (ssc *SSHConfig) Disconnect() (err error) {
+func (ssc *SSHConfig) Disconnect() (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_SSH_DISCONNECT
 	if ssc.conn != nil {
-		err = ssc.conn.Close()
+		err.Err = ssc.conn.Close()
 	}
 	return
 }
 
-func (ssc *SSHConfig) Exec(cmd string, stdout, stderr io.Writer, input chan string) (err error) {
+func (ssc *SSHConfig) Exec(cmd string, stdout, stderr io.Writer, input chan string) (err tree_lib.TreeError) {
 	var (
 		session 		*ssh.Session
 		stdin			io.WriteCloser
 		command_ended	bool
 	)
-
-	session, err = ssc.conn.NewSession()
-	if err != nil {
+	err.From = tree_lib.FROM_SSH_EXEC
+	session, err.Err = ssc.conn.NewSession()
+	if !err.IsNull() {
 		return
 	}
 	defer session.Close()
@@ -67,13 +69,13 @@ func (ssc *SSHConfig) Exec(cmd string, stdout, stderr io.Writer, input chan stri
 	session.Stdout = stdout
 	session.Stderr = stderr
 
-	stdin, err = session.StdinPipe()
-	if err != nil {
+	stdin, err.Err = session.StdinPipe()
+	if !err.IsNull() {
 		return
 	}
 
-	err = session.Start(cmd)
-	if err != nil {
+	err.Err = session.Start(cmd)
+	if !err.IsNull() {
 		return
 	}
 	command_ended = false
@@ -82,35 +84,35 @@ func (ssc *SSHConfig) Exec(cmd string, stdout, stderr io.Writer, input chan stri
 			io.Copy(stdin, bytes.NewBufferString(<- input))
 		}
 	}()
-	err = session.Wait()
+	err.Err = session.Wait()
 	command_ended = true
 	return
 }
 
-func (ssc *SSHConfig) CopyFile(local_path, remote_path string) (err error) {
+func (ssc *SSHConfig) CopyFile(local_path, remote_path string) (err tree_lib.TreeError) {
 	var (
 		sft				*sftp.Client
 		f				*sftp.File
 		file_data		[]byte
 	)
-
-	sft, err = sftp.NewClient(ssc.conn)
-	if err != nil {
+	err.From = tree_lib.FROM_SSH_COPY_FILE
+	sft, err.Err = sftp.NewClient(ssc.conn)
+	if !err.IsNull() {
 		return
 	}
 	defer sft.Close()
 
-	file_data, err = ioutil.ReadFile(local_path)
-	if err != nil {
+	file_data, err.Err = ioutil.ReadFile(local_path)
+	if !err.IsNull() {
 		return
 	}
 
-	f, err = sft.Create(remote_path)
-	if err != nil {
+	f, err.Err = sft.Create(remote_path)
+	if !err.IsNull() {
 		return
 	}
 
-	_, err = f.Write(file_data)
+	_, err.Err = f.Write(file_data)
 	f.Close()
 	sft.Close()
 	return

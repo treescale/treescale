@@ -97,22 +97,23 @@ func RandomFileName(n int) string {
 	return string(b)
 }
 
-func CopyFile(src, dst string) (err error) {
+func CopyFile(src, dst string) (err TreeError) {
 	var (
 		db_f, new_db_f	*os.File
 	)
-	db_f, err = os.Open(src)
-	if err != nil {
+	err.From = FROM_COPY_FILE
+	db_f, err.Err = os.Open(src)
+	if !err.IsNull() {
 		return
 	}
 	defer db_f.Close()
 
-	new_db_f, err = os.Create(dst)
-	if err != nil {
+	new_db_f, err.Err = os.Create(dst)
+	if !err.IsNull() {
 		return
 	}
 	defer new_db_f.Close()
 
-	_, err = io.Copy(new_db_f, db_f)
+	_, err.Err = io.Copy(new_db_f, db_f)
 	return
 }

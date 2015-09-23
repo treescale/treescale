@@ -5,6 +5,7 @@ import (
 	"tree_log"
 	"github.com/pquerna/ffjson/ffjson"
 	"reflect"
+	"tree_lib"
 )
 
 
@@ -29,17 +30,17 @@ type EventEmitter struct {
 var (
 	events			=	make(map[string][]func(*Event))
 	log_from_event	=	"Event handling and firing "
-	NetworkEmitCB		func(*EventEmitter)error
+	NetworkEmitCB		func(*EventEmitter)tree_lib.TreeError
 )
 
 func TriggerFromData(data []byte) {
 	var (
 		e	=	new(Event)
-		err 	error
+		err 	tree_lib.TreeError
 	)
-
-	err = ffjson.Unmarshal(data, e)
-	if err != nil {
+	err.From = tree_lib.FROM_TRIGGER_FROM_DATA
+	err.Err = ffjson.Unmarshal(data, e)
+	if !err.IsNull() {
 		tree_log.Error(log_from_event, err.Error())
 		return
 	}
@@ -97,6 +98,6 @@ func Delete(name string) {
 }
 
 // Shortcut network event emitter callback
-func Emit(em *EventEmitter) error {
+func Emit(em *EventEmitter) tree_lib.TreeError {
 	return NetworkEmitCB(em)
 }

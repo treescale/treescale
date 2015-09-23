@@ -21,33 +21,33 @@ var (
 	log_from_child		=	"Parent connection handler"
 )
 
-func ListenParent() (err error) {
+func ListenParent() (err tree_lib.TreeError) {
 	var (
 		addr	*net.TCPAddr
 		conn	*net.TCPConn
 	)
-
+	err.From = tree_lib.FROM_LISTEN_PARENT
 	// If port is not set, setting it to default 8888
 	if node_info.CurrentNodeInfo.TreePort == 0 {
 		node_info.CurrentNodeInfo.TreePort = 8888
 	}
 
-	addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", node_info.CurrentNodeInfo.TreeIp, node_info.CurrentNodeInfo.TreePort))
-	if err != nil {
-		tree_log.Error(log_from_child, "Network Listen function", err.Error())
+	addr, err.Err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", node_info.CurrentNodeInfo.TreeIp, node_info.CurrentNodeInfo.TreePort))
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Network Listen function", err.Error())
 		return
 	}
 
-	listener, err = net.ListenTCP("tcp", addr)
-	if err != nil {
-		tree_log.Error(log_from_child, "Network Listen function", err.Error())
+	listener, err.Err = net.ListenTCP("tcp", addr)
+	if !err.IsNull() {
+		tree_log.Error(err.From, "Network Listen function", err.Error())
 		return
 	}
 
 	for {
-		conn, err = listener.AcceptTCP()
-		if err != nil {
-			tree_log.Error(log_from_child, err.Error())
+		conn, err.Err = listener.AcceptTCP()
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 			return
 		}
 
@@ -60,31 +60,31 @@ func ListenParent() (err error) {
 func handle_api_or_parent_connection(conn *net.TCPConn) {
 	defer conn.Close()  // Connection should be closed, after return this function
 	var (
-		err 		error
+		err 		tree_lib.TreeError
 		msg_data	[]byte
 		conn_name	string
 		is_api	=	false
 	)
-
+	err.From = tree_lib.FROM_HANDLE_API_OR_PARENT_CONNECTION
 	// Making basic handshake to check the API validation
 	// Connected Parent receiving name of the child(current node) and checking is it valid or not
 	// if it is valid name then parent sending his name as an answer
 	// otherwise it sending CLOSE_CONNECTION_MARK and closing connection
 
-	_, err = tree_lib.SendMessage([]byte(node_info.CurrentNodeInfo.Name), conn)
-	if err != nil {
-		tree_log.Error(log_from_child, err.Error())
+	_, err.Err = tree_lib.SendMessage([]byte(node_info.CurrentNodeInfo.Name), conn)
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
 	msg_data, err = tree_lib.ReadMessage(conn)
-	if err != nil {
-		tree_log.Error(log_from_child, err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 	conn_name = string(msg_data)
 	if conn_name == CLOSE_CONNECTION_MARK {
-		tree_log.Info(log_from_child, "Connection closed by parent node. Bad tree network handshake ! ", "Parent Addr: ", conn.RemoteAddr().String())
+		tree_log.Info(err.From, "Connection closed by parent node. Bad tree network handshake ! ", "Parent Addr: ", conn.RemoteAddr().String())
 		return
 	}
 
@@ -105,8 +105,8 @@ func handle_api_or_parent_connection(conn *net.TCPConn) {
 	// Listening parent messages
 	for {
 		msg_data, err = tree_lib.ReadMessage(conn)
-		if err != nil {
-			tree_log.Error(log_from_child, " reading data from -> ", conn_name, " ", err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, " reading data from -> ", conn_name, " ", err.Error())
 			break
 		}
 

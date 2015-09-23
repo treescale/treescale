@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os"
 	"log"
+	"tree_lib"
 )
 
 const (
@@ -17,9 +18,14 @@ const (
 )
 
 func HandleNodeCommand(cmd *cobra.Command, args []string) {
-	name, err := cmd.Flags().GetString("set-name")
-	if err != nil {
-		tree_log.Error(log_from_node_console, err.Error())
+	var (
+		name		string
+		err 		tree_lib.TreeError
+	)
+	err.From = tree_lib.FROM_HANDLE_NODE_COMMAND
+	name, err.Err = cmd.Flags().GetString("set-name")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 	}
 
 	// If we have set-name flag then we just setting current_node in database and exiting
@@ -28,31 +34,31 @@ func HandleNodeCommand(cmd *cobra.Command, args []string) {
 		return
 	}
 	daemon := false
-	daemon, err = cmd.Flags().GetBool("daemon")
-	if err != nil {
-		tree_log.Error(log_from_node_console, err.Error())
+	daemon, err.Err = cmd.Flags().GetBool("daemon")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
 	if daemon {
 		cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("%s node > %s 2>&1 &", os.Args[0], tree_log.LogFile))
-		err = cmd.Run()
-		if err != nil {
-			log.Fatal(err)
+		err.Err = cmd.Run()
+		if !err.IsNull() {
+			log.Fatal(err.Err)
 		}
 		return
 	}
 
-	name, err = cmd.Flags().GetString("name")
-	if err != nil {
-		tree_log.Error(log_from_node_console, err.Error())
+	name, err.Err = cmd.Flags().GetString("name")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
 	if len(name) == 0 {
 		current_node_byte, err := tree_db.Get(tree_db.DB_RANDOM, []byte("current_node"))
-		if err != nil {
-			tree_log.Error(log_from_node_console, "Getting current node name from Random database, ", err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, "Getting current node name from Random database, ", err.Error())
 			return
 		}
 		if len(current_node_byte) == 0 {
@@ -61,8 +67,8 @@ func HandleNodeCommand(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		err = tree_node.SetCurrentNode(name)
-		if err != nil {
-			tree_log.Error(log_from_node_console, err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 			return
 		}
 	}
@@ -72,14 +78,16 @@ func HandleNodeCommand(cmd *cobra.Command, args []string) {
 	})
 
 	go func() {
+		var err tree_lib.TreeError
+		err.From = tree_lib.FROM_HANDLE_NODE_COMMAND
 		time.Sleep(time.Second * 2)
 		if name == "tree1" {
 			em := &tree_event.EventEmitter{}
 			em.Name = "test"
 			em.Data = []byte("aaaaaaaaaaaaaaaa")
 			em.ToNodes = []string{"tree2"}
-			err := tree_event.Emit(em)
-			if err != nil {
+			err = tree_event.Emit(em)
+			if !err.IsNull() {
 				fmt.Println(err.Error())
 			}
 		}

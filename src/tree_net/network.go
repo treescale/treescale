@@ -61,16 +61,16 @@ func Restart() {
 	Start()
 }
 
-func handle_message(is_api, from_parent bool, msg []byte) (err error) {
+func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeError) {
 	var (
 		body_index	int
 		path		tree_path.Path
 		node_names	[]string
 		handle_ev	bool
 	)
-
+	err.From = tree_lib.FROM_HANDLE_MESSAGE
 	body_index, path, err = tree_path.PathFromMessage(msg)
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 	handle_ev = false
@@ -107,7 +107,8 @@ func handle_message(is_api, from_parent bool, msg []byte) (err error) {
 	return
 }
 
-func SendToNames(data []byte, path *tree_path.Path, names...string) (err error) {
+func SendToNames(data []byte, path *tree_path.Path, names...string) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_SEND_TO_NAMES
 	for _, n :=range names {
 		var send_conn *net.TCPConn
 		send_conn = nil
@@ -126,22 +127,23 @@ func SendToNames(data []byte, path *tree_path.Path, names...string) (err error) 
 
 		if send_conn != nil {
 			err = SendToConn(data, path, send_conn)
-			if err != nil {
-				tree_log.Error("Send to Node Names", err.Error())
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
 			}
 		}
 	}
 	return
 }
 
-func SendToConn(data []byte, path *tree_path.Path, conn *net.TCPConn) (err error) {
+func SendToConn(data []byte, path *tree_path.Path, conn *net.TCPConn) (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_SEND_TO_CONN
 	var (
 		p_data	[]byte
 		p_len	=	make([]byte, 4)
 		msg_len	=	make([]byte, 4)
 		buf		=	bytes.Buffer{}
 	)
-	p_data, err = ffjson.Marshal(path)
+	p_data, err.Err = ffjson.Marshal(path)
 	binary.LittleEndian.PutUint32(p_len, uint32(len(p_data)))
 	binary.LittleEndian.PutUint32(msg_len, uint32(len(p_data)) + uint32(len(data)) + uint32(4))
 
@@ -150,33 +152,34 @@ func SendToConn(data []byte, path *tree_path.Path, conn *net.TCPConn) (err error
 	buf.Write(p_data)
 	buf.Write(data)
 
-	_, err = conn.Write(buf.Bytes())
+	_, err.Err = conn.Write(buf.Bytes())
 	return
 }
 
-func TcpConnect(ip string, port int) (conn *net.TCPConn, err error) {
+func TcpConnect(ip string, port int) (conn *net.TCPConn, err tree_lib.TreeError) {
 	var (
 		tcpAddr *net.TCPAddr
 	)
-	tcpAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ip, port))
-	if err != nil {
+	err.From = tree_lib.FROM_TCP_CONNECT
+	tcpAddr, err.Err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ip, port))
+	if !err.IsNull() {
 		return
 	}
 
-	conn, err = net.DialTCP("tcp", nil, tcpAddr)
+	conn, err.Err = net.DialTCP("tcp", nil, tcpAddr)
 	return
 }
 
-func NetworkEmmit(em *tree_event.EventEmitter) (err error) {
+func NetworkEmmit(em *tree_event.EventEmitter) (err tree_lib.TreeError) {
 	var (
 		path 		*tree_path.Path
 		ev		=	em.Event
 		sdata		[]byte
 	)
-
+	err.From = tree_lib.FROM_NETWORK_EMIT
 	if len(em.Path.Groups) == 0 && len(em.Path.NodePaths) == 0 && len(em.Path.Tags) == 0 {
 		path, err = tree_graph.GetPath(node_info.CurrentNodeInfo.Name, em.ToNodes, em.ToTags, em.ToGroups)
-		if err != nil {
+		if !err.IsNull() {
 			return
 		}
 		ev.Path = (*path)
@@ -187,8 +190,8 @@ func NetworkEmmit(em *tree_event.EventEmitter) (err error) {
 		em.From = node_info.CurrentNodeInfo.Name
 	}
 
-	sdata, err = ffjson.Marshal(ev)
-	if err != nil {
+	sdata, err.Err = ffjson.Marshal(ev)
+	if !err.IsNull() {
 		return
 	}
 
@@ -196,60 +199,60 @@ func NetworkEmmit(em *tree_event.EventEmitter) (err error) {
 	return
 }
 
-func ApiEmit(e *tree_event.Event, nodes...string) (err error) {
+func ApiEmit(e *tree_event.Event, nodes...string) (err tree_lib.TreeError) {
 	var (
 		sdata	[]byte
 	)
-
+	err.From = tree_lib.FROM_API_EMIT
 	// If from not set, setting it before network sending
 	if len(e.From) == 0 {
 		e.From = node_info.CurrentNodeInfo.Name
 	}
 
 
-	sdata, err = ffjson.Marshal(e)
-	if err != nil {
+	sdata, err.Err = ffjson.Marshal(e)
+	if !err.IsNull() {
 		return
 	}
 
 	for _, n :=range nodes {
 		if c, ok :=child_connections[n]; ok && c != nil {
 			err = SendToConn(sdata, &tree_path.Path{}, c)
-			if err != nil {
-				tree_log.Error("Api emitter", "Unable to send data to node <", n, "> ", err.Error())
+			if !err.IsNull() {
+				tree_log.Error(err.From, "Unable to send data to node <", n, "> ", err.Error())
 			}
 		} else {
-			tree_log.Error("Api emitter", "Please connect to Node <", n, "> before sending data")
+			tree_log.Error(err.From, "Please connect to Node <", n, "> before sending data")
 		}
 	}
 
 	return
 }
 
-func EmitToAPI(e *tree_event.Event, apis...string) (err error) {
+func EmitToAPI(e *tree_event.Event, apis...string) (err tree_lib.TreeError) {
 	var (
 		sdata	[]byte
 	)
-
+	err.From = tree_lib.FROM_EMIT_TO_API
 	// If from not set, setting it before network sending
 	if len(e.From) == 0 {
 		e.From = node_info.CurrentNodeInfo.Name
 	}
 
 
-	sdata, err = ffjson.Marshal(e)
-	if err != nil {
+	sdata, err.Err = ffjson.Marshal(e)
+	if !err.IsNull() {
 		return
 	}
 
 	for _, n :=range apis {
 		if c, ok :=api_connections[n]; ok && c != nil {
 			err = SendToConn(sdata, &tree_path.Path{}, c)
-			if err != nil {
-				tree_log.Error("Emit to API", "Unable to send data to api <", n, "> ", err.Error())
+			if !err.IsNull() {
+				tree_log.Error(err.From, "Unable to send data to api <", n, "> ", err.Error())
 			}
 		} else {
-			tree_log.Error("Emit to API", "Please connect to api <", n, "> before sending data")
+			tree_log.Error(err.From, "Please connect to api <", n, "> before sending data")
 		}
 	}
 

@@ -15,6 +15,7 @@ import (
 	"tree_balancer"
 	"tree_container/tree_docker"
 	"tree_lib"
+	"path"
 )
 
 const (
@@ -147,120 +148,140 @@ func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 
 
 func DBFromConfig() {
+	var err tree_lib.TreeError
+	err.From = tree_lib.FROM_DB_FROM_CONFIG
+
 	for n, nf :=range GLOBAL_CONFIG.TreeNode {
-		err := tree_db.SetNodeInfo(n, nf)
-		if err != nil {
-			tree_log.Error(log_from_config, err.Error())
+		err = tree_db.SetNodeInfo(n, nf)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 		}
 	}
 
 	// After having All nodes information now we can set related things for every node
 	for n, _ :=range GLOBAL_CONFIG.TreeNode {
 		// Setting relations for every Node
-		err := tree_db.SetRelations(n)
-		if err != nil {
-			tree_log.Error(log_from_config, err.Error())
+		err = tree_db.SetRelations(n)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 		}
 
 		// Setting Groups with node lists in Group database
 		err = tree_db.AddNodeToHisGroups(n)
-		if err != nil {
-			tree_log.Error(log_from_config, err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 		}
 
 		// Setting Tags with node lists in Group database
 		err = tree_db.AddNodeToHisTags(n)
-		if err != nil {
-			tree_log.Error(log_from_config, err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
 		}
 	}
 
 	// Setting Balancers
 	for b, b_conf :=range GLOBAL_CONFIG.Balancer {
-		b_data, err := ffjson.Marshal(b_conf)
-		if err != nil {
-			tree_log.Error(log_from_config, "Error encoding balancer config", b, " -> ", err.Error())
+		var b_data []byte
+		b_data, err.Err = ffjson.Marshal(b_conf)
+		if !err.IsNull() {
+			tree_log.Error(err.From, "Error encoding balancer config", b, " -> ", err.Error())
 			continue
 		}
 		err = tree_db.Set(tree_db.DB_BALANCER, []byte(b), b_data)
-		if err != nil {
-			tree_log.Error(log_from_config, "Error setting balancer config", b, " -> ", err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, "Error setting balancer config", b, " -> ", err.Error())
 		}
 	}
 
 	// Setting Registry
 	for r, r_conf :=range GLOBAL_CONFIG.Registry {
-		r_data, err := ffjson.Marshal(r_conf)
-		if err != nil {
-			tree_log.Error(log_from_config, "Error encoding registry config", r, " -> ", err.Error())
+		var r_data []byte
+		r_data, err.Err = ffjson.Marshal(r_conf)
+		if !err.IsNull() {
+			tree_log.Error(err.From, "Error encoding registry config", r, " -> ", err.Error())
 			continue
 		}
 		err = tree_db.Set(tree_db.DB_REGISTRY, []byte(r), r_data)
-		if err != nil {
-			tree_log.Error(log_from_config, "Error setting registry config", r, " -> ", err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, "Error setting registry config", r, " -> ", err.Error())
 		}
 	}
 }
 
 func CompileConfig(cmd *cobra.Command, args []string) {
-	files, err := cmd.Flags().GetStringSlice("files")
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	var (
+		files 			[]string
+		conf_type 		string
+		out_file		string
+		paths 			[]string
+		files_in_path	[]string
+		err 			tree_lib.TreeError
+
+	)
+	err.From = tree_lib.FROM_COMPILE_CONFIG
+	files, err.Err = cmd.Flags().GetStringSlice("files")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
-	conf_type, err := cmd.Flags().GetString("type")
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	conf_type, err.Err = cmd.Flags().GetString("type")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
-	out_file, err := cmd.Flags().GetString("out")
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	out_file, err.Err = cmd.Flags().GetString("out")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
-	paths, err := cmd.Flags().GetStringSlice("path")
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	paths, err.Err = cmd.Flags().GetStringSlice("path")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
-	files_in_path, err := PathFiles(conf_type, paths)
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	files_in_path, err.Err = PathFiles(conf_type, paths)
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 	for _, a := range files_in_path {
 		files = append(files, a)
 	}
 	err = ParseFiles(conf_type, files...)
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 	DBFromConfig()
 	err = tree_db.DumpDBPath(out_file)
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 	// Deleting database dir from console part
-	err = os.RemoveAll(tree_db.DB_DIR)
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	err.Err = os.RemoveAll(tree_db.DB_DIR)
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 	}
 }
 
 func RestoreFromConfigDump(cmd *cobra.Command, args []string) {
-	dump_file, err := cmd.Flags().GetString("file")
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	var (
+		dump_file		string
+		err 			tree_lib.TreeError
+	)
+	err.From = tree_lib.FROM_RESTORE_FROM_CONFIG_DUMP
+	dump_file, err.Err = cmd.Flags().GetString("file")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 
 	err = tree_db.LoadFromDumpPath(dump_file)
-	if err != nil {
-		tree_log.Error(log_from_config, err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
 		return
 	}
 }

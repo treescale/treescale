@@ -39,12 +39,11 @@ func init() {
 	}
 
 	// creating Buckets in database
-	tree_db.Update(func(tx *bolt.Tx) (err tree_lib.TreeError) {
-		err.From = tree_lib.FROM_INIT
+	tree_db.Update(func(tx *bolt.Tx) (err error) {
 		// Setting databases
 		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS, DB_REGISTRY} {
-			_, err.Err = tx.CreateBucketIfNotExists(d)
-			if !err.IsNull() {
+			_, err = tx.CreateBucketIfNotExists(d)
+			if err != nil {
 				return err
 			}
 		}
@@ -65,12 +64,12 @@ func CloseDB() {
 	tree_db.Close()
 }
 
-func LoadFromDumpPath(path string) (err error) {
+func LoadFromDumpPath(path string) (err tree_lib.TreeError) {
 	tree_lib.CopyFile(path, DB_DIR)
 	return
 }
 
-func DumpDBPath(path string) (err error) {
+func DumpDBPath(path string) (err tree_lib.TreeError) {
 	tree_lib.CopyFile(DB_DIR, path)
 	return
 }

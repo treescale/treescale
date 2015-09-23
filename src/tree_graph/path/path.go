@@ -13,10 +13,11 @@ type Path struct {
 	Tags			[]string				`json:"tags" toml:"tags" yaml:"tags"`
 }
 
-func PathFromMessage(msg []byte) (body_index int, p Path, err error) {
+func PathFromMessage(msg []byte) (body_index int, p Path, err tree_lib.TreeError) {
 	// First 4 bytes in message is a length of json encoded Path
+	err.From = tree_lib.FROM_PATH_FROM_MESSAGE
 	path_len := int(binary.LittleEndian.Uint32(msg[:4]))
-	err = ffjson.Unmarshal(msg[4:path_len+4], &p)
+	err.Err = ffjson.Unmarshal(msg[4:path_len+4], &p)
 	body_index = 4 + path_len
 	return
 }

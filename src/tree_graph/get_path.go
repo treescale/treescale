@@ -14,39 +14,39 @@ func GroupPath(from_node, group_name string) (map[string][]string, tree_lib.Tree
 		err 			tree_lib.TreeError
 		nodes_in_group	[]string
 	)
-	err.From = "GroupPath"
+	err.From = tree_lib.FROM_GROUP_PATH
 	nodes_in_group, err = tree_db.GetGroupNodes(group_name)
-	if err != nil {
+	if !err.IsNull() {
 		return nil, err
 	}
 	for _, a := range nodes_in_group {
 		check[a] = true
 	}
 	path, err = NodePath(from_node, group_name, true)
-	if err != nil {
+	if !err.IsNull() {
 		return nil, err
 	}
-	return path, nil
+	return path, err
 }
 
-func NodePath(from_node, node_name string, isgroup bool) (map[string][]string, error){
+func NodePath(from_node, node_name string, isgroup bool) (map[string][]string, tree_lib.TreeError){
 	var (
 		node					string
-		err						error
+		err						tree_lib.TreeError
 		path =					make(map[string][]string)
 		path1 					[]string
 		relations = 			make(map[string][]string)
 		nodes  					[]string
 		from = 					make(map[string]string)
 	)
-
+	err.From = tree_lib.FROM_NODE_PATH
 	nodes, err = tree_db.ListNodeNames()
-	if err != nil {
+	if !err.IsNull() {
 		return nil, err
 	}
 	for _, a := range nodes {
 		relations[a], err = tree_db.GetRelations(a)
-		if err != nil {
+		if !err.IsNull() {
 			return nil, err
 		}
 	}
@@ -63,28 +63,29 @@ func NodePath(from_node, node_name string, isgroup bool) (map[string][]string, e
 		path[path1[i]] = append(path[path1[i]], path1[i-1])
 	}
 
-	return path, nil
+	return path, err
 }
 
-func TagPath(from_node, tag_name string) (map[string][]string, error){
+func TagPath(from_node, tag_name string) (map[string][]string, tree_lib.TreeError){
 	var (
-		err						error
+		err						tree_lib.TreeError
 		path =					make(map[string][]string)
 		nodes_by_tagname 		[]string
 		paths =					make(map[string]map[string][]string)
 	)
+	err.From = tree_lib.FROM_TAG_PATH
 	nodes_by_tagname, err = tree_db.GetNodesByTagName(tag_name)
-	if err != nil {
+	if !err.IsNull() {
 		return nil, err
 	}
 	for _, a := range nodes_by_tagname {
 		paths[a], err = NodePath(from_node, a, false)
-		if err != nil {
+		if !err.IsNull() {
 			return nil, err
 		}
 	}
 	path = merge(paths, nil, nil)
-	return path, nil
+	return path, err
 }
 
 func merge(nodes_path map[string]map[string][]string, groups_path map[string]map[string][]string, tags_path map[string]map[string][]string) (path map[string][]string){
@@ -157,31 +158,32 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 	return next
 }
 
-func GetPath(from_node string, nodes []string, tags []string, groups []string) (*tree_path.Path, error){
+func GetPath(from_node string, nodes []string, tags []string, groups []string) (*tree_path.Path, tree_lib.TreeError){
 	var (
-		err					error
+		err					tree_lib.TreeError
 		path =				new(tree_path.Path)
 		nodes_path =		make(map[string]map[string][]string)
 		tags_path =			make(map[string]map[string][]string)
 		groups_path = 		make(map[string]map[string][]string)
 		final_path =		make(map[string][]string)
 	)
+	err.From = tree_lib.FROM_GET_PATH
 	for _, a := range nodes {
 		nodes_path[a], err = NodePath(from_node, a, false)
-		if err != nil {
+		if !err.IsNull() {
 			return nil, err
 		}
 	}
 	for _, a := range groups {
 		groups_path[a], err = GroupPath(from_node, a)
-		if err != nil {
+		if !err.IsNull() {
 			return nil, err
 		}
 		check = make(map[string]bool)
 	}
 	for _, a := range tags {
 		tags_path[a], err = TagPath(from_node, a)
-		if err != nil {
+		if !err.IsNull() {
 			return nil, err
 		}
 	}
@@ -189,5 +191,5 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 	path.NodePaths = final_path
 	path.Tags = tags
 	path.Groups = groups
-	return path, nil
+	return path, err
 }

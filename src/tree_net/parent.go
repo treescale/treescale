@@ -38,7 +38,7 @@ func ChildListener(interval time.Duration) {
 	}
 }
 
-func ChildConnect(name string) (err error) {
+func ChildConnect(name string) (err tree_lib.TreeError) {
 	// If we don't have this name in childs info map then just returning
 	if _, ok := node_info.ChildsNodeInfo[name]; !ok {
 		return
@@ -54,17 +54,17 @@ func ChildConnect(name string) (err error) {
 		ch_name_data	[]byte
 		msg				[]byte
 	)
-
+	err.From = tree_lib.FROM_CHILD_CONNECT
 	conn, err = TcpConnect(node_info.ChildsNodeInfo[name].TreeIp, node_info.ChildsNodeInfo[name].TreePort)
-	if err != nil {
-		tree_log.Error(log_from_parent, " child_connect -> ", name, " ", err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, " child_connect -> ", name, " ", err.Error())
 		return
 	}
 	defer conn.Close()
 
 	ch_name_data, err = tree_lib.ReadMessage(conn)
-	if err != nil {
-		tree_log.Error(log_from_parent, " child handshake -> ", name, " ", err.Error())
+	if !err.IsNull() {
+		tree_log.Error(err.From, " child handshake -> ", name, " ", err.Error())
 		return
 	}
 
@@ -76,9 +76,9 @@ func ChildConnect(name string) (err error) {
 		return
 	}
 
-	_, err = tree_lib.SendMessage([]byte(node_info.CurrentNodeInfo.Name), conn)
-	if err != nil {
-		tree_log.Error(log_from_parent, " child handshake sending current name to -> ", name, " ", err.Error())
+	_, err.Err = tree_lib.SendMessage([]byte(node_info.CurrentNodeInfo.Name), conn)
+	if !err.IsNull() {
+		tree_log.Error(err.From, " child handshake sending current name to -> ", name, " ", err.Error())
 		return
 	}
 
@@ -88,8 +88,8 @@ func ChildConnect(name string) (err error) {
 
 	for {
 		msg, err = tree_lib.ReadMessage(conn)
-		if err != nil {
-			tree_log.Error(log_from_parent, " reading data from child -> ", name, " ", err.Error())
+		if !err.IsNull() {
+			tree_log.Error(err.From, " reading data from child -> ", name, " ", err.Error())
 			break
 		}
 

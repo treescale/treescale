@@ -3,6 +3,7 @@ package tree_docker
 import (
 	"github.com/fsouza/go-dockerclient"
 	"tree_event"
+	"tree_lib"
 )
 
 type ContainerInfo struct {
@@ -22,51 +23,58 @@ var (
 	DockerEndpoint = 	"unix:///var/run/docker.sock"
 )
 
-func InitDockerClient() (err error) {
+func InitDockerClient() (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_INIT_DOCKER_CLIENT
 	if DockerClient != nil {
 		return
 	}
-	DockerClient, err = docker.NewClient(DockerEndpoint)
-	if err != nil {
+	DockerClient, err.Err = docker.NewClient(DockerEndpoint)
+	if !err.IsNull() {
 		return
 	}
 	return
 }
 
-func triggerInitEvent() error {
-	dock_containers, err := DockerClient.ListContainers(docker.ListContainersOptions{All: false})
-	if err != nil {
+func triggerInitEvent() tree_lib.TreeError {
+	var (
+		err 				tree_lib.TreeError
+		dock_containers		[]docker.APIContainers
+	)
+	err.From = tree_lib.FROM_TRIGGER_INIT_EVENT
+	dock_containers, err.Err = DockerClient.ListContainers(docker.ListContainersOptions{All: false})
+	if !err.IsNull() {
 		return err
 	}
 
 	// Triggering event with currently running Docker containers inside
 	tree_event.Trigger(&tree_event.Event{Name:tree_event.ON_DOCKER_INIT, LocalVar: dock_containers})
-	return nil
+	return err
 }
 
 
-func StartEventListener() (err error) {
+func StartEventListener() (err tree_lib.TreeError) {
+	err.From = tree_lib.FROM_START_EVENT_LISTENER
 	err = InitDockerClient()
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 
 	err = triggerInitEvent()
-	if err != nil {
+	if !err.IsNull() {
 		return
 	}
 	// When function will be returned local event for ending docker client will be triggered
 	defer tree_event.Trigger(&tree_event.Event{Name: tree_event.ON_DOCKER_END, LocalVar: nil})
 
 	ev := make(chan *docker.APIEvents)
-	err = DockerClient.AddEventListener(ev)
-	if err != nil {
+	err.Err = DockerClient.AddEventListener(ev)
+	if !err.IsNull() {
 		return
 	}
 
 	for  {
 		err = callEvent(<- ev)
-		if err != nil {
+		if !err.IsNull() {
 			break
 		}
 	}
@@ -74,12 +82,17 @@ func StartEventListener() (err error) {
 	return
 }
 
-func callEvent(event *docker.APIEvents) error {
+func callEvent(event *docker.APIEvents) tree_lib.TreeError {
+	var err tree_lib.TreeError
+	err.From = tree_lib.FROM_CALL_EVENT
 	switch event.Status {
 	case "start", "unpouse":
 		{
-			dock_inspect, err := DockerClient.InspectContainer(event.ID)
-			if err != nil {
+			var (
+				dock_inspect	*docker.Container
+			)
+			dock_inspect, err.Err = DockerClient.InspectContainer(event.ID)
+			if !err.IsNull() {
 				return err
 			}
 			ci := ContainerInfo{InspectContainer:dock_inspect, ID:event.ID, Image:dock_inspect.Config.Image}
@@ -93,8 +106,11 @@ func callEvent(event *docker.APIEvents) error {
 		}
 	case "pull", "tag":
 		{
-			inspect, err := DockerClient.InspectImage(event.ID)
-			if err != nil {
+			var (
+				inspect			*docker.Image
+			)
+			inspect, err.Err = DockerClient.InspectImage(event.ID)
+			if !err.IsNull() {
 				return err
 			}
 			im := ImageInfo{ID:inspect.ID, Name:event.ID, Inspect:inspect}
@@ -102,13 +118,16 @@ func callEvent(event *docker.APIEvents) error {
 		}
 	case "untag", "delete":
 		{
-			inspect, err := DockerClient.InspectImage(event.ID)
-			if err != nil {
+			var (
+				inspect			*docker.Image
+			)
+			inspect, err.Err = DockerClient.InspectImage(event.ID)
+			if !err.IsNull() {
 				return err
 			}
 			im := ImageInfo{ID:inspect.ID, Name:event.ID, Inspect:inspect}
 			tree_event.Trigger(&tree_event.Event{Name: tree_event.ON_DOCKER_IMAGE_DELETE, LocalVar: &im})
 		}
 	}
-	return nil
+	return err
 }
