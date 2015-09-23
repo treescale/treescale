@@ -33,10 +33,14 @@ func HandleExecCommand(e *tree_event.Event, api_cmd Command) {
 			tree_log.Error(err.From, err.Error())
 			return
 		}
-		cb_ev := &tree_event.Event{}
+		cb_ev := &tree_event.EventEmitter{}
 		cb_ev.Name = tree_event.ON_API_COMMAND_CALLBACK
 		cb_ev.Data = ev_data
-		EmitToApi(cb_ev, e.From)
+		cb_ev.ToNodes = []string{e.From}
+		if len(e.FromApi) > 0 {
+			cb_ev.ToApi = []string{e.FromApi}
+		}
+		tree_event.Emit(cb_ev)
 	}
 
 	defer out.End()

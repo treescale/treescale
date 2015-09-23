@@ -1,24 +1,45 @@
 package tree_console
 
 import (
-	tree_path "tree_graph/path"
 	"github.com/spf13/cobra"
 	"tree_log"
 	"fmt"
 	"tree_api"
 	"tree_event"
 	"tree_lib"
+	"tree_graph"
 )
 
 
 func HandleApiExec(cmd *cobra.Command, args []string) {
 	var (
 		nodes 			[]string
+		targets 		[]string
+		target_groups 	[]string
+		target_tags 	[]string
 		cmd_line		string
 		err 			tree_lib.TreeError
 	)
 	err.From = tree_lib.FROM_HANDLE_API_EXEC
-	nodes, err.Err = cmd.Flags().GetStringSlice("nodes")
+	nodes, err.Err = cmd.Flags().GetStringSlice("node")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	targets, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	target_groups, err.Err = cmd.Flags().GetStringSlice("group")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	target_tags, err.Err = cmd.Flags().GetStringSlice("tag")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -38,7 +59,6 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 
 	var (
 		api_cmd		=	tree_api.Command{}
-		path		=	tree_path.Path{}
 		wait_to_end =	make(chan bool)
 	)
 
@@ -47,8 +67,12 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 	api_cmd.CommandType = tree_api.COMMAND_EXEC
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED, func(ev *tree_event.Event){
-		fmt.Println(string(ev.Data))
-		tree_api.SendCommand(&api_cmd, nodes, &path, func(e *tree_event.Event, c tree_api.Command)bool{
+		path, err := tree_graph.GetPath(string(ev.Data), targets, target_tags, target_groups)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+			return
+		}
+		tree_api.SendCommand(&api_cmd, nodes, path, func(e *tree_event.Event, c tree_api.Command)bool{
 			fmt.Println(string(c.Data))
 			fmt.Println(c.Ended)
 			// TODO: End coming faster than other messages FIX !!!!

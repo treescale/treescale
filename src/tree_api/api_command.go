@@ -81,10 +81,9 @@ type WriterCallback struct {
 	out_data			bytes.Buffer			`json:"-" toml:"-" yaml:"-"`
 }
 
-func (cb *WriterCallback) Write(p []byte) (n int, err tree_lib.TreeError) {
-	n, err.Err = cb.out_data.Write(p)
-	if !err.IsNull() {
-		err.From = tree_lib.FROM_WRITE
+func (cb *WriterCallback) Write(p []byte) (n int, err error) {
+	n, err = cb.out_data.Write(p)
+	if err != nil {
 		return
 	}
 

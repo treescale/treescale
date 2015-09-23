@@ -14,6 +14,7 @@ type Event struct {
 	Path		tree_path.Path		`json:"path" toml:"path" yaml:"path"`
 	Data		[]byte				`json:"data" toml:"data" yaml:"data"`
 	From		string				`json:"from" toml:"from" yaml:"from"` // Name who sending this event
+	FromApi		string				`json:"from_api" toml:"from_api" yaml:"from_api"` // Name who sending this event
 
 	// Keeping variable for making local events inside current process
 	// Example: Docker Events, Balancer Events etc..
@@ -22,6 +23,7 @@ type Event struct {
 
 type EventEmitter struct {
 	Event
+	ToApi		[]string			`json:"to_api" toml:"to_api" yaml:"to_api"`
 	ToNodes		[]string			`json:"to_nodes" toml:"to_nodes" yaml:"to_nodes"`
 	ToTags		[]string			`json:"to_tags" toml:"to_tags" yaml:"to_tags"`
 	ToGroups	[]string			`json:"to_groups" toml:"to_groups" yaml:"to_groups"`

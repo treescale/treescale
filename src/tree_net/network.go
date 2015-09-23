@@ -182,6 +182,11 @@ func NetworkEmmit(em *tree_event.EventEmitter) (err tree_lib.TreeError) {
 		if !err.IsNull() {
 			return
 		}
+
+		if len(em.ToApi) > 0 && len(em.ToNodes) == 1 {
+			ev.Path.NodePaths[em.ToNodes[0]] = em.ToApi
+		}
+
 		ev.Path = (*path)
 	}
 
@@ -217,7 +222,7 @@ func ApiEmit(e *tree_event.Event, nodes...string) (err tree_lib.TreeError) {
 
 	for _, n :=range nodes {
 		if c, ok :=child_connections[n]; ok && c != nil {
-			err = SendToConn(sdata, &tree_path.Path{}, c)
+			err = SendToConn(sdata, &e.Path, c)
 			if !err.IsNull() {
 				tree_log.Error(err.From, "Unable to send data to node <", n, "> ", err.Error())
 			}

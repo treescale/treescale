@@ -14,8 +14,8 @@ const (
 )
 
 var (
-	EmitApi			func(*tree_event.Event, ...string)error
-	EmitToApi		func(*tree_event.Event, ...string)error
+	EmitApi			func(*tree_event.Event, ...string)tree_lib.TreeError
+	EmitToApi		func(*tree_event.Event, ...string)tree_lib.TreeError
 )
 
 func init() {

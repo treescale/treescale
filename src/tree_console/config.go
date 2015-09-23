@@ -15,7 +15,6 @@ import (
 	"tree_balancer"
 	"tree_container/tree_docker"
 	"tree_lib"
-	"path"
 )
 
 const (
@@ -68,7 +67,7 @@ func ParseFiles(conf_type string, files...string) (err tree_lib.TreeError) {
 	var combine_data []byte
 	for _, f :=range files {
 		var fdata []byte
-		_, err.Err = ParseConfigFile(f)
+		_, err = ParseConfigFile(f)
 		if !err.IsNull() {
 			fmt.Println("error while reading ", f)
 			fmt.Println("ignoring ", f)
@@ -102,11 +101,11 @@ func ParseFiles(conf_type string, files...string) (err tree_lib.TreeError) {
 
 func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 	var (
-		err 		tree_lib.TreeError
+		err_r 		tree_lib.TreeError
 		names 		[]string
 		FileNames 	func(path string) (err tree_lib.TreeError)
 	)
-	err.From = tree_lib.FROM_PATH_FILES
+	err_r.From = tree_lib.FROM_PATH_FILES
 	FileNames = func(path string) (err tree_lib.TreeError) {
 		err.From = tree_lib.FROM_PATH_FILES
 		files_in_dir, e := ioutil.ReadDir(path)
@@ -123,7 +122,7 @@ func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 				}
 			} else {
 				err = FileNames(string(path + "/" + a.Name()))
-				if err != nil {
+				if !err.IsNull() {
 					tree_log.Error(err.From, err.Error())
 					return
 				}
@@ -136,13 +135,13 @@ func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 		if string([]rune(a)[len(a) - 1]) == "/" {
 			a = a[:len(a)-1]
 		}
-		err = FileNames(a)
-		if !err.IsNull() {
-			tree_log.Error(err.From, err.Error())
-			return nil, err
+		err_r = FileNames(a)
+		if !err_r.IsNull() {
+			tree_log.Error(err_r.From, err_r.Error())
+			return nil, err_r
 		}
 	}
-	return names, nil
+	return names, err_r
 }
 
 
@@ -241,7 +240,7 @@ func CompileConfig(cmd *cobra.Command, args []string) {
 		tree_log.Error(err.From, err.Error())
 		return
 	}
-	files_in_path, err.Err = PathFiles(conf_type, paths)
+	files_in_path, err = PathFiles(conf_type, paths)
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return

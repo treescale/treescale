@@ -5,8 +5,6 @@ import (
 	"tree_log"
 	"fmt"
 	"tree_db"
-	"tree_event"
-	"time"
 	"os/exec"
 	"os"
 	"log"
@@ -72,26 +70,6 @@ func HandleNodeCommand(cmd *cobra.Command, args []string) {
 			return
 		}
 	}
-
-	tree_event.ON("test", func(e *tree_event.Event) {
-		fmt.Println(e.Data)
-	})
-
-	go func() {
-		var err tree_lib.TreeError
-		err.From = tree_lib.FROM_HANDLE_NODE_COMMAND
-		time.Sleep(time.Second * 2)
-		if name == "tree1" {
-			em := &tree_event.EventEmitter{}
-			em.Name = "test"
-			em.Data = []byte("aaaaaaaaaaaaaaaa")
-			em.ToNodes = []string{"tree2"}
-			err = tree_event.Emit(em)
-			if !err.IsNull() {
-				fmt.Println(err.Error())
-			}
-		}
-	}()
 
 	tree_node.Start()
 }

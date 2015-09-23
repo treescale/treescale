@@ -90,10 +90,18 @@ func init() {
 			Short: "Execute shell commands on specific Nodes",
 			Run: HandleApiExec,
 		}
-		api_cmd_exec.Flags().StringSliceP("nodes", "n", []string{""}, "Array of Nodes for sending API command")
+		add_api_default_flags(api_cmd_exec)
 		api_cmd_exec.Flags().StringP("cmd", "c", "uname", "Shell command to execute")
 	api_cmd.AddCommand(api_cmd_exec)
 
 
 	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd)
+}
+
+// Adding default flags for all API commands or related to that
+func add_api_default_flags(cmd *cobra.Command)  {
+	cmd.Flags().StringSliceP("node", "n", []string{""}, "Node name which will be API worker")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "List of Node Names which will be as a target nodes for sending command")
+	cmd.Flags().StringSlice("group", []string{}, "List of Node Groups for sending specific command for all")
+	cmd.Flags().StringSlice("tag", []string{}, "List of Node Tags for sending specific command for all")
 }
