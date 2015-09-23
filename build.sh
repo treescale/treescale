@@ -55,7 +55,7 @@ function publish
     fi
 
     scp ./treescale "$PUB_PATH"
-    scp ./src/install.sh "$PUB_PATH"
+    scp ./install.sh "$PUB_PATH"
 }
 
 if [ "$BUILD_CLEAN" == "build" ]; then

@@ -14,12 +14,11 @@ import (
 
 
 type SSHConfig struct {
-	Host		string			`toml:"host"`
-	Port		int				`toml:"port"`
-	Key			string			`toml:"key"`	// SSH key path
-	Username	string			`toml:"username"`
-	Password	string			`toml:"password"`	// Password for ssh access
-	conn		*ssh.Client		`toml:"-"`
+	Host		string			`toml:"host" json:"host" yaml:"host"`
+	Port		int				`toml:"port" json:"port" yaml:"port"`
+	Username	string			`toml:"username" json:"username" yaml:"username"`
+	Password	string			`toml:"password" json:"password" yaml:"password"`	// Password for ssh access
+	conn		*ssh.Client		`toml:"-" json:"-" yaml:"-"`
 }
 
 func ssh_agent() ssh.AuthMethod {
@@ -35,7 +34,7 @@ func (ssc *SSHConfig) Connect() (err error) {
 	)
 
 	client_conf.User = ssc.Username
-	if len(ssc.Key) == 0 {
+	if len(ssc.Password) > 0 {
 		client_conf.Auth = []ssh.AuthMethod{ssh.Password(ssc.Password)}
 	} else {
 		client_conf.Auth = []ssh.AuthMethod{ssh_agent()}

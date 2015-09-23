@@ -2,18 +2,17 @@ package main
 
 import (
 	"tree_console"
-	_ "net/http/pprof"
-	"log"
-	"net/http"
+	"tree_lib"
+)
+
+const (
+	DEFAULT_PROCESS_ID_FILE =	"/etc/treescale/pid"
+)
+
+var (
+	PID_FILE	=	tree_lib.GetEnv("TREE_PID_FILE", DEFAULT_PROCESS_ID_FILE)
 )
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-	/*err := pprof.StartCPUProfile(os.Stdin)
-	if err != nil {
-		fmt.Println(err.Error())
-	}*/
 	tree_console.HandleConsoleArgs()
 }
