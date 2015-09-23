@@ -74,13 +74,25 @@ func ArrayMatchElement(array1 interface{}, array2 interface{}) (int, int, bool) 
 }
 
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789!&$#*-_~()}{][|"
+const (
+	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789!&$#*-_~()}{][|"
+	file_letters_Bytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
+)
 
 func RandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
+
+func RandomFileName(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = file_letters_Bytes[rand.Intn(len(file_letters_Bytes))]
 	}
 	return string(b)
 }

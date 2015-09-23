@@ -15,8 +15,18 @@ func init() {
 		Long:	"",
 	}
 
-	// Adding Flags
-
+	build_tree := &cobra.Command{
+		Use: "build [options]",
+		Short: "Install nesessarry software and run TreeScale daemon for building relations",
+		Long: `This command installs Docker, TreeScale and Netlink3 (for TreeScale networking).
+			Need's to have SSH accesses or just access to current machine SSH Agent without providing SSH keys or passwords`,
+		Run: BuildCmdHandler,
+	}
+	build_tree.Flags().BoolP("silent", "s", false, "If this flag persent, then on every 'install or not ?' question would be automatically answered 'Yes'")
+	build_tree.Flags().BoolP("force", "f", false, "This flag forces installed software and reinstalling it again")
+	build_tree.Flags().StringP("type", "t", "toml", "Configuration file format [toml, json, yaml] default is TOML")
+	build_tree.Flags().StringSliceP("path", "p", []string{"."}, "Give a Path to directories containing configuration files")
+	build_tree.Flags().StringSlice("files", []string{}, "Give file path list of configuration files")
 
 	// List of commands to execute
 	version := &cobra.Command{
@@ -85,5 +95,5 @@ func init() {
 	api_cmd.AddCommand(api_cmd_exec)
 
 
-	TreeScaleCMD.AddCommand(version, config, node_cmd, api_cmd)
+	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd)
 }

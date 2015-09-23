@@ -8,8 +8,12 @@ import (
 	"github.com/boltdb/bolt"
 )
 
+const (
+	DEFAULT_DB_FILE	=	"/etc/treescale/tree.db"
+)
+
 var (
-	DB_DIR		=	tree_lib.GetEnv("TREE_DB_PATH", "/etc/treescale/tree.db")
+	DB_DIR		=	tree_lib.GetEnv("TREE_DB_PATH", DEFAULT_DB_FILE)
 	tree_db			*bolt.DB
 	log_from_db	=	"Tree Database"
 

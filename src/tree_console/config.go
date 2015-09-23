@@ -75,6 +75,8 @@ func ParseFiles(conf_type string, files...string) (err error) {
 			return
 		}
 		combine_data = append(combine_data, fdata...)
+		// Adding new line at the end of all files content
+		combine_data = append(combine_data, []byte("\n")...)
 	}
 
 	switch conf_type {
