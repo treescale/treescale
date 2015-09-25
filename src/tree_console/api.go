@@ -8,6 +8,8 @@ import (
 	"tree_event"
 	"tree_lib"
 	"tree_graph"
+	"tree_node/node_info"
+	"github.com/pquerna/ffjson/ffjson"
 )
 
 
@@ -85,4 +87,19 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 	})
 
 	<- wait_to_end
+}
+
+func UpdateNodeChange (info node_info.NodeInfo) {
+	var (
+		emitter 		tree_event.EventEmitter
+		err 			tree_lib.TreeError
+	)
+	err.From = tree_lib.FROM_UPDATE_NODE_CHANGE
+	emitter.Data, err = ffjson.Marshal(info)
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	emitter.Name = tree_event.ON_UPDATE_NODE_INFO
+	tree_event.Emit(emitter)
 }

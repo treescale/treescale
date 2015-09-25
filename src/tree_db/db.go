@@ -6,6 +6,9 @@ import (
 	"tree_event"
 	"tree_lib"
 	"github.com/boltdb/bolt"
+	"github.com/pquerna/ffjson/ffjson"
+	"tree_node/node_info"
+	"tree_net"
 )
 
 const (
@@ -52,6 +55,42 @@ func init() {
 
 	// Closing database before program will be exited
 	// Just in case if program exiting force or we don't want to make dead lock
+	tree_event.ON(tree_event.ON_UPDATE_NODE_INFO, func(e *tree_event.Event){
+		var (
+			info 			node_info.NodeInfo
+			names 			[]string
+		)
+		err.Err = ffjson.Unmarshal(e.Data, *info)
+		if !err.IsNull() {
+			tree_log.Error(err.From,err.Error())
+		}
+		err = Set(DB_NODE,info.Name,info)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+		}
+		names, err = ListNodeNames()
+		if !err.IsNull(){
+			tree_log.Error(err.From, err.Error())
+		}
+		err = AddNodeToHisGroups(info.Name)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+		}
+		err = AddNodeToHisTags(info.Name)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+		}
+		for _, n := range names {
+			err = SetRelations(n)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+			}
+		}
+		if node_info.CurrentNodeInfo.Name == info.Name {
+			tree_net.Restart()
+		}
+	})
+
 	tree_event.ON(tree_event.ON_PROGRAM_EXIT, func(e *tree_event.Event){
 		CloseDB()
 	})

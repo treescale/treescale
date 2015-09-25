@@ -29,4 +29,7 @@ const (
 	// API command events
 	ON_API_COMMAND				=	"tree_api_command"
 	ON_API_COMMAND_CALLBACK		=	"tree_api_command_callback"
+
+	// DB events
+	ON_UPDATE_NODE_INFO		=	"update_node_info"
 )
