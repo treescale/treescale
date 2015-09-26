@@ -74,6 +74,10 @@ const (
 	FROM_EMIT_TO_API = "From EmitToApi"
 	FROM_COPY_FILE = "From CopyFile"
 	FROM_UPDATE_NODE_CHANGE = "From UpdateNodeChange"
+	FROM_SET_PATH_VALUES = "From SetPathValues"
+	FROM_GET_NODE_VALUE = "From GetNodeValue"
+	FROM_MERGE = "From merge"
+	FROM_CHECK = "From Check"
 )
 
 const (

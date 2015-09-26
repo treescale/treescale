@@ -6,6 +6,7 @@ import (
 	"strings"
 	"tree_lib"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"strconv"
 )
 
 
@@ -99,7 +100,38 @@ func SetRelations(node string) (err tree_lib.TreeError) {
 	err = Set(DB_RELATIONS, []byte(node), []byte(strings.Join(rels, ",")))
 	return
 }
-
+func SetPathValues() (err tree_lib.TreeError) {
+	var (
+		nodes 				[]string
+		prime 				int64
+	)
+	err.From = tree_lib.FROM_SET_PATH_VALUES
+	nodes, err = ListNodeNames()
+	if !err.IsNull() {
+		return
+	}
+	prime = 2
+	for _, n := range nodes {
+		err = Set(DB_PATH_VALUE,[]byte(n),[]byte(string(prime)))
+		if !err.IsNull(){
+			return
+		}
+		prime = tree_lib.NextPrimeNumber(prime)
+	}
+	return
+}
+func GetNodeValue(node string) (value int64, err tree_lib.TreeError) {
+	var (
+		data 		[]byte
+	)
+	err.From = tree_lib.FROM_GET_NODE_VALUE
+	data, err = Get(DB_PATH_VALUE, []byte(node))
+	if !err.IsNull() {
+		return
+	}
+	value, err.Err = strconv.ParseInt(string(data), 10, 64)
+	return
+}
 func GetRelations(node string) ([]string, tree_lib.TreeError) {
 	nodes_byte, err := Get(DB_RELATIONS, []byte(node))
 	err.From = tree_lib.FROM_GET_RELATIONS

@@ -117,3 +117,25 @@ func CopyFile(src, dst string) (err TreeError) {
 	_, err.Err = io.Copy(new_db_f, db_f)
 	return
 }
+
+func NextPrimeNumber (n int64) int64 {
+	var (
+		i 		= 		n+1
+		j				int64
+		mark 			bool
+	)
+	for {
+		mark = true
+		for j = 2; j<i/2; j++ {
+			if i % j == 0 {
+				mark = false
+				break
+			}
+		}
+		if mark {
+			return i
+		}
+		i++
+	}
+	return i
+}
