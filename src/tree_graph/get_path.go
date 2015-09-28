@@ -139,22 +139,15 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 
 func merge (path []map[string][]string) (big.Int, tree_lib.TreeError) {
 	var (
-		node_values =			make(map[string]int64)
 		err 					tree_lib.TreeError
 	)
 	err.From = tree_lib.FROM_MERGE
 	final_path := *big.NewInt(1)
-	for _, n := range nodes_info {
-		node_values[n.Name], err = tree_db.GetNodeValue(n.Name)
-		if !err.IsNull() {
-			return final_path, err
-		}
-	}
 	for _, a := range path {
 		for _, p := range a {
 			for _, n := range p {
 				if !mark[n] {
-					value := big.NewInt(node_values[n])
+					value := big.NewInt(nodes_info[n].Value)
 					final_path.Mul(&final_path, value)
 					mark[n] = true
 					if targets[n] {
