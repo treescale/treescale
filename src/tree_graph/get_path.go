@@ -177,7 +177,7 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 
 	nodes_info, err = tree_db.ListNodeInfos()
 	if !err.IsNull() {
-		return err
+		return
 	}
 	for _, n := range nodes {
 		if check_node[n] {
