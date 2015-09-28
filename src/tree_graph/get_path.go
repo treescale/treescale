@@ -9,28 +9,16 @@ import(
 	"fmt"
 )
 var (
-	check_group =	make(map[string]bool)
-	check_node =	make(map[string]bool)
-	check_tag =		make(map[string]bool)
-	targets =		make(map[string]bool)
-	mark = 			make(map[string]bool)
+	check_group =		make(map[string]bool)
+	check_node =		make(map[string]bool)
+	check_tag =			make(map[string]bool)
+	targets =			make(map[string]bool)
+	mark = 				make(map[string]bool)
+	nodes_info 			[]node_info.NodeInfo
 )
-func Check() (err tree_lib.TreeError) {
-	var (
-		nodes_info []node_info.NodeInfo
-		node_names  []string
-	)
-	err.From = tree_lib.FROM_CHECK
-	nodes_info, err = tree_db.ListNodeInfos()
-	if !err.IsNull() {
-		return err
-	}
-	node_names, err = tree_db.ListNodeNames()
-	if !err.IsNull() {
-		return err
-	}
-	for _, a := range node_names {
-		check_node[a] = true
+func Check() {
+	for _, a := range nodes_info {
+		check_node[a.Name] = true
 	}
 	for _, a := range nodes_info {
 		for _, b := range a.Groups {
@@ -40,23 +28,18 @@ func Check() (err tree_lib.TreeError) {
 			check_tag[b] = true
 		}
 	}
-	return err
 }
 
 func NodePath (from_node string, to_node string) (path []string, err tree_lib.TreeError) {
 	var (
 		relations = 			make(map[string][]string)
-		nodes  					[]string
 		from = 					make(map[string]string)
 		node					string
 	)
 	err.From = tree_lib.FROM_NODE_PATH
-	nodes, err = tree_db.ListNodeNames()
-	if !err.IsNull() {
-		return
-	}
-	for _, a := range nodes {
-		relations[a], err = tree_db.GetRelations(a)
+
+	for _, a := range nodes_info {
+		relations[a.Name], err = tree_db.GetRelations(a.Name)
 		if !err.IsNull() {
 			return
 		}
@@ -156,18 +139,13 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 
 func merge (path []map[string][]string) (big.Int, tree_lib.TreeError) {
 	var (
-		nodes  					[]string
 		node_values =			make(map[string]int64)
 		err 					tree_lib.TreeError
 	)
 	err.From = tree_lib.FROM_MERGE
 	final_path := *big.NewInt(1)
-	nodes, err = tree_db.ListNodeNames()
-	if !err.IsNull() {
-		return final_path, err
-	}
-	for _, n := range nodes {
-		node_values[n], err = tree_db.GetNodeValue(n)
+	for _, n := range nodes_info {
+		node_values[n.Name], err = tree_db.GetNodeValue(n.Name)
 		if !err.IsNull() {
 			return final_path, err
 		}
@@ -194,9 +172,12 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 		path					[]map[string][]string
 	)
 	err.From = tree_lib.FROM_GET_PATH
-	err = Check()
-	if !err.IsNull(){
-		return
+
+	Check()
+
+	nodes_info, err = tree_db.ListNodeInfos()
+	if !err.IsNull() {
+		return err
 	}
 	for _, n := range nodes {
 		if check_node[n] {
@@ -236,5 +217,6 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 		}
 	}
 	final_path, err  = merge(path)
+	nodes_info = nil
 	return
 }

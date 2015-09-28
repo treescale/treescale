@@ -10,6 +10,7 @@ type NodeInfo struct {
 	Groups			[]string		`json:"groups" toml:"groups" yaml:"groups"`
 	Childs			[]string		`json:"childs" toml:"childs" yaml:"childs"`
 	AutoBalance		bool			`json:"auto_balance" toml:"auto_balance" yaml:"auto_balance"`
+	Value			int64			`json:"value" toml:"value" yaml:"value"`
 }
 
 var (
