@@ -214,6 +214,12 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 		}
 	}
 	final_path, err  = merge(path)
+	if targets[from_node] {
+		final_path.Mul(&final_path,big.NewInt(node_values[from_node]))
+	}
 	nodes_info = nil
+
+	//if path contains node, then final_path divides to value of node
+	//if node is a target, then final path divides square of value of node
 	return
 }
