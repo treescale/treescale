@@ -95,7 +95,7 @@ func ListInfos(cmd *cobra.Command, args []string){
 	var (
 		err				tree_lib.TreeError
 		nodes			[]string
-		node_infos		[]string
+		targets			[]string
 	)
 	err.From = tree_lib.FROM_LIST_INFOS
 	nodes, err.Err = cmd.Flags().GetStringSlice("node")
@@ -103,7 +103,7 @@ func ListInfos(cmd *cobra.Command, args []string){
 		tree_log.Error(err.From, err.Error())
 		return
 	}
-	node_infos, err.Err = cmd.Flags().GetStringSlice("node_info")
+	targets, err.Err = cmd.Flags().GetStringSlice("target")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -118,7 +118,7 @@ func ListInfos(cmd *cobra.Command, args []string){
 		api_cmd =		tree_api.Command{}
 	)
 	api_cmd.ID = tree_lib.RandomString(20)
-	api_cmd.Data = []byte(strings.Join(node_infos,","))
+	api_cmd.Data = []byte(strings.Join(targets,","))
 	api_cmd.CommandType = tree_api.COMMAND_LIST
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev tree_event.Event){
