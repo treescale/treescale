@@ -15,6 +15,7 @@ var (
 	targets =			make(map[string]bool)
 	mark = 				make(map[string]bool)
 	nodes_info 			[]node_info.NodeInfo
+	node_values =		make(map[string]int64)
 )
 func Check() {
 	for _, a := range nodes_info {
@@ -147,7 +148,7 @@ func merge (path []map[string][]string) (big.Int, tree_lib.TreeError) {
 		for _, p := range a {
 			for _, n := range p {
 				if !mark[n] {
-					value := big.NewInt(nodes_info[n].Value)
+					value := big.NewInt(node_values[n])
 					final_path.Mul(&final_path, value)
 					mark[n] = true
 					if targets[n] {
@@ -171,6 +172,9 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 	nodes_info, err = tree_db.ListNodeInfos()
 	if !err.IsNull() {
 		return
+	}
+	for _, n := range nodes_info {
+		node_values[n.Name] = n.Value
 	}
 	for _, n := range nodes {
 		if check_node[n] {

@@ -94,8 +94,24 @@ func init() {
 		api_cmd_exec.Flags().StringP("cmd", "c", "uname", "Shell command to execute")
 	api_cmd.AddCommand(api_cmd_exec)
 
-
-	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd)
+	info_cmd := &cobra.Command{
+		Use: "info [commands]",
+		Short: "Update or Get database info",
+	}
+		info_cmd_list := &cobra.Command{
+			Use: "list [options]",
+			Short: "Listing node infos",
+			Run: ListInfos,
+		}
+		add_list_default_flags(info_cmd_list)
+		info_cmd_update := &cobra.Command{
+			Use: "update [options]",
+			Short: "update node infos",
+			Run: UpdateInfo,
+		}
+		add_update_default_flags(info_cmd_update)
+	info_cmd.AddCommand(info_cmd_list, info_cmd_update)
+	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd, info_cmd)
 }
 
 // Adding default flags for all API commands or related to that
@@ -104,4 +120,22 @@ func add_api_default_flags(cmd *cobra.Command)  {
 	cmd.Flags().StringSliceP("target", "t", []string{""}, "List of Node Names which will be as a target nodes for sending command")
 	cmd.Flags().StringSlice("group", []string{}, "List of Node Groups for sending specific command for all")
 	cmd.Flags().StringSlice("tag", []string{}, "List of Node Tags for sending specific command for all")
+}
+
+func add_list_default_flags(cmd *cobra.Command) {
+	cmd.Flags().StringSliceP("node", "n", []string(""), "Node names which will be APi worker")
+	cmd.Flags().StringSliceP("node_info", "i", []string(""), "Node names which infos wiil be listed")
+}
+
+func add_update_default_flags(cmd *cobra.Command) {
+	cmd.Flags().StringSliceP("node", "n", []string{""}, "Node names which will be Api Worker")
+	cmd.Flags().StringP("target", "t", "", "Node name which info will be updated")
+	cmd.Flags().StringP("add_child", "ac", "", "Node name which wiil be added as child")
+	cmd.Flags().StringP("ip", "i", "", "new ip address of node")
+	cmd.Flags().IntP("port", "p", -1, "new port of node")
+	cmd.Flags().StringP("add_group", "ag", "", "Goup name whom node will be added")
+	cmd.Flags().StringP("delete_child", "dc", "", "Child name which will be deleted")
+	cmd.Flags().StringP("delete_group", "dg", "", "Group name from node will be deleted")
+	cmd.Flags().StringP("add_tag", "at", "", "Tag name whom node will be added")
+	cmd.Flags().StringP("delete_tag", "dt", "", "tag name from node will fiil be deleted")
 }

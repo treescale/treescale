@@ -10,6 +10,7 @@ import (
 	"tree_container/tree_docker"
 	"time"
 	"tree_lib"
+	"tree_event"
 )
 
 
@@ -18,6 +19,11 @@ var (
 	current_node_name		string
 )
 
+func init() {
+	tree_event.ON(tree_event.ON_RESTART_NODE, func(ev *tree_event.Event) {
+		Restart()
+	})
+}
 func SetParent(name string) bool {
 	var err tree_lib.TreeError
 	err.From = tree_lib.FROM_SET_PARENT
@@ -65,6 +71,7 @@ func node_init() {
 		tree_log.Error(err.From, "Getting parent node info from Node database, ", err.Error())
 		return
 	}
+
 }
 
 func Start() {

@@ -3,6 +3,7 @@ package tree_event
 const (
 	// Local events
 	ON_PROGRAM_EXIT				=	"program_exit"
+	ON_RESTART_NODE				=	"restart_node"
 
 		// Docker Events
 		ON_DOCKER_INIT				=	"docker_init"

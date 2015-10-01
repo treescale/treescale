@@ -13,6 +13,8 @@ const (
 	log_from_api_command = "API command functionality"
 	// Command Types
 	COMMAND_EXEC	=	0
+	COMMAND_LIST	=	1
+	COMMAND_UPDATE	=	2
 )
 
 
@@ -41,6 +43,14 @@ func init() {
 		case COMMAND_EXEC:
 			{
 				HandleExecCommand(ev, cmd)
+			}
+		case COMMAND_LIST:
+			{
+				HandleListCommand(ev, cmd)
+			}
+		case COMMAND_UPDATE:
+			{
+				HandleUpdateCommand(ev, cmd)
 			}
 		}
 	})

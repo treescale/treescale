@@ -8,7 +8,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_node/node_info"
-//	"tree_net"
+//	"tree_net
 )
 
 const (
@@ -57,37 +57,127 @@ func init() {
 	// Just in case if program exiting force or we don't want to make dead lock
 	tree_event.ON(tree_event.ON_UPDATE_NODE_INFO, func(e *tree_event.Event){
 		var (
-			info 			node_info.NodeInfo
-			names 			[]string
+			info 				node_info.NodeInfo
+			ev_info 			node_info.NodeInfo
+			names 				[]string
+			data 				[]byte
+
 		)
-		err.Err = ffjson.Unmarshal(e.Data, &info)
+		err.Err = ffjson.Unmarshal(e.Data, &ev_info)
 		if !err.IsNull() {
 			tree_log.Error(err.From,err.Error())
+			return
 		}
-		err = Set(DB_NODE,[]byte(info.Name),[]byte(e.Data))
+		info, err = GetNodeInfo(e.Name)
 		if !err.IsNull() {
 			tree_log.Error(err.From, err.Error())
+			return
 		}
-		names, err = ListNodeNames()
-		if !err.IsNull(){
-			tree_log.Error(err.From, err.Error())
-		}
-		err = AddNodeToHisGroups(info.Name)
-		if !err.IsNull() {
-			tree_log.Error(err.From, err.Error())
-		}
-		err = AddNodeToHisTags(info.Name)
-		if !err.IsNull() {
-			tree_log.Error(err.From, err.Error())
-		}
-		for _, n := range names {
-			err = SetRelations(n)
+		if len(info.Name) > 0 {
+			if len(ev_info.TreeIp) > 0 {
+				info.TreeIp = ev_info.TreeIp
+			}
+			if ev_info.TreePort != -1 {
+				info.TreePort = ev_info.TreePort
+			}
+			if len(ev_info.Childs[0]) > 0 {
+				info.Childs = append(info.Childs, ev_info.Childs[0])
+			}
+			if len(ev_info.Childs[1]) > 0 {
+				g, ok := tree_lib.ArrayContains(info.Childs, ev_info.Childs[1])
+				if ok {
+					info.Childs[g] = info.Childs[len(info.Childs) - 1]
+					info.Childs = info.Childs[0:len(info.Childs) - 1]
+				}
+			}
+			if len(ev_info.Groups[0]) > 0 {
+				info.Groups = append(info.Groups, ev_info.Groups[0])
+			}
+			if len(ev_info.Groups[1]) > 0 {
+				g, ok := tree_lib.ArrayContains(info.Groups, ev_info.Groups[1])
+				if ok {
+					info.Groups[g] = info.Groups[len(info.Groups) - 1]
+					info.Groups = info.Groups[0:len(info.Groups) - 1]
+				}
+			}
+			if len(ev_info.Tags[0]) > 0 {
+				info.Tags = append(info.Tags, ev_info.Tags[0])
+			}
+			if len(ev_info.Tags[1]) > 0 {
+				g, ok := tree_lib.ArrayContains(info.Tags, ev_info.Tags[1])
+				if ok {
+					info.Tags[g] = info.Tags[len(info.Tags) - 1]
+					info.Tags = info.Childs[0:len(info.Tags) - 1]
+				}
+			}
+			data, err.Err = ffjson.Marshal(info)
 			if !err.IsNull() {
 				tree_log.Error(err.From, err.Error())
+				return
 			}
-		}
-		if node_info.CurrentNodeInfo.Name == info.Name {
-			//tree_net.Restart()
+			err = Set(DB_NODE,[]byte(ev_info.Name),data)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			names, err = ListNodeNames()
+			if !err.IsNull(){
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			err = AddNodeToHisGroups(ev_info.Name)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			err = AddNodeToHisTags(ev_info.Name)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			for _, n := range names {
+				err = SetRelations(n)
+				if !err.IsNull() {
+					tree_log.Error(err.From, err.Error())
+					return
+				}
+			}
+			if node_info.CurrentNodeInfo.Name == ev_info.Name {
+				//tree_net.Restart()
+			}
+		} else {
+			err = Set(DB_NODE,[]byte(ev_info.Name),e.Data)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			names, err = ListNodeNames()
+			if !err.IsNull(){
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			err = AddNodeToHisGroups(ev_info.Name)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			err = AddNodeToHisTags(ev_info.Name)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			for _, n := range names {
+				err = SetRelations(n)
+				if !err.IsNull() {
+					tree_log.Error(err.From, err.Error())
+					return
+				}
+			}
+			if node_info.CurrentNodeInfo.Name == ev_info.Name {
+				var e		*tree_event.Event
+				e.Name = tree_event.ON_RESTART_NODE
+				tree_event.Trigger(e)
+			}
 		}
 	})
 
