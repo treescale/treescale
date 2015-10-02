@@ -58,6 +58,27 @@ function publish
     scp ./install.sh "$PUB_PATH"
 }
 
+
+function dep_install
+{
+    # getting linux distribution name
+    lsb_dist=$(cat /etc/*-release | grep -o '^ID=[^,]*' | sed 's/ID=//g' | sed 's/ID=\"//g' | sed 's/\"//g')
+
+    case "$lsb_dist" in
+
+        ubuntu|debian)
+            sudo apt-get update
+            sudo apt-get install -y libnl-genl-3-200 libnl-genl-3-dev libnl-3-200 libnl-3-dev
+        ;;
+
+        fedora|centos|oraclelinux)
+            sudo yum install -y wget libnl3.i686 libnl3-devel.x86_64
+        ;;
+
+    esac
+}
+
+
 if [ "$BUILD_CLEAN" == "build" ]; then
 build
 fi
@@ -68,6 +89,10 @@ fi
 
 if [ "$BUILD_CLEAN" = "go" ]; then
 go_build
+fi
+
+if [ "$BUILD_CLEAN" = "deps" ]; then
+dep_install
 fi
 
 if [ "$BUILD_CLEAN" = "publish" ]; then
