@@ -176,48 +176,59 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 	for _, n := range nodes_info {
 		node_values[n.Name] = n.Value
 	}
-	for _, n := range nodes {
-		if check_node[n] {
-			targets[n] = true
-			node_path[n], err = NodePath(from_node, n)
-			if !err.IsNull() {
-				return
+	if nodes[0] != "*" {
+		for _, n := range nodes {
+			if check_node[n] {
+				targets[n] = true
+				node_path[n], err = NodePath(from_node, n)
+				if !err.IsNull() {
+					return
+				}
+			}else {
+				fmt.Println("there is no server with name ", n)
+				fmt.Println("ignoring server ", n)
 			}
-		}else {
-			fmt.Println("there is no server with name ", n)
-			fmt.Println("ignoring server ", n)
+		}
+		path = append(path, node_path)
+		for _, g := range groups {
+			if check_group[g] {
+				node_path, err = GroupPath(from_node, g)
+				if !err.IsNull() {
+					return
+				}
+				path = append(path, node_path)
+			} else {
+				fmt.Println("there is no group with name ", g)
+				fmt.Println("ignoring group ", g)
+			}
+		}
+		for _, t := range nodes {
+			if check_tag[t] {
+				node_path, err = TagPath(from_node, t)
+				if !err.IsNull() {
+					return
+				}
+				path = append(path, node_path)
+			}else {
+				fmt.Println("there is no tag with name ", t)
+				fmt.Println("ignoring tag ", t)
+			}
+		}
+		final_path, err  = merge(path)
+		if targets[from_node] {
+			final_path.Mul(&final_path,big.NewInt(node_values[from_node]))
+		}
+		nodes_info = nil
+	} else {
+		var val big.Int
+		final_path = *big.NewInt(1)
+		for _, n := range nodes_info {
+			val = *big.NewInt(n.Value)
+			final_path.Mul(&final_path, &val)
+			final_path.Mul(&final_path, &val)
 		}
 	}
-	path = append(path, node_path)
-	for _, g := range groups {
-		if check_group[g] {
-			node_path, err = GroupPath(from_node, g)
-			if !err.IsNull() {
-				return
-			}
-			path = append(path, node_path)
-		} else {
-			fmt.Println("there is no group with name ", g)
-			fmt.Println("ignoring group ", g)
-		}
-	}
-	for _, t := range nodes {
-		if check_tag[t] {
-			node_path, err = TagPath(from_node, t)
-			if !err.IsNull() {
-				return
-			}
-			path = append(path, node_path)
-		}else {
-			fmt.Println("there is no tag with name ", t)
-			fmt.Println("ignoring tag ", t)
-		}
-	}
-	final_path, err  = merge(path)
-	if targets[from_node] {
-		final_path.Mul(&final_path,big.NewInt(node_values[from_node]))
-	}
-	nodes_info = nil
+
 
 	//if path contains node, then final_path divides to value of node
 	//if node is a target, then final path divides square of value of node
