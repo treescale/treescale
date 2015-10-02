@@ -10,8 +10,8 @@ import (
 	"tree_graph"
 	"tree_node/node_info"
 	"github.com/pquerna/ffjson/ffjson"
-	"tree_graph/path"
 	"strings"
+	"math/big"
 )
 
 
@@ -122,7 +122,12 @@ func ListInfos(cmd *cobra.Command, args []string){
 	api_cmd.CommandType = tree_api.COMMAND_LIST
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev tree_event.Event){
-		var path path.Path
+		var path big.Int
+		path, err = tree_graph.GetPath(string(ev.Data), []string{string(ev.Data)},[]string{},[]string{})
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+			return
+		}
 		tree_api.SendCommand(&api_cmd, nodes, path, func (e tree_event.Event,c tree_api.Command)bool {
 			var (
 				err 			tree_lib.TreeError
@@ -232,7 +237,12 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 	api_cmd.CommandType = tree_api.COMMAND_UPDATE
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev tree_event.Event) {
-		var path path.Path
+		var path big.Int
+		path, err = tree_graph.GetPath(string(ev.Data), []string{string(ev.Data)},[]string{},[]string{})
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+			return
+		}
 		tree_api.SendCommand(&api_cmd, nodes, path, func(e tree_event.Event, c tree_api.Command) bool {
 
 			return true
