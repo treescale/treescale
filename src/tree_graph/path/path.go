@@ -5,6 +5,7 @@ import (
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_node/node_info"
 	"tree_lib"
+	"cmd/compile/internal/big"
 )
 
 type Path struct {
@@ -13,11 +14,11 @@ type Path struct {
 	Tags			[]string				`json:"tags" toml:"tags" yaml:"tags"`
 }
 
-func PathFromMessage(msg []byte) (body_index int, p Path, err tree_lib.TreeError) {
+func PathValueFromMessage(msg []byte) (body_index int, p *big.Int) {
 	// First 4 bytes in message is a length of json encoded Path
-	err.From = tree_lib.FROM_PATH_FROM_MESSAGE
 	path_len := int(binary.LittleEndian.Uint32(msg[:4]))
-	err.Err = ffjson.Unmarshal(msg[4:path_len+4], &p)
+	p = big.NewInt(0)
+	p.SetBytes(msg[4:path_len+4])
 	body_index = 4 + path_len
 	return
 }

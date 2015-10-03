@@ -6,6 +6,7 @@ import (
 	"time"
 "math/rand"
 	"io"
+	"cmd/compile/internal/big"
 )
 
 
@@ -138,4 +139,12 @@ func NextPrimeNumber (n int64) int64 {
 		i++
 	}
 	return i
+}
+
+// If y dividable to x without without remains
+// then it  returns true and pointer to divided x parameter with final result
+func IsBigDividable(x, y *big.Int) (bool, *big.Int) {
+	div := big.Int{}
+	div.Mod(x, y)
+	return (div.Int64() == 1), x
 }

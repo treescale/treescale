@@ -11,6 +11,7 @@ import (
 	"time"
 	"tree_lib"
 	"tree_event"
+	"cmd/compile/internal/big"
 )
 
 
@@ -55,6 +56,12 @@ func node_init() {
 		tree_log.Error(err.From, "Getting current node info from Node database, ", err.Error())
 		return
 	}
+
+	// Setting current Node Value field from string to big.Int
+	node_info.CurrentNodeValue = nil // Setting to nil for garbage collection
+	node_info.CurrentNodeValue = big.NewInt(0)
+	node_info.CurrentNodeValue.SetBytes(current_node_byte)
+
 	for _, child :=range node_info.CurrentNodeInfo.Childs {
 		node_info.ChildsNodeInfo[child], err = tree_db.GetNodeInfo(child)
 		if !err.IsNull() {
@@ -72,6 +79,8 @@ func node_init() {
 		return
 	}
 
+	// Setting node values based on child list
+	node_info.CalculateChildParentNodeValues()
 }
 
 func Start() {
