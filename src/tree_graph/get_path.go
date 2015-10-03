@@ -138,21 +138,22 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 	return next
 }
 
-func merge (path []map[string][]string) (big.Int, tree_lib.TreeError) {
+func merge (path []map[string][]string) (*big.Int, tree_lib.TreeError) {
 	var (
 		err 					tree_lib.TreeError
 	)
 	err.From = tree_lib.FROM_MERGE
-	final_path := *big.NewInt(1)
+	final_path := big.NewInt(1)
 	for _, a := range path {
 		for _, p := range a {
 			for _, n := range p {
 				if !mark[n] {
-					value := big.NewInt(node_values[n])
-					final_path.Mul(&final_path, value)
+					value := big.Int{}
+					value.SetInt64(node_values[n])
+					final_path.Mul(final_path, &value)
 					mark[n] = true
 					if targets[n] {
-						final_path.Mul(&final_path, value)
+						final_path.Mul(final_path, &value)
 					}
 				}
 			}
@@ -160,7 +161,7 @@ func merge (path []map[string][]string) (big.Int, tree_lib.TreeError) {
 	}
 	return final_path, err
 }
-func GetPath(from_node string, nodes []string, tags []string, groups []string) (final_path big.Int, err tree_lib.TreeError) {
+func GetPath(from_node string, nodes []string, tags []string, groups []string) (final_path *big.Int, err tree_lib.TreeError) {
 	var (
 		node_path 		=		make(map[string][]string)
 		path					[]map[string][]string
@@ -221,11 +222,12 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 		nodes_info = nil
 	} else {
 		var val big.Int
-		final_path = *big.NewInt(1)
+		final_path = big.NewInt(1)
 		for _, n := range nodes_info {
-			val = *big.NewInt(n.Value)
-			final_path.Mul(&final_path, &val)
-			final_path.Mul(&final_path, &val)
+			val = big.Int{}
+			val.SetInt64(n.Value)
+			final_path.Mul(final_path, &val)
+			final_path.Mul(final_path, &val)
 		}
 	}
 

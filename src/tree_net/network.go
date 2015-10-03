@@ -204,3 +204,32 @@ func NetworkEmmit(em *tree_event.EventEmitter) (err tree_lib.TreeError) {
 	SendToPath(sdata, path)
 	return
 }
+
+func ApiEmit(e *tree_event.Event, nodes...string) (err tree_lib.TreeError) {
+	var (
+		sdata	[]byte
+	)
+	err.From = tree_lib.FROM_API_EMIT
+	// If from not set, setting it before network sending
+	if len(e.From) == 0 {
+		e.From = node_info.CurrentNodeInfo.Name
+	}
+	
+	sdata, err.Err = ffjson.Marshal(e)
+	if !err.IsNull() {
+		return
+	}
+
+	for _, n :=range nodes {
+		if c, ok :=child_connections[n]; ok && c != nil {
+			err = SendToConn(sdata, &e.Path, c)
+			if !err.IsNull() {
+				tree_log.Error(err.From, "Unable to send data to node <", n, "> ", err.Error())
+			}
+		} else {
+			tree_log.Error(err.From, "Please connect to Node <", n, "> before sending data")
+		}
+	}
+
+	return
+}

@@ -146,5 +146,10 @@ func NextPrimeNumber (n int64) int64 {
 func IsBigDividable(x, y *big.Int) (bool, *big.Int) {
 	div := big.Int{}
 	div.Mod(x, y)
-	return (div.Int64() == 1), x
+	if div.Int64() == 0 {
+		x.Div(x, y)
+		return true, x
+	}
+	
+	return false, x
 }
