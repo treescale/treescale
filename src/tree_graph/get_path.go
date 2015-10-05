@@ -12,8 +12,7 @@ var (
 	check_group =		make(map[string]bool)
 	check_node =		make(map[string]bool)
 	check_tag =			make(map[string]bool)
-	targets =			make(map[string]bool)
-	mark = 				make(map[string]bool)
+	targets 			[]string
 	nodes_info 			[]node_info.NodeInfo
 	node_values =		make(map[string]int64)
 )
@@ -31,31 +30,33 @@ func Check() {
 	}
 }
 
-func NodePath (from_node string, to_node string) (path []string, err tree_lib.TreeError) {
+func NodePath (from_node string, to_node string) (path *big.Int, err tree_lib.TreeError) {
 	var (
 		relations = 			make(map[string][]string)
 		from = 					make(map[string]string)
 		node					string
 	)
 	err.From = tree_lib.FROM_NODE_PATH
-
+	path = big.NewInt(1)
 	for _, a := range nodes_info {
 		relations[a.Name], err = tree_db.GetRelations(a.Name)
 		if !err.IsNull() {
 			return
 		}
 	}
+	value := big.Int{}
 	from, node = bfs(from_node, to_node, relations)
 	for len(from) > 0 && node != from_node {
-		path = append(path, node)
+		value.SetInt64(node_values[node])
+		path.Mul(path, &value)
 		node = from[node]
 	}
 	return
 }
 
-func GroupPath (from_node, group_name string) (map[string][]string, tree_lib.TreeError){
+func GroupPath (from_node, group_name string) (map[string]*big.Int, tree_lib.TreeError){
 	var (
-		path = 			make(map[string][]string)
+		path = 			make(map[string]*big.Int)
 		err 			tree_lib.TreeError
 		nodes_in_group	[]string
 	)
@@ -66,7 +67,7 @@ func GroupPath (from_node, group_name string) (map[string][]string, tree_lib.Tre
 	}
 	for _, n := range nodes_in_group {
 		if check_node[n] {
-			targets[n] = true
+			targets = append(targets, n)
 			path[n], err = NodePath(from_node, n)
 			if !err.IsNull() {
 				return nil, err
@@ -79,10 +80,10 @@ func GroupPath (from_node, group_name string) (map[string][]string, tree_lib.Tre
 	return path, err
 }
 
-func TagPath(from_node, tag_name string) (map[string][]string, tree_lib.TreeError){
+func TagPath(from_node, tag_name string) (map[string]*big.Int, tree_lib.TreeError){
 	var (
 		err						tree_lib.TreeError
-		path =					make(map[string][]string)
+		path =					make(map[string]*big.Int)
 		nodes_by_tagname 		[]string
 	)
 	err.From = tree_lib.FROM_TAG_PATH
@@ -92,7 +93,7 @@ func TagPath(from_node, tag_name string) (map[string][]string, tree_lib.TreeErro
 	}
 	for _, n := range nodes_by_tagname {
 		if check_node[n] {
-			targets[n] = true
+			targets = append(targets, n)
 			path[n], err = NodePath(from_node, n)
 			if !err.IsNull() {
 				return nil, err
@@ -138,33 +139,26 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 	return next
 }
 
-func merge (path []map[string][]string) (*big.Int, tree_lib.TreeError) {
+func merge (path []map[string]*big.Int) (*big.Int) {
 	var (
-		err 					tree_lib.TreeError
+		value =					big.Int{}
 	)
-	err.From = tree_lib.FROM_MERGE
 	final_path := big.NewInt(1)
 	for _, a := range path {
 		for _, p := range a {
-			for _, n := range p {
-				if !mark[n] {
-					value := big.Int{}
-					value.SetInt64(node_values[n])
-					final_path.Mul(final_path, &value)
-					mark[n] = true
-					if targets[n] {
-						final_path.Mul(final_path, &value)
-					}
-				}
-			}
+			final_path = tree_lib.LCM(final_path, p)
 		}
 	}
-	return final_path, err
+	for _, n := range targets {
+		value.SetInt64(node_values[n])
+		final_path.Mul(final_path, value)
+	}
+	return final_path
 }
 func GetPath(from_node string, nodes []string, tags []string, groups []string) (final_path *big.Int, err tree_lib.TreeError) {
 	var (
-		node_path 		=		make(map[string][]string)
-		path					[]map[string][]string
+		node_path 		=		make(map[string]*big.Int)
+		path					[]map[string]*big.Int
 	)
 	err.From = tree_lib.FROM_GET_PATH
 
@@ -180,7 +174,7 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 	if nodes[0] != "*" {
 		for _, n := range nodes {
 			if check_node[n] {
-				targets[n] = true
+				targets = append(targets, n)
 				node_path[n], err = NodePath(from_node, n)
 				if !err.IsNull() {
 					return
@@ -215,10 +209,7 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 				fmt.Println("ignoring tag ", t)
 			}
 		}
-		final_path, err  = merge(path)
-		if targets[from_node] {
-			final_path.Mul(&final_path,big.NewInt(node_values[from_node]))
-		}
+		final_path = merge(path)
 		nodes_info = nil
 	} else {
 		var val big.Int
