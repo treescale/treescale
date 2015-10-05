@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"os"
 	"time"
-"math/rand"
+	"math/rand"
 	"io"
-	"cmd/compile/internal/big"
+	"math/big"
 )
 
 
@@ -152,4 +152,13 @@ func IsBigDividable(x, y *big.Int) (bool, *big.Int) {
 	}
 	
 	return false, x
+}
+
+func LCM (a *big.Int, b *big.Int) (c *big.Int) {
+	x := big.Int{}
+	c = big.NewInt(1)
+	c.Mul(a,b)
+	x.GCD(nil, nil , a, b)
+	c.Div(c,&x)
+	return
 }

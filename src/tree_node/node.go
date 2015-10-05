@@ -11,7 +11,7 @@ import (
 	"time"
 	"tree_lib"
 	"tree_event"
-	"cmd/compile/internal/big"
+	"math/big"
 )
 
 

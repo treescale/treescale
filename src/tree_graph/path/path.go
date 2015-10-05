@@ -2,10 +2,9 @@ package path
 
 import (
 	"encoding/binary"
-	"github.com/pquerna/ffjson/ffjson"
 	"tree_node/node_info"
 	"tree_lib"
-	"cmd/compile/internal/big"
+	"math/big"
 )
 
 type Path struct {

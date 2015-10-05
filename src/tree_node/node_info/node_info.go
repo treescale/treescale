@@ -1,5 +1,5 @@
 package node_info
-import "cmd/compile/internal/big"
+import "math/big"
 
 // This file contains global variables for information about Tree node
 

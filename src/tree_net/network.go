@@ -12,7 +12,7 @@ import (
 	"tree_lib"
 	"tree_graph"
 	"tree_api"
-	"cmd/compile/internal/big"
+	"math/big"
 )
 
 var (
