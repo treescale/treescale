@@ -6,12 +6,13 @@ import (
 	"github.com/pquerna/ffjson/ffjson"
 	"reflect"
 	"tree_lib"
+	"math/big"
 )
 
 
 type Event struct {
 	Name		string				`json:"name" toml:"name" yaml:"name"`
-	Path		tree_path.Path		`json:"path" toml:"path" yaml:"path"`
+	Path		*big.Int			`json:"path" toml:"path" yaml:"path"`
 	Data		[]byte				`json:"data" toml:"data" yaml:"data"`
 	From		string				`json:"from" toml:"from" yaml:"from"` // Name who sending this event
 	FromApi		string				`json:"from_api" toml:"from_api" yaml:"from_api"` // Name who sending this event

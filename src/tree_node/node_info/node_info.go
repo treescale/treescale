@@ -13,7 +13,7 @@ type NodeInfo struct {
 	AutoBalance		bool			`json:"auto_balance" toml:"auto_balance" yaml:"auto_balance"`
 	// big.Int value for every node
 	// Getting as a string from config or database and updating it to big.Int type inside node init or restart
-	Value			string			`json:"value" toml:"value" yaml:"value"`
+	Value			int64			`json:"value" toml:"value" yaml:"value"`
 }
 
 var (
@@ -30,13 +30,11 @@ func CalculateChildParentNodeValues() {
 	ParentNodeValue = big.NewInt(0)
 	// if SetString function will return false, then  ParentNodeValue will be big.Int with undefined value
 	// We don't need to check is it ok or not
-	ParentNodeValue.SetString(ParentNodeInfo.Value, 10)
+	ParentNodeValue.SetInt64(ParentNodeInfo.Value)
 
 	for n, inf :=range ChildsNodeInfo {
 		ChildsNodeValue[n] = big.NewInt(0)
 		// Setting value from string, but if it fails then deleting that value from MAP
-		if _, ok :=ChildsNodeValue[n].SetString(inf.Value, 10); !ok {
-			delete(ChildsNodeValue, n)
-		}
+		ChildsNodeValue[n].SetInt64(inf.Value)
 	}
 }

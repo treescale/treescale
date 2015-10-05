@@ -65,7 +65,7 @@ func UpdateNodeChange (info node_info.NodeInfo) {
 		ev 				*tree_event.Event
 		emitter 		*tree_event.EventEmitter
 		err 			tree_lib.TreeError
-		path			big.Int
+		path			*big.Int
 	)
 	err.From = tree_lib.FROM_UPDATE_NODE_CHANGE
 	ev.Data, err.Err = ffjson.Marshal(info)
