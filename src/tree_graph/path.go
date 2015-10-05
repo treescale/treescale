@@ -1,4 +1,4 @@
-package path
+package tree_graph
 
 import (
 	"encoding/binary"
@@ -8,9 +8,11 @@ import (
 )
 
 type Path struct {
-	NodePaths		map[string][]string		`json:"node_paths" toml:"node_paths" yaml:"node_paths"`
+	From 			string
+	Nodes			[]string				`json:"node_paths" toml:"node_paths" yaml:"node_paths"`
 	Groups			[]string				`json:"groups" toml:"groups" yaml:"groups"`
 	Tags			[]string				`json:"tags" toml:"tags" yaml:"tags"`
+	path 			*big.Int
 }
 
 func PathValueFromMessage(msg []byte) (body_index int, p *big.Int) {

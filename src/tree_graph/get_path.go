@@ -16,6 +16,7 @@ var (
 	nodes_info 			[]node_info.NodeInfo
 	node_values =		make(map[string]int64)
 )
+
 func Check() {
 	for _, a := range nodes_info {
 		check_node[a.Name] = true
@@ -155,13 +156,14 @@ func merge (path []map[string]*big.Int) (*big.Int) {
 	}
 	return final_path
 }
-func GetPath(from_node string, nodes []string, tags []string, groups []string) (final_path *big.Int, err tree_lib.TreeError) {
+
+func (p *Path) CalculatePath() (final_path *big.Int, err tree_lib.TreeError) {
 	var (
 		node_path 		=		make(map[string]*big.Int)
 		path					[]map[string]*big.Int
 	)
-	err.From = tree_lib.FROM_GET_PATH
 
+	err.From = tree_lib.FROM_GET_PATH
 	Check()
 
 	nodes_info, err = tree_db.ListNodeInfos()
@@ -171,11 +173,11 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 	for _, n := range nodes_info {
 		node_values[n.Name] = n.Value
 	}
-	if nodes[0] != "*" {
-		for _, n := range nodes {
+	if p.Nodes[0] != "*" {
+		for _, n := range p.Nodes {
 			if check_node[n] {
 				targets = append(targets, n)
-				node_path[n], err = NodePath(from_node, n)
+				node_path[n], err = NodePath(p.From, n)
 				if !err.IsNull() {
 					return
 				}
@@ -185,9 +187,9 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 			}
 		}
 		path = append(path, node_path)
-		for _, g := range groups {
+		for _, g := range p.Groups {
 			if check_group[g] {
-				node_path, err = GroupPath(from_node, g)
+				node_path, err = GroupPath(p.From, g)
 				if !err.IsNull() {
 					return
 				}
@@ -197,9 +199,9 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 				fmt.Println("ignoring group ", g)
 			}
 		}
-		for _, t := range nodes {
+		for _, t := range p.Tags {
 			if check_tag[t] {
-				node_path, err = TagPath(from_node, t)
+				node_path, err = TagPath(p.From, t)
 				if !err.IsNull() {
 					return
 				}
@@ -221,7 +223,7 @@ func GetPath(from_node string, nodes []string, tags []string, groups []string) (
 			final_path.Mul(final_path, &val)
 		}
 	}
-
+	p.path = final_path
 
 	//if path contains node, then final_path divides to value of node
 	//if node is a target, then final path divides square of value of node
