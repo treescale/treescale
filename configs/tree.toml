@@ -1,24 +1,16 @@
 [tree_node]
-[tree_node.php_server1]
-name="php_server1"
+[tree_node.tree1]
+name="tree1"
 tree_port=8888
-tree_ip="192.168.107.15"
+tree_ip="127.0.0.1"
 tags=["php", "prod"]
 groups=["backend"]
-childs=["php_server2"]
+childs=["tree2"]
 
-[tree_node.php_server2]
-name="php_server2"
-tree_port=8888
-tree_ip="192.168.107.18"
+[tree_node.tree2]
+name="tree2"
+tree_port=8887
+tree_ip="127.0.0.1"
 tags=["php"]
 groups=["backend"]
-childs=[]
-
-[tree_node.mysql_server]
-name="mysql_server"
-tree_port=8888
-tree_ip="192.168.107.16"
-tags=["prod"]
-groups=["database"]
 childs=[]

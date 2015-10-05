@@ -116,26 +116,26 @@ func init() {
 
 // Adding default flags for all API commands or related to that
 func add_api_default_flags(cmd *cobra.Command)  {
-	cmd.Flags().StringSliceP("node", "n", []string{""}, "Node name which will be API worker")
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
 	cmd.Flags().StringSliceP("target", "t", []string{""}, "List of Node Names which will be as a target nodes for sending command")
 	cmd.Flags().StringSlice("group", []string{}, "List of Node Groups for sending specific command for all")
 	cmd.Flags().StringSlice("tag", []string{}, "List of Node Tags for sending specific command for all")
 }
 
 func add_list_default_flags(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP("node", "n", []string(""), "Node names which will be APi worker")
-	cmd.Flags().StringSliceP("target", "t", []string(""), "Node names which infos wiil be listed")
+	cmd.Flags().StringP("node", "n", "", "Node names which will be APi worker")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node names which infos wiil be listed")
 }
 
 func add_update_default_flags(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP("node", "n", []string{""}, "Node names which will be Api Worker")
-	cmd.Flags().StringP("target", "t", "", "Node name which info will be updated")
-	cmd.Flags().StringP("add_child", "ac", "", "Node name which wiil be added as child")
-	cmd.Flags().StringP("ip", "i", "", "new ip address of node")
-	cmd.Flags().IntP("port", "p", -1, "new port of node")
-	cmd.Flags().StringP("add_group", "ag", "", "Goup name whom node will be added")
-	cmd.Flags().StringP("delete_child", "dc", "", "Child name which will be deleted")
-	cmd.Flags().StringP("delete_group", "dg", "", "Group name from node will be deleted")
-	cmd.Flags().StringP("add_tag", "at", "", "Tag name whom node will be added")
-	cmd.Flags().StringP("delete_tag", "dt", "", "tag name from node will fiil be deleted")
+//	cmd.Flags().StringP("node", "n", "", "Node names which will be Api Worker")
+//	cmd.Flags().StringP("target", "t", "", "Node name which info will be updated")
+//	cmd.Flags().StringP("add_child", "ac", "", "Node name which wiil be added as child")
+//	cmd.Flags().StringP("ip", "i", "", "new ip address of node")
+//	cmd.Flags().IntP("port", "p", -1, "new port of node")
+//	cmd.Flags().StringP("add_group", "ag", "", "Goup name whom node will be added")
+//	cmd.Flags().StringP("delete_child", "dc", "", "Child name which will be deleted")
+//	cmd.Flags().StringP("delete_group", "dg", "", "Group name from node will be deleted")
+//	cmd.Flags().StringP("add_tag", "at", "", "Tag name whom node will be added")
+//	cmd.Flags().StringP("delete_tag", "dt", "", "tag name from node will fiil be deleted")
 }

@@ -5,7 +5,9 @@ import (
 	"tree_lib"
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_log"
-	tree_path "tree_graph/path"
+	"tree_graph"
+	"tree_node/node_info"
+"math/big"
 )
 
 const (
@@ -113,7 +115,7 @@ func (cb *WriterCallback) End() {
 	cb.trigger_callback(true)
 }
 
-func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*tree_event.Event, Command)bool) (err tree_lib.TreeError) {
+func SendCommand(cmd *Command, path *tree_graph.Path, cb func(*tree_event.Event, Command)bool) (err tree_lib.TreeError) {
 	// If command ID not set just setting random string
 	if len(cmd.ID) == 0 {
 		cmd.ID = tree_lib.RandomString(10)
@@ -132,10 +134,11 @@ func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*
 	e := &tree_event.Event{
 		Name: tree_event.ON_API_COMMAND,
 		Data: cmd_data,
-		Path: (*path),
+		FromApi: node_info.CurrentNodeInfo.Value,
+		From: path.From,
 	}
 
-	EmitApi(e, targets...)
+	tree_event.Emit(e, path)
 
 	if cb != nil {
 		subscribed_command_callbacks[cmd.ID] = cb_str{f: cb, c: make(chan bool)}
@@ -145,3 +148,24 @@ func SendCommand(cmd *Command, targets []string, path *tree_path.Path, cb func(*
 	return
 }
 
+func SendCommandCallback(e *tree_event.Event, data []byte) (err tree_lib.TreeError) {
+	cb_ev := &tree_event.Event{}
+	path  := &tree_graph.Path{}
+	var p	*big.Int
+	cb_ev.Name = tree_event.ON_API_COMMAND_CALLBACK
+	cb_ev.Data = data
+	path.Nodes = []string{e.From}
+	p, err = path.CalculatePath()
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	// If it comes from API, then we need multiply also with API's negative value
+	if cb_ev.FromApi != 0 {
+		p.Mul(p, big.NewInt(cb_ev.FromApi))
+	}
+
+	tree_event.Emit(cb_ev, path)
+	return
+}

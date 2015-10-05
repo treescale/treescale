@@ -11,13 +11,12 @@ import (
 	"tree_node/node_info"
 	"github.com/pquerna/ffjson/ffjson"
 	"strings"
-	"math/big"
 )
 
 
 func HandleApiExec(cmd *cobra.Command, args []string) {
 	var (
-		nodes 			[]string
+		node 			string
 		targets 		[]string
 		target_groups 	[]string
 		target_tags 	[]string
@@ -25,7 +24,7 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 		err 			tree_lib.TreeError
 	)
 	err.From = tree_lib.FROM_HANDLE_API_EXEC
-	nodes, err.Err = cmd.Flags().GetStringSlice("node")
+	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -55,7 +54,7 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if !tree_api.API_INIT(nodes...) {
+	if !tree_api.API_INIT(node) {
 		fmt.Println("Unable to init api client")
 		fmt.Println("Exiting ...")
 		return
@@ -71,12 +70,9 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 	api_cmd.CommandType = tree_api.COMMAND_EXEC
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED, func(ev *tree_event.Event){
-		path, err := tree_graph.GetPath(string(ev.Data), targets, target_tags, target_groups)
-		if !err.IsNull() {
-			tree_log.Error(err.From, err.Error())
-			return
-		}
-		tree_api.SendCommand(&api_cmd, nodes, path, func(e *tree_event.Event, c tree_api.Command)bool{
+		path := &tree_graph.Path{From: node, Nodes: targets, Tags: target_tags, Groups: target_groups }
+
+		tree_api.SendCommand(&api_cmd, path, func(e *tree_event.Event, c tree_api.Command)bool{
 			fmt.Println(string(c.Data))
 			fmt.Println(c.Ended)
 			// TODO: End coming faster than other messages FIX !!!!
@@ -94,11 +90,11 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 func ListInfos(cmd *cobra.Command, args []string){
 	var (
 		err				tree_lib.TreeError
-		nodes			[]string
+		node			string
 		targets			[]string
 	)
 	err.From = tree_lib.FROM_LIST_INFOS
-	nodes, err.Err = cmd.Flags().GetStringSlice("node")
+	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -109,7 +105,7 @@ func ListInfos(cmd *cobra.Command, args []string){
 		return
 	}
 
-	if !tree_api.API_INIT(nodes...) {
+	if !tree_api.API_INIT(node) {
 		fmt.Println("Unable to init api client")
 		fmt.Println("Exiting ...")
 		return
@@ -121,14 +117,10 @@ func ListInfos(cmd *cobra.Command, args []string){
 	api_cmd.Data = []byte(strings.Join(targets,","))
 	api_cmd.CommandType = tree_api.COMMAND_LIST
 
-	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev tree_event.Event){
-		var path big.Int
-		path, err = tree_graph.GetPath(string(ev.Data), []string{string(ev.Data)},[]string{},[]string{})
-		if !err.IsNull() {
-			tree_log.Error(err.From, err.Error())
-			return
-		}
-		tree_api.SendCommand(&api_cmd, nodes, path, func (e tree_event.Event,c tree_api.Command)bool {
+	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev *tree_event.Event){
+		path := &tree_graph.Path{From: node, Nodes: targets }
+
+		tree_api.SendCommand(&api_cmd, path, func (e *tree_event.Event,c tree_api.Command)bool {
 			var (
 				err 			tree_lib.TreeError
 				info = 			make(map[string]node_info.NodeInfo)
@@ -136,7 +128,7 @@ func ListInfos(cmd *cobra.Command, args []string){
 			err.Err = ffjson.Unmarshal(c.Data, &info)
 			if !err.IsNull() {
 				tree_log.Error(err.From, err.Error())
-				return
+				return true
 			}
 			for _, a := range info {
 				fmt.Println("name: ",a.Name,", Adress: ", a.TreeIp, ":", a.TreePort,", Value: ", a.Value)
@@ -148,7 +140,7 @@ func ListInfos(cmd *cobra.Command, args []string){
 
 func UpdateInfo(cmd *cobra.Command, args []string) {
 	var (
-		nodes					[]string
+		node					string
 		err 					tree_lib.TreeError
 		target					string
 		ip 						string
@@ -162,7 +154,7 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 		info					node_info.NodeInfo
 	)
 
-	nodes, err.Err = cmd.Flags().GetStringSlice("node")
+	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -212,7 +204,7 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 		tree_log.Error(err.From, err.Error())
 		return
 	}
-	if !tree_api.API_INIT(nodes...) {
+	if !tree_api.API_INIT(node) {
 		fmt.Println("Unable to init api client")
 		fmt.Println("Exiting ...")
 		return
@@ -236,14 +228,9 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 	}
 	api_cmd.CommandType = tree_api.COMMAND_UPDATE
 
-	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev tree_event.Event) {
-		var path big.Int
-		path, err = tree_graph.GetPath(string(ev.Data), []string{string(ev.Data)},[]string{},[]string{})
-		if !err.IsNull() {
-			tree_log.Error(err.From, err.Error())
-			return
-		}
-		tree_api.SendCommand(&api_cmd, nodes, path, func(e tree_event.Event, c tree_api.Command) bool {
+	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev *tree_event.Event) {
+		path := &tree_graph.Path{From: node, Nodes: []string{target} }
+		tree_api.SendCommand(&api_cmd, path, func(e *tree_event.Event, c tree_api.Command) bool {
 
 			return true
 		})

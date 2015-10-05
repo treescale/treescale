@@ -7,6 +7,7 @@ import (
 	"tree_log"
 	"time"
 	"tree_event"
+	"github.com/pquerna/ffjson/ffjson"
 )
 
 // This file contains functionality for handling child connections
@@ -51,7 +52,9 @@ func ChildConnect(name string) (err tree_lib.TreeError) {
 
 	var (
 		conn			*net.TCPConn
-		ch_name_data	[]byte
+		curr_data		[]byte
+		ch_info_data	[]byte
+		conn_node_info	node_info.NodeInfo
 		msg				[]byte
 	)
 	err.From = tree_lib.FROM_CHILD_CONNECT
@@ -62,7 +65,13 @@ func ChildConnect(name string) (err tree_lib.TreeError) {
 	}
 	defer conn.Close()
 
-	ch_name_data, err = tree_lib.ReadMessage(conn)
+	ch_info_data, err = tree_lib.ReadMessage(conn)
+	if !err.IsNull() {
+		tree_log.Error(err.From, " child handshake -> ", name, " ", err.Error())
+		return
+	}
+
+	err.Err = ffjson.Unmarshal(ch_info_data, &conn_node_info)
 	if !err.IsNull() {
 		tree_log.Error(err.From, " child handshake -> ", name, " ", err.Error())
 		return
@@ -71,20 +80,26 @@ func ChildConnect(name string) (err tree_lib.TreeError) {
 	// If name revieved from connection not same name as we have
 	// Then we connected to wrong server, just returning
 	// defer will close connection
-	if string(ch_name_data) != name {
+	if conn_node_info.Name != name {
 		tree_lib.SendMessage([]byte(CLOSE_CONNECTION_MARK), conn)
 		return
 	}
 
-	_, err.Err = tree_lib.SendMessage([]byte(node_info.CurrentNodeInfo.Name), conn)
+	curr_data, err.Err = ffjson.Marshal(node_info.CurrentNodeInfo)
 	if !err.IsNull() {
-		tree_log.Error(err.From, " child handshake sending current name to -> ", name, " ", err.Error())
+		tree_log.Error(err.From, " child handshake -> ", name, " ", err.Error())
+		return
+	}
+
+	_, err.Err = tree_lib.SendMessage(curr_data, conn)
+	if !err.IsNull() {
+		tree_log.Error(err.From, " child handshake sending current info to -> ", name, " ", err.Error())
 		return
 	}
 
 	child_connections[name] = conn
 
-	tree_event.TriggerWithData(tree_event.ON_CHILD_CONNECTED, ch_name_data, nil)
+	tree_event.TriggerWithData(tree_event.ON_CHILD_CONNECTED, ch_info_data)
 
 	for {
 		msg, err = tree_lib.ReadMessage(conn)
@@ -99,7 +114,7 @@ func ChildConnect(name string) (err tree_lib.TreeError) {
 	child_connections[name] = nil
 	delete(child_connections, name)
 
-	tree_event.TriggerWithData(tree_event.ON_CHILD_DISCONNECTED, ch_name_data, nil)
+	tree_event.TriggerWithData(tree_event.ON_CHILD_DISCONNECTED, ch_info_data)
 
 	return
 }

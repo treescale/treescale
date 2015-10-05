@@ -1,4 +1,4 @@
-package tree_graph
+package get_path
 
 
 import(
@@ -7,6 +7,7 @@ import(
 	"tree_node/node_info"
 	"tree_db"
 	"fmt"
+	"tree_graph"
 )
 var (
 	check_group =		make(map[string]bool)
@@ -16,6 +17,13 @@ var (
 	nodes_info 			[]node_info.NodeInfo
 	node_values =		make(map[string]int64)
 )
+
+
+func init() {
+	// Initializing Path functions, because otherwise it is giving import cycle error
+	tree_graph.CalcPath = CalculatePath
+	tree_graph.GetPathValue = GetValue
+}
 
 func Check() {
 	for _, a := range nodes_info {
@@ -142,7 +150,7 @@ func bfs_frontier(node string, nodes map[string][]string, visited map[string]boo
 
 func merge (path []map[string]*big.Int) (*big.Int) {
 	var (
-		value =					big.Int{}
+		value =	big.Int{}
 	)
 	final_path := big.NewInt(1)
 	for _, a := range path {
@@ -152,12 +160,22 @@ func merge (path []map[string]*big.Int) (*big.Int) {
 	}
 	for _, n := range targets {
 		value.SetInt64(node_values[n])
-		final_path.Mul(final_path, value)
+		final_path.Mul(final_path, &value)
 	}
 	return final_path
 }
 
-func (p *Path) CalculatePath() (final_path *big.Int, err tree_lib.TreeError) {
+// Getting path value
+// If path value is nil then just calculating it , otherwise just returning existing path
+func GetValue(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeError) {
+	if p.Path == nil {
+		final_path, err = p.CalculatePath()
+	}
+	final_path = p.Path
+	return
+}
+
+func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeError) {
 	var (
 		node_path 		=		make(map[string]*big.Int)
 		path					[]map[string]*big.Int
@@ -223,7 +241,7 @@ func (p *Path) CalculatePath() (final_path *big.Int, err tree_lib.TreeError) {
 			final_path.Mul(final_path, &val)
 		}
 	}
-	p.path = final_path
+	p.Path = final_path
 
 	//if path contains node, then final_path divides to value of node
 	//if node is a target, then final path divides square of value of node

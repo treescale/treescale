@@ -6,16 +6,13 @@ import (
 	"tree_lib"
 	"fmt"
 	"tree_db"
+	"time"
+"math/rand"
 )
 
 const (
 	API_NAME_PREFIX		=	"___TREE_API___"
 	log_from_node_api	=	"Node API Backend"
-)
-
-var (
-	EmitApi			func(*tree_event.Event, ...string)tree_lib.TreeError
-	EmitToApi		func(*tree_event.Event, ...string)tree_lib.TreeError
 )
 
 func init() {
@@ -48,6 +45,11 @@ func API_INIT(targets...string) bool {
 		Name: fmt.Sprintf("%s|%s", API_NAME_PREFIX, tree_lib.RandomString(10)),
 		Childs: targets,
 	}
+
+	rand.Seed(time.Now().UnixNano())
+	// Getting next prime number based on Unix Timestamp nanoseconds and
+	// TODO: Think about making this in a different way
+	node_info.CurrentNodeInfo.Value = tree_lib.NextPrimeNumber((time.Now().UnixNano() * rand.Int63()) + int64(1000000000000)) * int64(-1)
 
 	return true
 }

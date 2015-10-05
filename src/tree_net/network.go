@@ -1,6 +1,5 @@
 package tree_net
 import (
-	tree_path "tree_graph/path"
 	"tree_event"
 	"tree_node/node_info"
 	"net"
@@ -11,12 +10,11 @@ import (
 	"fmt"
 	"tree_lib"
 	"tree_graph"
-	"tree_api"
 	"math/big"
 )
 
 var (
-	api_connections		=	make(map[string]*net.TCPConn)
+	api_connections		=	make(map[*big.Int]*net.TCPConn)
 )
 
 const (
@@ -28,8 +26,6 @@ const (
 func init() {
 	// Adding event emmit callback
 	tree_event.NetworkEmitCB = NetworkEmmit
-	tree_api.EmitApi	=	ApiEmit
-	tree_api.EmitToApi	=	EmitToAPI
 	// Child listener should be running without any condition
 	go ChildListener(1000)
 }
@@ -69,13 +65,10 @@ func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeErro
 		msg_data	=	msg[body_index:]
 	)
 	err.From = tree_lib.FROM_HANDLE_MESSAGE
-	body_index, path, err = tree_path.PathValueFromMessage(msg)
-	if !err.IsNull() {
-		return
-	}
+	body_index, path = tree_graph.PathValueFromMessage(msg)
 
 	// If current node dividable to path, then it should execute this event
-	if _, ok := tree_lib.IsBigDividable(&path, node_info.CurrentNodeValue); ok {
+	if ok, _ := tree_lib.IsBigDividable(path, node_info.CurrentNodeValue); ok {
 		go tree_event.TriggerFromData(msg[body_index:])
 	}
 
@@ -85,32 +78,26 @@ func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeErro
 }
 
 func SendToPath(data []byte, path *big.Int) {
+	// If path is negative, then this path is from API, so it contains API number also
+	// Every API client have is own simple number but with negative value for splitting path
+	if path.Sign() < 0 {
+		for n, c :=range api_connections {
+			if ok, _ := tree_lib.IsBigDividable(path, n); ok {
+				SendToConn(data, c, path)
+			}
+		}
+	}
+
 	// First of all trying to send to parent
-	if _, ok := tree_lib.IsBigDividable(path, node_info.ParentNodeValue); ok {
+	if ok, _ := tree_lib.IsBigDividable(path, node_info.ParentNodeValue); ok {
 		SendToParent(data, path)
 	}
 
 	for n, v :=range node_info.ChildsNodeValue {
-		if _, ok := tree_lib.IsBigDividable(path, v); ok {
+		if ok, _ := tree_lib.IsBigDividable(path, v); ok {
 			SendToChild(data, n, path)
 		}
 	}
-}
-
-// Sending data to API connections based on their names, because on the same node there could be multiple API connections
-func SendToAPI(data []byte, name string, path *big.Int) {
-	var (
-		conn	*net.TCPConn
-		ok		bool
-	)
-
-	// If we don't have node with this name connected
-	// Then just returning from this function
-	if conn, ok = api_connections[name]; !ok {
-		return
-	}
-
-	SendToConn(data, conn, path)
 }
 
 // Parent connection should be only one, that's why we don't need to specify name
@@ -157,7 +144,7 @@ func SendToConn(data []byte, conn *net.TCPConn, path *big.Int) {
 	if conn != nil {
 		_, err.Err = conn.Write(buf.Bytes())
 		if !err.IsNull() {
-			tree_log.Error(err.From, fmt.Sprintf("Error sending data to Node [%s]", name), err.Error())
+			tree_log.Error(err.From, fmt.Sprintf("Error sending data to path [%s]", path.String()), err.Error())
 		}
 	}
 
@@ -178,58 +165,30 @@ func TcpConnect(ip string, port int) (conn *net.TCPConn, err tree_lib.TreeError)
 	return
 }
 
-func NetworkEmmit(em *tree_event.EventEmitter) (err tree_lib.TreeError) {
+func NetworkEmmit(e *tree_event.Event, path *tree_graph.Path) (err tree_lib.TreeError) {
 	var (
-		path 		*big.Int
-		ev		=	em.Event
 		sdata		[]byte
+		p			*big.Int
 	)
 	err.From = tree_lib.FROM_NETWORK_EMIT
 
-	path, err = tree_graph.GetPath(node_info.CurrentNodeInfo.Name, em.ToNodes, em.ToTags, em.ToGroups)
+	// Calling get value, because maybe some one will calculate this path before calling this functions
+	// If path is not calculated yet, it will be automatically calculated in GetValue function
+	p, err = path.GetValue()
 	if !err.IsNull() {
 		return
 	}
 
-	// If from not set, setting it before network sending
-	if len(em.From) == 0 {
-		em.From = node_info.CurrentNodeInfo.Name
-	}
-
-	sdata, err.Err = ffjson.Marshal(ev)
-	if !err.IsNull() {
-		return
-	}
-
-	SendToPath(sdata, path)
-	return
-}
-
-func ApiEmit(e *tree_event.Event, nodes...string) (err tree_lib.TreeError) {
-	var (
-		sdata	[]byte
-	)
-	err.From = tree_lib.FROM_API_EMIT
 	// If from not set, setting it before network sending
 	if len(e.From) == 0 {
 		e.From = node_info.CurrentNodeInfo.Name
 	}
-	
+
 	sdata, err.Err = ffjson.Marshal(e)
 	if !err.IsNull() {
 		return
 	}
 
-	for _, n :=range nodes {
-		if c, ok :=child_connections[n]; ok && c != nil {
-			err = SendToConn(sdata, &e.Path, c)
-			if !err.IsNull() {
-				tree_log.Error(err.From, "Unable to send data to node <", n, "> ", err.Error())
-			}
-		} else {
-			tree_log.Error(err.From, "Please connect to Node <", n, "> before sending data")
-		}
-	}
-
+	SendToPath(sdata, p)
 	return
 }

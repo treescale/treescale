@@ -3,6 +3,9 @@ package main
 import (
 	"tree_console"
 	"tree_lib"
+
+	// Just to load path functions
+	_ "tree_graph/get_path"
 )
 
 const (
