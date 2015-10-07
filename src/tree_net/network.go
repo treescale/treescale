@@ -64,7 +64,6 @@ func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeErro
 	var (
 		body_index		int
 		path			*big.Int
-		msg_data	=	msg[body_index:]
 	)
 	err.From = tree_lib.FROM_HANDLE_MESSAGE
 	body_index, path = tree_graph.PathValueFromMessage(msg)
@@ -76,9 +75,9 @@ func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeErro
 		go tree_event.TriggerFromData(msg[body_index:])
 	}
 
-	fmt.Println(string(msg_data))
+	fmt.Println(string(msg))
 
-	SendToPath(msg_data, path)
+	SendToPath(msg, path)
 
 	return
 }
