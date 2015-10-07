@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"tree_db"
 	"time"
-"math/rand"
+	"math/rand"
+	"math/big"
 )
 
 const (
@@ -47,8 +48,10 @@ func API_INIT(targets...string) bool {
 		Childs: targets,
 		// Getting next prime number based on Unix Timestamp nanoseconds and
 		// TODO: Think about making this in a different way
-		Value: tree_lib.NextPrimeNumber((1 * rand.Int63n(100)) + int64(100)) * int64(-1),
+		Value: tree_lib.NextPrimeNumber((1 * rand.Int63n(100)) + int64(100)),
 	}
+
+	node_info.CurrentNodeValue = big.NewInt(node_info.CurrentNodeInfo.Value)
 
 	// Setting node values based on child list
 	node_info.CalculateChildParentNodeValues()

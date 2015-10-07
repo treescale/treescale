@@ -62,31 +62,26 @@ func Restart() {
 
 func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeError) {
 	var (
-		body_index		int
+		msg_body        []byte
 		path			*big.Int
 	)
 	err.From = tree_lib.FROM_HANDLE_MESSAGE
-	body_index, path = tree_graph.PathValueFromMessage(msg)
-
-	fmt.Println(path.String(), node_info.CurrentNodeValue.String())
+	msg_body, path = tree_graph.PathValueFromMessage(msg)
 
 	// If current node dividable to path, then it should execute this event
 	if ok, _ := tree_lib.IsBigDividable(path, node_info.CurrentNodeValue); ok {
-		go tree_event.TriggerFromData(msg[body_index:])
+		go tree_event.TriggerFromData(msg_body)
 	}
 
-	fmt.Println(string(msg))
-
-	SendToPath(msg, path)
+	SendToPath(msg_body, path)
 
 	return
 }
 
 func SendToPath(data []byte, path *big.Int) {
-	// If path is negative, then this path is from API, so it contains API number also
 	// Every API client have is own simple number but with negative value for splitting path
-	if path.Sign() < 0 {
-		for n, c :=range api_connections {
+	for n, c :=range api_connections {
+		if n.Int64() > 0 {
 			if ok, _ := tree_lib.IsBigDividable(path, n); ok {
 				SendToConn(data, c, path)
 			}

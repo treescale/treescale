@@ -19,12 +19,12 @@ var (
 	GetPathValue		func (*Path) (*big.Int, tree_lib.TreeError)
 )
 
-func PathValueFromMessage(msg []byte) (body_index int, p *big.Int) {
+func PathValueFromMessage(msg []byte) (body []byte, p *big.Int) {
 	// First 4 bytes in message is a length of json encoded Path
 	path_len := int(binary.LittleEndian.Uint32(msg[:4]))
 	p = big.NewInt(0)
 	p.SetBytes(msg[4:path_len+4])
-	body_index = 4 + path_len + 4
+	body = msg[path_len + 4:]
 	return
 }
 

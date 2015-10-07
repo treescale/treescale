@@ -7,7 +7,7 @@ import (
 	"tree_log"
 	"tree_graph"
 	"tree_node/node_info"
-"math/big"
+	"math/big"
 )
 
 const (
@@ -162,8 +162,9 @@ func SendCommandCallback(e *tree_event.Event, data []byte) (err tree_lib.TreeErr
 	}
 
 	// If it comes from API, then we need multiply also with API's negative value
-	if cb_ev.FromApi != 0 {
-		p.Mul(p, big.NewInt(cb_ev.FromApi))
+	if e.FromApi != 0 {
+		p.Mul(p, big.NewInt(e.FromApi))
+		p.Mul(p, big.NewInt(e.FromApi))
 	}
 
 	tree_event.Emit(cb_ev, path)

@@ -247,8 +247,8 @@ func GetParentInfo(node string) (node_info.NodeInfo, tree_lib.TreeError) {
 			return err
 		}
 
-		if i, ok := tree_lib.ArrayContains(n.Childs, node); ok {
-			pname = n.Childs[i]
+		if _, ok := tree_lib.ArrayContains(n.Childs, node); ok {
+			pname = n.Name
 			return errors.New("Just Err for break")
 		}
 
