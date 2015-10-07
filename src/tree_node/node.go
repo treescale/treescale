@@ -59,8 +59,7 @@ func node_init() {
 
 	// Setting current Node Value field from string to big.Int
 	node_info.CurrentNodeValue = nil // Setting to nil for garbage collection
-	node_info.CurrentNodeValue = big.NewInt(0)
-	node_info.CurrentNodeValue.SetBytes(current_node_byte)
+	node_info.CurrentNodeValue = big.NewInt(node_info.CurrentNodeInfo.Value)
 
 	for _, child :=range node_info.CurrentNodeInfo.Childs {
 		node_info.ChildsNodeInfo[child], err = tree_db.GetNodeInfo(child)

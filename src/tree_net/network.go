@@ -11,6 +11,8 @@ import (
 	"tree_lib"
 	"tree_graph"
 	"math/big"
+	"tree_api"
+"strings"
 )
 
 var (
@@ -67,10 +69,14 @@ func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeErro
 	err.From = tree_lib.FROM_HANDLE_MESSAGE
 	body_index, path = tree_graph.PathValueFromMessage(msg)
 
+	fmt.Println(path.String(), node_info.CurrentNodeValue.String())
+
 	// If current node dividable to path, then it should execute this event
 	if ok, _ := tree_lib.IsBigDividable(path, node_info.CurrentNodeValue); ok {
 		go tree_event.TriggerFromData(msg[body_index:])
 	}
+
+	fmt.Println(string(msg_data))
 
 	SendToPath(msg_data, path)
 
@@ -89,13 +95,17 @@ func SendToPath(data []byte, path *big.Int) {
 	}
 
 	// First of all trying to send to parent
-	if ok, _ := tree_lib.IsBigDividable(path, node_info.ParentNodeValue); ok {
-		SendToParent(data, path)
+	if node_info.ParentNodeValue != nil && node_info.ParentNodeValue.Int64() > 0 {
+		if ok, _ := tree_lib.IsBigDividable(path, node_info.ParentNodeValue); ok {
+			SendToParent(data, path)
+		}
 	}
 
 	for n, v :=range node_info.ChildsNodeValue {
-		if ok, _ := tree_lib.IsBigDividable(path, v); ok {
-			SendToChild(data, n, path)
+		if v != nil && v.Int64() > 0 {
+			if ok, _ := tree_lib.IsBigDividable(path, v); ok {
+				SendToChild(data, n, path)
+			}
 		}
 	}
 }
@@ -177,6 +187,12 @@ func NetworkEmmit(e *tree_event.Event, path *tree_graph.Path) (err tree_lib.Tree
 	p, err = path.GetValue()
 	if !err.IsNull() {
 		return
+	}
+
+	// If we emitting from API then we need to multiply path with connected node
+	// For sending data through him
+	if strings.Contains(node_info.CurrentNodeInfo.Name, tree_api.API_NAME_PREFIX) {
+		p.Mul(p, node_info.ChildsNodeValue[path.From])
 	}
 
 	// If from not set, setting it before network sending

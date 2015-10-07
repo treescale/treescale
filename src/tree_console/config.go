@@ -147,10 +147,15 @@ func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 
 
 func DBFromConfig() {
-	var err tree_lib.TreeError
+	var (
+		err 			tree_lib.TreeError
+		prev_prime	=	int64(1)
+	)
 	err.From = tree_lib.FROM_DB_FROM_CONFIG
 
 	for n, nf :=range GLOBAL_CONFIG.TreeNode {
+		nf.Value = tree_lib.NextPrimeNumber(prev_prime)
+		prev_prime = nf.Value
 		err = tree_db.SetNodeInfo(n, nf)
 		if !err.IsNull() {
 			tree_log.Error(err.From, err.Error())

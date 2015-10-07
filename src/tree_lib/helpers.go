@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"io"
 	"math/big"
+	"math"
 )
 
 
@@ -127,7 +128,7 @@ func NextPrimeNumber (n int64) int64 {
 	)
 	for {
 		mark = true
-		for j = 2; j<i/2; j++ {
+		for j = 2; j<=int64(math.Sqrt(float64(n))); j++ {
 			if i % j == 0 {
 				mark = false
 				break

@@ -182,12 +182,13 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 	)
 
 	err.From = tree_lib.FROM_GET_PATH
-	Check()
-
 	nodes_info, err = tree_db.ListNodeInfos()
 	if !err.IsNull() {
 		return
 	}
+
+	Check()
+
 	for _, n := range nodes_info {
 		node_values[n.Name] = n.Value
 	}

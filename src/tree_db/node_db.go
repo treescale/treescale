@@ -234,15 +234,31 @@ func AddNodeToHisTags(node string) (err tree_lib.TreeError) {
 
 
 func GetParentInfo(node string) (node_info.NodeInfo, tree_lib.TreeError) {
-	nr, err := GetRelations(node)
+	var (
+		err 	tree_lib.TreeError
+		pname	string
+	)
 	err.From = tree_lib.FROM_GET_PARENT_INFO
-	if !err.IsNull() {
-		return node_info.NodeInfo{}, err
-	}
-	if len(nr[0]) == 0 {
-		return node_info.NodeInfo{}, err
+
+	err = ForEach(DB_NODE, func(key []byte, val []byte)error {
+		n := node_info.NodeInfo{}
+		err := ffjson.Unmarshal(val, &n)
+		if err != nil {
+			return err
+		}
+
+		if i, ok := tree_lib.ArrayContains(n.Childs, node); ok {
+			pname = n.Childs[i]
+			return errors.New("Just Err for break")
+		}
+
+		return nil
+	})
+
+	if len(pname) == 0 {
+		return node_info.NodeInfo{}, tree_lib.TreeError{}
 	}
 
 	// Node relations firs element should be parent node
-	return GetNodeInfo(nr[0])
+	return GetNodeInfo(pname)
 }

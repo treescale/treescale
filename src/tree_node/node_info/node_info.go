@@ -1,5 +1,8 @@
 package node_info
-import "math/big"
+import (
+	"math/big"
+	"fmt"
+)
 
 // This file contains global variables for information about Tree node
 
@@ -30,6 +33,7 @@ func CalculateChildParentNodeValues() {
 	ParentNodeValue = big.NewInt(0)
 	// if SetString function will return false, then  ParentNodeValue will be big.Int with undefined value
 	// We don't need to check is it ok or not
+	fmt.Println(ParentNodeInfo)
 	ParentNodeValue.SetInt64(ParentNodeInfo.Value)
 
 	for n, inf :=range ChildsNodeInfo {

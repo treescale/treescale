@@ -17,11 +17,11 @@ const (
 
 func init() {
 	tree_event.ON(tree_event.ON_API_CONNECTED, func(e *tree_event.Event){
-		tree_log.Info(log_from_node_api, "New API client connected -> ", string(e.Data))
+//		tree_log.Info(log_from_node_api, "New API client connected -> ", string(e.Data))
 	})
 
 	tree_event.ON(tree_event.ON_API_DISCONNECTED, func(e *tree_event.Event){
-		tree_log.Info(log_from_node_api, "New API client disconnected -> ", string(e.Data))
+//		tree_log.Info(log_from_node_api, "New API client disconnected -> ", string(e.Data))
 	})
 }
 
@@ -41,15 +41,17 @@ func API_INIT(targets...string) bool {
 		}
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	node_info.CurrentNodeInfo = node_info.NodeInfo{
 		Name: fmt.Sprintf("%s|%s", API_NAME_PREFIX, tree_lib.RandomString(10)),
 		Childs: targets,
+		// Getting next prime number based on Unix Timestamp nanoseconds and
+		// TODO: Think about making this in a different way
+		Value: tree_lib.NextPrimeNumber((1 * rand.Int63n(100)) + int64(100)) * int64(-1),
 	}
 
-	rand.Seed(time.Now().UnixNano())
-	// Getting next prime number based on Unix Timestamp nanoseconds and
-	// TODO: Think about making this in a different way
-	node_info.CurrentNodeInfo.Value = tree_lib.NextPrimeNumber((time.Now().UnixNano() * rand.Int63()) + int64(1000000000000)) * int64(-1)
+	// Setting node values based on child list
+	node_info.CalculateChildParentNodeValues()
 
 	return true
 }
