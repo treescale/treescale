@@ -221,6 +221,7 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 
 	var (
 		api_cmd =		tree_api.Command{}
+		wait = 			make(chan bool)
 	)
 
 	api_cmd.ID = tree_lib.RandomString(20)
@@ -237,5 +238,7 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 
 			return false
 		})
+		wait <- true
 	})
+	<- wait
 }

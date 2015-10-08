@@ -65,6 +65,7 @@ func HandleUpdateCommand(ev *tree_event.Event, cmd Command){
 		tree_log.Error(err.From, err.Error())
 	}
 	UpdateNodeChange(info)
+	SendCommandCallback(ev,ev.Data)
 }
 
 func UpdateNodeChange (info node_info.NodeInfo) {

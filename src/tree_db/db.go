@@ -84,30 +84,24 @@ func init() {
 				info.Childs = append(info.Childs, ev_info.Childs[0])
 			}
 			if len(ev_info.Childs[1]) > 0 {
-				g, ok := tree_lib.ArrayContains(info.Childs, ev_info.Childs[1])
-				if ok {
-					info.Childs[g] = info.Childs[len(info.Childs) - 1]
-					info.Childs = info.Childs[0:len(info.Childs) - 1]
+				if g, ok := tree_lib.ArrayContains(info.Childs, ev_info.Childs[1]); ok {
+					info.Childs = info.Childs[:g+copy(info.Childs[g:], info.Childs[g+1:])]
 				}
 			}
 			if len(ev_info.Groups[0]) > 0 {
 				info.Groups = append(info.Groups, ev_info.Groups[0])
 			}
 			if len(ev_info.Groups[1]) > 0 {
-				g, ok := tree_lib.ArrayContains(info.Groups, ev_info.Groups[1])
-				if ok {
-					info.Groups[g] = info.Groups[len(info.Groups) - 1]
-					info.Groups = info.Groups[0:len(info.Groups) - 1]
+				if g, ok := tree_lib.ArrayContains(info.Groups, ev_info.Groups[1]); ok {
+					info.Groups = info.Groups[:g+copy(info.Groups[g:], info.Groups[g+1:])]
 				}
 			}
 			if len(ev_info.Tags[0]) > 0 {
 				info.Tags = append(info.Tags, ev_info.Tags[0])
 			}
 			if len(ev_info.Tags[1]) > 0 {
-				g, ok := tree_lib.ArrayContains(info.Tags, ev_info.Tags[1])
-				if ok {
-					info.Tags[g] = info.Tags[len(info.Tags) - 1]
-					info.Tags = info.Childs[0:len(info.Tags) - 1]
+				if g, ok := tree_lib.ArrayContains(info.Tags, ev_info.Tags[1]); ok {
+					info.Tags = info.Tags[:g+copy(info.Tags[g:], info.Tags[g+1:])]
 				}
 			}
 			data, err.Err = ffjson.Marshal(info)
