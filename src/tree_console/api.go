@@ -112,13 +112,14 @@ func ListInfos(cmd *cobra.Command, args []string){
 	}
 	var (
 		api_cmd =		tree_api.Command{}
+		wait = 			make(chan bool)
 	)
 	api_cmd.ID = tree_lib.RandomString(20)
 	api_cmd.Data = []byte(strings.Join(targets,","))
 	api_cmd.CommandType = tree_api.COMMAND_LIST
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev *tree_event.Event){
-		path := &tree_graph.Path{From: node, Nodes: targets }
+		path := &tree_graph.Path{From: node, Nodes: []string{node} }
 
 		tree_api.SendCommand(&api_cmd, path, func (e *tree_event.Event,c tree_api.Command)bool {
 			var (
@@ -128,14 +129,16 @@ func ListInfos(cmd *cobra.Command, args []string){
 			err.Err = ffjson.Unmarshal(c.Data, &info)
 			if !err.IsNull() {
 				tree_log.Error(err.From, err.Error())
-				return true
+				return false
 			}
 			for _, a := range info {
 				fmt.Println("name: ",a.Name,", Adress: ", a.TreeIp, ":", a.TreePort,", Value: ", a.Value)
 			}
-			return true
+			return false
 		})
+		wait <- true
 	})
+	<- wait
 }
 
 func UpdateInfo(cmd *cobra.Command, args []string) {
@@ -229,10 +232,10 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 	api_cmd.CommandType = tree_api.COMMAND_UPDATE
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev *tree_event.Event) {
-		path := &tree_graph.Path{From: node, Nodes: []string{target} }
+		path := &tree_graph.Path{From: node, Nodes: []string{node} }
 		tree_api.SendCommand(&api_cmd, path, func(e *tree_event.Event, c tree_api.Command) bool {
 
-			return true
+			return false
 		})
 	})
 }

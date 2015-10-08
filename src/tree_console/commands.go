@@ -128,14 +128,14 @@ func add_list_default_flags(cmd *cobra.Command) {
 }
 
 func add_update_default_flags(cmd *cobra.Command) {
-//	cmd.Flags().StringP("node", "n", "", "Node names which will be Api Worker")
-//	cmd.Flags().StringP("target", "t", "", "Node name which info will be updated")
-//	cmd.Flags().StringP("add_child", "ac", "", "Node name which wiil be added as child")
-//	cmd.Flags().StringP("ip", "i", "", "new ip address of node")
-//	cmd.Flags().IntP("port", "p", -1, "new port of node")
-//	cmd.Flags().StringP("add_group", "ag", "", "Goup name whom node will be added")
-//	cmd.Flags().StringP("delete_child", "dc", "", "Child name which will be deleted")
-//	cmd.Flags().StringP("delete_group", "dg", "", "Group name from node will be deleted")
-//	cmd.Flags().StringP("add_tag", "at", "", "Tag name whom node will be added")
-//	cmd.Flags().StringP("delete_tag", "dt", "", "tag name from node will fiil be deleted")
+	cmd.Flags().StringP("node", "n", "", "Node names which will be Api Worker")
+	cmd.Flags().StringP("target", "t", "", "Node name which info will be updated")
+	cmd.Flags().String("add_child", "", "Node name which wiil be added as child")
+	cmd.Flags().StringP("ip", "i", "", "new ip address of node")
+	cmd.Flags().IntP("port", "p", -1, "new port of node")
+	cmd.Flags().String("add_group", "", "Goup name whom node will be added")
+	cmd.Flags().String("delete_child", "", "Child name which will be deleted")
+	cmd.Flags().String("delete_group", "", "Group name from node will be deleted")
+	cmd.Flags().String("add_tag", "", "Tag name whom node will be added")
+	cmd.Flags().String("delete_tag", "", "tag name from node will fiil be deleted")
 }

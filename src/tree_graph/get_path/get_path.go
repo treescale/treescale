@@ -192,7 +192,7 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 	for _, n := range nodes_info {
 		node_values[n.Name] = n.Value
 	}
-	if p.Nodes[0] != "*" {
+	if len(p.Nodes)>0 && p.Nodes[0] != "*" {
 		for _, n := range p.Nodes {
 			if check_node[n] {
 				targets = append(targets, n)
@@ -232,7 +232,7 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 		}
 		final_path = merge(path)
 		nodes_info = nil
-	} else {
+	} else if len(p.Nodes) > 0 && p.Nodes[0] == "*" {
 		var val big.Int
 		final_path = big.NewInt(1)
 		for _, n := range nodes_info {

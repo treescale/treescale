@@ -68,7 +68,7 @@ func init() {
 			tree_log.Error(err.From,err.Error())
 			return
 		}
-		info, err = GetNodeInfo(e.Name)
+		info, err = GetNodeInfo(ev_info.Name)
 		if !err.IsNull() {
 			tree_log.Error(err.From, err.Error())
 			return
