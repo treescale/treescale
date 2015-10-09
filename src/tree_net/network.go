@@ -12,7 +12,7 @@ import (
 	"tree_graph"
 	"math/big"
 	"tree_api"
-"strings"
+	"strings"
 )
 
 var (
@@ -28,8 +28,9 @@ const (
 func init() {
 	// Adding event emmit callback
 	tree_event.NetworkEmitCB = NetworkEmmit
-	// Child listener should be running without any condition
-	go ChildListener(1000)
+
+	// Adding child connector for node_info
+	node_info.ChildsConnectionUpdate = ChildsConnector
 }
 
 func Start() {

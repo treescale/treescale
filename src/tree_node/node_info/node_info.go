@@ -27,6 +27,11 @@ var (
 	ParentNodeValue		*big.Int
 	ChildsNodeInfo	=	make(map[string]NodeInfo)
 	ChildsNodeValue	=	make(map[string]*big.Int)
+
+	// Function implemented in Networking
+	// and connecting to available childs
+	// if child deleted from list it automatically closing existing connection
+	ChildsConnectionUpdate	func()
 )
 
 func CalculateChildParentNodeValues() {

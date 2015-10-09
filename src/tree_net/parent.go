@@ -5,7 +5,6 @@ import (
 	"tree_node/node_info"
 	"tree_lib"
 	"tree_log"
-	"time"
 	"tree_event"
 	"github.com/pquerna/ffjson/ffjson"
 )
@@ -17,25 +16,18 @@ var (
 	log_from_parent		=	"Child connection handler"
 )
 
-func ChildListener(interval time.Duration) {
-
-	// TODO: this logic should be changed to evented, start reconnecting if child disconnected or there is connection error
-
-	for {
-		// If we have connected to childs that doesn't exists in current child list
-		// then deleting them and closing connection
-		for n, c :=range child_connections {
-			if _, ok :=node_info.ChildsNodeInfo[n]; !ok {
-				c.Close()
-				delete(child_connections, n)
-			}
+func ChildsConnector() {
+	// If we have connected to childs that doesn't exists in current child list
+	// then deleting them and closing connection
+	for n, c :=range child_connections {
+		if _, ok :=node_info.ChildsNodeInfo[n]; !ok {
+			c.Close()
+			delete(child_connections, n)
 		}
+	}
 
-		for n, _ :=range node_info.ChildsNodeInfo {
-			ChildConnect(n)
-		}
-
-		time.Sleep(time.Millisecond * interval)
+	for n, _ :=range node_info.ChildsNodeInfo {
+		go ChildConnect(n)
 	}
 }
 

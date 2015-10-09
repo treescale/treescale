@@ -80,6 +80,9 @@ func node_init() {
 
 	// Setting node values based on child list
 	node_info.CalculateChildParentNodeValues()
+
+	// After we have child information lets connect to them
+	node_info.ChildsConnectionUpdate()
 }
 
 func Start() {
