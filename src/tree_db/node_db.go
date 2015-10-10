@@ -155,8 +155,10 @@ func GetGroupNodes(group string) ([]string, tree_lib.TreeError) {
 	if !err.IsNull() {
 		return nil, err
 	}
-
-	return strings.Split(string(nodes_byte), ","), err
+	if nodes_byte != nil {
+		return strings.Split(string(nodes_byte), ",")[1:], err
+	}
+	return []string{}, err
 }
 
 func GroupAddNode(group, node string) (err tree_lib.TreeError) {
@@ -168,7 +170,9 @@ func GroupAddNode(group, node string) (err tree_lib.TreeError) {
 	}
 
 	group_nodes := strings.Split(string(gB), ",")
-	group_nodes = append(group_nodes, node)
+	if _, ok := tree_lib.ArrayContains(group_nodes, node); !ok {
+		group_nodes = append(group_nodes, node)
+	}
 
 	err = Set(DB_GROUP, []byte(group), []byte(strings.Join(group_nodes, ",")))
 	return
@@ -197,7 +201,7 @@ func GetNodesByTagName(tag string) ([]string, tree_lib.TreeError) {
 	if !err.IsNull() {
 		return nil, err
 	}
-	return strings.Split(string(nodes_byte), ","), err
+	return strings.Split(string(nodes_byte), ",")[1:], err
 }
 
 func TagAddNode(tag, node string) (err tree_lib.TreeError) {
