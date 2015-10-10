@@ -10,8 +10,8 @@ import (
 	"tree_graph"
 	"tree_node/node_info"
 	"github.com/pquerna/ffjson/ffjson"
-	"strings"
 )
+
 
 
 func HandleApiExec(cmd *cobra.Command, args []string) {
@@ -92,6 +92,9 @@ func ListInfos(cmd *cobra.Command, args []string){
 		err				tree_lib.TreeError
 		node			string
 		targets			[]string
+		groups        	[]string
+		tags			[]string
+		info 			tree_api.Info
 	)
 	err.From = tree_lib.FROM_LIST_INFOS
 	node, err.Err = cmd.Flags().GetString("node")
@@ -104,7 +107,16 @@ func ListInfos(cmd *cobra.Command, args []string){
 		tree_log.Error(err.From, err.Error())
 		return
 	}
-
+	groups, err.Err = cmd.Flags().GetStringSlice("group")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tags, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
 	if !tree_api.API_INIT(node) {
 		fmt.Println("Unable to init api client")
 		fmt.Println("Exiting ...")
@@ -114,8 +126,15 @@ func ListInfos(cmd *cobra.Command, args []string){
 		api_cmd =		tree_api.Command{}
 		wait = 			make(chan bool)
 	)
+	info.Group = groups
+	info.Target = targets
+	info.Tag = tags
+	api_cmd.Data, err.Err = ffjson.Marshal(info)
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
 	api_cmd.ID = tree_lib.RandomString(20)
-	api_cmd.Data = []byte(strings.Join(targets,","))
 	api_cmd.CommandType = tree_api.COMMAND_LIST
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev *tree_event.Event){
@@ -133,6 +152,9 @@ func ListInfos(cmd *cobra.Command, args []string){
 			}
 			for _, a := range info {
 				fmt.Println("name: ",a.Name,", Adress: ", a.TreeIp, ":", a.TreePort,", Value: ", a.Value)
+				fmt.Println("groups:",a.Groups)
+				fmt.Println("tags:",a.Tags)
+				fmt.Println("childs",a.Childs)
 			}
 			return false
 		})

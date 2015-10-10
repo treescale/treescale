@@ -125,6 +125,8 @@ func add_api_default_flags(cmd *cobra.Command)  {
 func add_list_default_flags(cmd *cobra.Command) {
 	cmd.Flags().StringP("node", "n", "", "Node names which will be APi worker")
 	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node names which infos wiil be listed")
+	cmd.Flags().StringSlice("group", []string{""}, "Group names which node infos will be listed")
+	cmd.Flags().StringSlice("tag", []string{""}, "Tag names which node infos will be listed")
 }
 
 func add_update_default_flags(cmd *cobra.Command) {
