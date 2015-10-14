@@ -61,7 +61,7 @@ func init() {
 			ev_info 			node_info.NodeInfo
 			names 				[]string
 			data 				[]byte
-
+			mark 				bool
 		)
 		err.Err = ffjson.Unmarshal(e.Data, &ev_info)
 		if !err.IsNull() {
@@ -74,11 +74,23 @@ func init() {
 			return
 		}
 		if len(info.Name) > 0 {
+			err = DeleteNodeFromHisGroups(info.Name)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
+			err = DeleteNodeFromHisTags(info.Name)
+			if !err.IsNull() {
+				tree_log.Error(err.From, err.Error())
+				return
+			}
 			if len(ev_info.TreeIp) > 0 {
 				info.TreeIp = ev_info.TreeIp
+				mark = true
 			}
 			if ev_info.TreePort != -1 {
 				info.TreePort = ev_info.TreePort
+				mark = true
 			}
 			if len(ev_info.Childs[0]) > 0 {
 				info.Childs = append(info.Childs, ev_info.Childs[0])
@@ -119,12 +131,13 @@ func init() {
 				tree_log.Error(err.From, err.Error())
 				return
 			}
-			err = AddNodeToHisGroups(ev_info.Name)
+
+			err = AddNodeToHisGroups(info.Name)
 			if !err.IsNull() {
 				tree_log.Error(err.From, err.Error())
 				return
 			}
-			err = AddNodeToHisTags(ev_info.Name)
+			err = AddNodeToHisTags(info.Name)
 			if !err.IsNull() {
 				tree_log.Error(err.From, err.Error())
 				return
@@ -136,8 +149,10 @@ func init() {
 					return
 				}
 			}
-			if node_info.CurrentNodeInfo.Name == ev_info.Name {
-				//tree_net.Restart()
+			if node_info.CurrentNodeInfo.Name == ev_info.Name && mark{
+				var e1		tree_event.Event
+				e1.Name = tree_event.ON_RESTART_NODE
+				tree_event.Trigger(&e1)
 			}
 		} else {
 			err = Set(DB_NODE,[]byte(ev_info.Name),e.Data)
@@ -168,9 +183,9 @@ func init() {
 				}
 			}
 			if node_info.CurrentNodeInfo.Name == ev_info.Name {
-				var e		*tree_event.Event
-				e.Name = tree_event.ON_RESTART_NODE
-				tree_event.Trigger(e)
+				var e1		*tree_event.Event
+				e1.Name = tree_event.ON_RESTART_NODE
+				tree_event.Trigger(e1)
 			}
 		}
 	})

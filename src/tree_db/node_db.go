@@ -6,6 +6,7 @@ import (
 	"strings"
 	"tree_lib"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"fmt"
 )
 
 
@@ -181,7 +182,42 @@ func GroupAddNode(group, node string) (err tree_lib.TreeError) {
 	err = Set(DB_GROUP, []byte(group), []byte(strings.Join(group_nodes, ",")))
 	return
 }
+func GroupDeleteNode(group, node string) (err tree_lib.TreeError) {
+	var (
+		gB 				[]byte
+		group_nodes		[]string
+	)
+	err.From = tree_lib.FROM_GROUP_ADD_NODE
+	gB, err = Get(DB_GROUP, []byte(group))
+	if !err.IsNull() {
+		return
+	}
+	if len(gB) > 0 {
+		group_nodes = strings.Split(string(gB), ",")
+	}
+	if n, ok := tree_lib.ArrayContains(group_nodes, node); ok {
+		group_nodes = group_nodes[:n+copy(group_nodes[n:], group_nodes[n+1:])]
+	}
+	fmt.Println(group_nodes)
+	err = Set(DB_GROUP, []byte(group), []byte(strings.Join(group_nodes, ",")))
+	return
+}
+func DeleteNodeFromHisGroups(node string) (err tree_lib.TreeError){
+	var nf node_info.NodeInfo
+	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_GROUPS
+	nf, err = GetNodeInfo(node)
+	if !err.IsNull() {
+		return
+	}
 
+	for _, g :=range nf.Groups {
+		err = GroupDeleteNode(g, node)
+		if !err.IsNull() {
+			return
+		}
+	}
+	return
+}
 func AddNodeToHisGroups(node string) (err tree_lib.TreeError) {
 	var nf node_info.NodeInfo
 	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_GROUPS
@@ -221,12 +257,47 @@ func TagAddNode(tag, node string) (err tree_lib.TreeError) {
 	if len(gB) > 0 {
 		tag_nodes = strings.Split(string(gB), ",")
 	}
-	tag_nodes = append(tag_nodes, node)
-
+	if _, ok := tree_lib.ArrayContains(tag_nodes, node); !ok {
+		tag_nodes = append(tag_nodes, node)
+	}
 	err = Set(DB_TAG, []byte(tag), []byte(strings.Join(tag_nodes, ",")))
 	return
 }
+func TagDeleteNode (tag, node string) (err tree_lib.TreeError) {
+	var (
+		gB 			[]byte
+		tag_nodes	[]string
+	)
+	err.From = tree_lib.FROM_TAG_ADD_NODE
+	gB, err = Get(DB_TAG, []byte(tag))
+	if !err.IsNull() {
+		return
+	}
+	if len(gB) > 0 {
+		tag_nodes = strings.Split(string(gB), ",")
+	}
+	if n, ok := tree_lib.ArrayContains(tag_nodes, node); !ok {
+		tag_nodes = tag_nodes[:n+copy(tag_nodes[n:], tag_nodes[n+1:])]
+	}
+	err = Set(DB_TAG, []byte(tag), []byte(strings.Join(tag_nodes, ",")))
+	return
+}
+func DeleteNodeFromHisTags(node string) (err tree_lib.TreeError) {
+	var nf node_info.NodeInfo
+	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_TAGS
+	nf, err = GetNodeInfo(node)
+	if !err.IsNull() {
+		return
+	}
 
+	for _, t :=range nf.Tags {
+		err = TagDeleteNode(t, node)
+		if !err.IsNull() {
+			return
+		}
+	}
+	return
+}
 func AddNodeToHisTags(node string) (err tree_lib.TreeError) {
 	var nf node_info.NodeInfo
 	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_TAGS

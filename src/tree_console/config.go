@@ -240,6 +240,13 @@ func CompileConfig(cmd *cobra.Command, args []string) {
 		tree_log.Error(err.From, err.Error())
 		return
 	}
+	if _, err.Err = os.Stat(out_file); err.Err == nil {
+		err.Err = os.Remove(out_file)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+		}
+	}
+
 	paths, err.Err = cmd.Flags().GetStringSlice("path")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())

@@ -13,10 +13,13 @@ import (
 	"math/big"
 	"tree_api"
 	"strings"
+	"time"
 )
 
 var (
 	api_connections		=	make(map[*big.Int]*net.TCPConn)
+	restart_chan		=	make(chan bool)
+	restart					bool
 )
 
 const (
@@ -34,7 +37,16 @@ func init() {
 }
 
 func Start() {
-	ListenParent()
+	for {
+		ListenParent()
+		if restart {
+			<- restart_chan
+			restart = false
+		} else {
+			time.Sleep(time.Millisecond * 200)
+		}
+
+	}
 }
 
 func Stop() {
@@ -57,8 +69,10 @@ func Stop() {
 }
 
 func Restart() {
+	restart = true
 	Stop()
-	Start()
+	restart_chan <- true
+//	Start()
 }
 
 func handle_message(is_api, from_parent bool, msg []byte) (err tree_lib.TreeError) {
