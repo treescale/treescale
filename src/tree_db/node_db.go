@@ -156,20 +156,24 @@ func GetGroupNodes(group string) ([]string, tree_lib.TreeError) {
 		return nil, err
 	}
 	if nodes_byte != nil {
-		return strings.Split(string(nodes_byte), ",")[1:], err
+		return strings.Split(string(nodes_byte), ","), err
 	}
 	return []string{}, err
 }
 
 func GroupAddNode(group, node string) (err tree_lib.TreeError) {
-	var gB []byte
+	var (
+		gB 				[]byte
+		group_nodes		[]string
+	)
 	err.From = tree_lib.FROM_GROUP_ADD_NODE
 	gB, err = Get(DB_GROUP, []byte(group))
 	if !err.IsNull() {
 		return
 	}
-
-	group_nodes := strings.Split(string(gB), ",")
+	if len(gB) > 0 {
+		group_nodes = strings.Split(string(gB), ",")
+	}
 	if _, ok := tree_lib.ArrayContains(group_nodes, node); !ok {
 		group_nodes = append(group_nodes, node)
 	}
@@ -201,18 +205,22 @@ func GetNodesByTagName(tag string) ([]string, tree_lib.TreeError) {
 	if !err.IsNull() {
 		return nil, err
 	}
-	return strings.Split(string(nodes_byte), ",")[1:], err
+	return strings.Split(string(nodes_byte), ","), err
 }
 
 func TagAddNode(tag, node string) (err tree_lib.TreeError) {
-	var gB []byte
+	var (
+		gB 			[]byte
+		tag_nodes	[]string
+	)
 	err.From = tree_lib.FROM_TAG_ADD_NODE
 	gB, err = Get(DB_TAG, []byte(tag))
 	if !err.IsNull() {
 		return
 	}
-
-	tag_nodes := strings.Split(string(gB), ",")
+	if len(gB) > 0 {
+		tag_nodes = strings.Split(string(gB), ",")
+	}
 	tag_nodes = append(tag_nodes, node)
 
 	err = Set(DB_TAG, []byte(tag), []byte(strings.Join(tag_nodes, ",")))
@@ -263,6 +271,6 @@ func GetParentInfo(node string) (node_info.NodeInfo, tree_lib.TreeError) {
 		return node_info.NodeInfo{}, tree_lib.TreeError{}
 	}
 
-	// Node relations firs element should be parent node
+	// Node relations first element should be parent node
 	return GetNodeInfo(pname)
 }
