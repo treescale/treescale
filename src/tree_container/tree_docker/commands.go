@@ -156,6 +156,7 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 					writeOutput(out, true, fmt.Sprintf("--- Container creation error: %s", err.Error()), cmd.Content)
 					return
 				}
+
 				writeOutput(out, false, fmt.Sprintf("Container Created \n  ID -> %s\n  Name -> %s\n", cont.ID, cont.Name), cmd.Content)
 				if start_cont {
 					err.Err = DockerClient.StartContainer(cont.ID, host_conf)
@@ -340,7 +341,7 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 				return
 			}
 
-			writeOutput(out, true, fmt.Sprintf("Image deleted %s", image), cmd.Content)
+			writeOutput(out, false, fmt.Sprintf("Image deleted %s", image), cmd.Content)
 		}
 
 

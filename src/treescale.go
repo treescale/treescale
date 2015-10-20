@@ -6,6 +6,7 @@ import (
 
 	// Just to load path functions
 	_ "tree_graph/get_path"
+	_ "net/http/pprof"
 )
 
 const (

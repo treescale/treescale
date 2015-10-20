@@ -86,7 +86,7 @@ func init() {
 		Short: "Send API commands to nodes and get results",
 	}
 		api_cmd_exec := &cobra.Command{
-			Use: "exec [options]",
+			Use: "exec",
 			Short: "Execute shell commands on specific Nodes",
 			Run: HandleApiExec,
 		}
@@ -99,19 +99,100 @@ func init() {
 		Short: "Update or Get database info",
 	}
 		info_cmd_list := &cobra.Command{
-			Use: "list [options]",
+			Use: "list",
 			Short: "Listing node infos",
 			Run: ListInfos,
 		}
 		add_list_default_flags(info_cmd_list)
 		info_cmd_update := &cobra.Command{
-			Use: "update [options]",
-			Short: "update node infos",
+			Use: "update",
+			Short: "Update node infos",
 			Run: UpdateInfo,
 		}
 		add_update_default_flags(info_cmd_update)
 	info_cmd.AddCommand(info_cmd_list, info_cmd_update)
-	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd, info_cmd)
+	container_cmd := &cobra.Command{
+		Use: "container [commands]",
+		Short: "Manage docker containers",
+	}
+		container_start_cmd := &cobra.Command{
+			Use: "start",
+			Short: "Start docker container",
+			Run: HandleContStart,
+		}
+		add_container_flags(container_start_cmd)
+		add_start_flags(container_start_cmd)
+		container_stop_cmd := &cobra.Command{
+			Use: "stop",
+			Short: "Stop docker container",
+			Run: HandleStop,
+		}
+		add_container_flags(container_stop_cmd)
+		add_stop_flags(container_stop_cmd)
+		container_create_cmd := &cobra.Command{
+			Use: "create",
+			Short: "Create container",
+			Run: HandleCreate,
+		}
+		add_container_flags(container_create_cmd)
+		add_start_flags(container_create_cmd)
+		add_create_flags(container_create_cmd)
+		container_pause_cmd := &cobra.Command{
+			Use: "pause",
+			Short: "Pause docker container",
+			Run: HandlePause,
+		}
+		add_container_flags(container_pause_cmd)
+		container_resume_cmd := &cobra.Command{
+			Use: "resume",
+			Short: "Resume docker container",
+			Run: HandleResume,
+		}
+		add_container_flags(container_resume_cmd)
+		container_delete_cmd := &cobra.Command{
+			Use: "delete",
+			Short: "Delete docker container",
+			Run: HandleDelete,
+		}
+		add_container_flags(container_delete_cmd)
+		container_inspect_cmd := &cobra.Command{
+			Use: "inspect",
+			Short: "Inspect docker container",
+			Run: HandleInspect,
+		}
+		add_container_flags(container_inspect_cmd)
+		container_list_cmd := &cobra.Command{
+			Use: "list",
+			Short: "list docker containers",
+			Run: HandleList,
+		}
+		add_list_flags(container_list_cmd)
+		image_cmd := &cobra.Command{
+			Use: "image [commands]",
+			Short: "manage images",
+		}
+			image_list_cmd := &cobra.Command{
+				Use: "list",
+				Short: "list docker images",
+				Run: HandleList,
+			}
+			add_list_flags(image_list_cmd)
+			image_delete_cmd := &cobra.Command{
+				Use: "delete",
+				Short: "delete image",
+				Run: HandleImageDelete,
+			}
+			add_image_delete_flags(image_delete_cmd)
+			image_pull_cmd := &cobra.Command{
+				Use: "pull",
+				Short: "pull image",
+				Run: HandleImagePull,
+			}
+			add_image_pull_flags(image_pull_cmd)
+		image_cmd.AddCommand(image_list_cmd, image_delete_cmd, image_pull_cmd)
+	container_cmd.AddCommand(container_start_cmd, container_stop_cmd, container_create_cmd, container_pause_cmd, container_resume_cmd, container_delete_cmd, container_inspect_cmd)
+	container_cmd.AddCommand(container_list_cmd, image_cmd)
+	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd, info_cmd, container_cmd)
 }
 
 // Adding default flags for all API commands or related to that
@@ -123,14 +204,14 @@ func add_api_default_flags(cmd *cobra.Command)  {
 }
 
 func add_list_default_flags(cmd *cobra.Command) {
-	cmd.Flags().StringP("node", "n", "", "Node names which will be APi worker")
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
 	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node names which infos wiil be listed")
 	cmd.Flags().StringSlice("group", []string{""}, "Group names which node infos will be listed")
 	cmd.Flags().StringSlice("tag", []string{""}, "Tag names which node infos will be listed")
 }
 
 func add_update_default_flags(cmd *cobra.Command) {
-	cmd.Flags().StringP("node", "n", "", "Node names which will be Api Worker")
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
 	cmd.Flags().StringP("target", "t", "", "Node name which info will be updated")
 	cmd.Flags().String("add_child", "", "Node name which wiil be added as child")
 	cmd.Flags().StringP("ip", "i", "", "new ip address of node")
@@ -140,4 +221,45 @@ func add_update_default_flags(cmd *cobra.Command) {
 	cmd.Flags().String("delete_group", "", "Group name from node will be deleted")
 	cmd.Flags().String("add_tag", "", "Tag name whom node will be added")
 	cmd.Flags().String("delete_tag", "", "tag name from node will fiil be deleted")
+}
+func add_container_flags(cmd *cobra.Command){
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where will be start/create/stop container")
+	cmd.Flags().StringP("container", "c", "", "Container name")
+}
+func add_start_flags(cmd *cobra.Command) {
+	cmd.Flags().StringP("image", "i", "", "Image name where will be start/create container")
+	cmd.Flags().String("command", "", "Conatainer start Command")
+	cmd.Flags().String("cpu", "", "CPU Shares")
+	cmd.Flags().String("ram", "", "Ram")
+}
+func add_create_flags(cmd *cobra.Command) {
+	cmd.Flags().BoolP("start", "s", false, "Start container or not")
+	cmd.Flags().String("count", "", "How many container create")
+}
+func add_stop_flags(cmd *cobra.Command) {
+	cmd.Flags().String("time", "", "Seconds to wait for stop before killing it")
+}
+
+func add_list_flags(cmd *cobra.Command){
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node names whose images will be listed")
+}
+
+func add_image_delete_flags(cmd *cobra.Command){
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where was the image")
+	cmd.Flags().StringP("image", "i", "", "image name")
+	cmd.Flags().BoolP("force", "f", false, "Force removal of the image")
+}
+
+func add_image_pull_flags(cmd *cobra.Command){
+	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where you want to pull image")
+	cmd.Flags().StringP("registry", "r", "", "registry name")
+	cmd.Flags().StringP("image", "i", "", "image name")
+	cmd.Flags().StringP("username", "u", "", "registry username")
+	cmd.Flags().StringP("password", "p", "", "registry password")
+	cmd.Flags().StringP("email", "e", "", "registry email")
+	cmd.Flags().StringP("address", "a", "", "registry address")
 }

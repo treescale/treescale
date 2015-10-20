@@ -14,9 +14,10 @@ const (
 	API_OUTPUT_BUFFER_SIZE = 1024
 	log_from_api_command = "API command functionality"
 	// Command Types
-	COMMAND_EXEC	=	0
-	COMMAND_LIST	=	1
-	COMMAND_UPDATE	=	2
+	COMMAND_EXEC		=		0
+	COMMAND_LIST		=		1
+	COMMAND_UPDATE		=		2
+	COMMAND_CONTAINER	= 		3
 )
 
 
@@ -53,6 +54,11 @@ func init() {
 		case COMMAND_UPDATE:
 			{
 				HandleUpdateCommand(ev, cmd)
+			}
+		case COMMAND_CONTAINER:
+			{
+				HandleContainerCommand(ev, cmd)
+
 			}
 		}
 	})

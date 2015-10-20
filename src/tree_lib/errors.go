@@ -78,6 +78,7 @@ const (
 	FROM_GET_NODE_VALUE = "From GetNodeValue"
 	FROM_MERGE = "From merge"
 	FROM_LIST_INFOS = "From ListInfos"
+	FROM_HANDLE_CONTAINER_COMMAND = "From HandleContainerCommand"
 )
 
 const (
