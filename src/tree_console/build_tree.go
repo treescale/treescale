@@ -14,6 +14,7 @@ import (
 	"tree_lib"
 	"tree_event"
 	"tree_log"
+	"sync"
 )
 
 const (
@@ -26,8 +27,8 @@ var (
 
 func BuildCmdHandler(cmd *cobra.Command, args []string) {
 	var (
-		silent, force	bool
-		err 			error
+		silent, force, multiple	bool
+		err 					error
 	)
 
 	silent, err = cmd.Flags().GetBool("silent")
@@ -42,13 +43,19 @@ func BuildCmdHandler(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	multiple, err = cmd.Flags().GetBool("multiple")
+	if err != nil {
+		tree_log.Error(log_from_tree_build, "Unable to get 'force' flag", err.Error())
+		return
+	}
+
 	generate_tmp_db_dir()
 	// Adding fake flag for not duplicating code, and calling 'config' command
 	cmd.Flags().String("out", tmp_db_dir, "")
 	fmt.Println("Dumping Database file for transfer -> ", tmp_db_dir)
 	CompileConfig(cmd, args) // After this step we have config in GLOBAL_CONFIG  variable and db file for sending to nodes
 
-	BuildTree(&GLOBAL_CONFIG, silent, force)
+	BuildTree(&GLOBAL_CONFIG, silent, force, multiple)
 }
 
 
@@ -64,13 +71,14 @@ func runSudo(pass, cmd string) string {
 	return fmt.Sprintf("echo %s | sudo -S /bin/sh -c '%s'", pass, cmd)
 }
 
-func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
+func BuildTree(console_conf *TreeScaleConf, silent_build, force, multiple bool) {
 	var (
 		err			tree_lib.TreeError
 		db_dump	=	tmp_db_dir
+		wg		=	sync.WaitGroup{}
 	)
-	err.From = tree_lib.FROM_BUILD_TREE
-	for name, ssh_conf :=range console_conf.SSH {
+
+	var BuildFunc = func(name string, ssh_conf SSHConfig) {
 		var (
 			input 			= 	make(chan string)
 			test_err			*ssh.ExitError
@@ -87,7 +95,7 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 		fmt.Println(name, " -> ", "Checking Docker availability")
 		err = ssh_conf.Exec(runSudo(ssh_conf.Password, "docker -v"), os.Stdout, os.Stderr, input)
 		if !err.IsNull() {
-			if reflect.TypeOf(err).AssignableTo(reflect.TypeOf(test_err)) {
+			if reflect.TypeOf(err.Err).AssignableTo(reflect.TypeOf(test_err)) {
 				fmt.Println(name, " -> ", "Docker is not Installed, Do you want to install it ? [Y/N]")
 				if  silent_build || consoleYesNoWait() {
 					err = installDocker(ssh_conf)
@@ -212,6 +220,21 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force bool) {
 
 		fmt.Println(name, " -> ", "Tree component ready")
 		ssh_conf.Disconnect()
+		wg.Done()
+	}
+
+
+	err.From = tree_lib.FROM_BUILD_TREE
+	for name, ssh_conf :=range console_conf.SSH {
+		if multiple {
+			wg.Add(1)
+			go BuildFunc(name, ssh_conf)
+		} else {
+			BuildFunc(name, ssh_conf)
+		}
+	}
+	if multiple {
+		wg.Wait()
 	}
 }
 

@@ -24,8 +24,9 @@ func init() {
 	}
 	build_tree.Flags().BoolP("silent", "s", false, "If this flag persent, then on every 'install or not ?' question would be automatically answered 'Yes'")
 	build_tree.Flags().BoolP("force", "f", false, "This flag forces installed software and reinstalling it again")
+	build_tree.Flags().BoolP("multiple", "m", false, "Execute multiple install tasks on multiple servers")
 	build_tree.Flags().StringP("type", "t", "toml", "Configuration file format [toml, json, yaml] default is TOML")
-	build_tree.Flags().StringSliceP("path", "p", []string{"."}, "Give a Path to directories containing configuration files")
+	build_tree.Flags().StringSliceP("path", "p", []string{}, "Give a Path to directories containing configuration files")
 	build_tree.Flags().StringSlice("files", []string{}, "Give file path list of configuration files")
 
 	// List of commands to execute
@@ -51,8 +52,8 @@ func init() {
 			Run: CompileConfig,
 		}
 		compile_config.Flags().StringP("type", "t", "toml", "Configuration file format [toml, json, yaml] default is TOML")
-		compile_config.Flags().StringSliceP("path", "p", []string{"."}, "Give a Path to directory of configuration files")
-		compile_config.Flags().StringSliceP("files", "f", []string{"console.toml", "treescale.toml"}, "Give file path list of configuration files")
+		compile_config.Flags().StringSliceP("path", "p", []string{}, "Give a Path to directory of configuration files")
+		compile_config.Flags().StringSliceP("files", "f", []string{}, "Give file path list of configuration files")
 		compile_config.Flags().StringP("out", "o", "tree.db", "Output file for compiled config files")
 
 		restore_db := &cobra.Command{

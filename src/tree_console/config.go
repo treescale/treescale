@@ -69,7 +69,7 @@ func ParseFiles(conf_type string, files...string) (err tree_lib.TreeError) {
 		var fdata []byte
 		_, err = ParseConfigFile(f)
 		if !err.IsNull() {
-			fmt.Println("error while reading ", f)
+			fmt.Println("error while reading ", f , " -> ", err.Error())
 			fmt.Println("ignoring ", f)
 			continue
 		}
@@ -117,11 +117,11 @@ func PathFiles(conf_type string, paths []string) ([]string, tree_lib.TreeError){
 
 		for _, a := range files_in_dir {
 			if !a.IsDir() {
-				if filepath.Ext(a.Name())[0:] == conf_type {
-					names = append(names, a.Name() + "." + conf_type)
+				if strings.Replace(filepath.Ext(a.Name())[0:], ".", "", 1) == conf_type {
+					names = append(names, fmt.Sprintf("%s/%s", path, a.Name()))
 				}
 			} else {
-				err = FileNames(string(path + "/" + a.Name()))
+				err = FileNames(fmt.Sprintf("%s/%s", path, a.Name()))
 				if !err.IsNull() {
 					tree_log.Error(err.From, err.Error())
 					return
@@ -252,19 +252,24 @@ func CompileConfig(cmd *cobra.Command, args []string) {
 		tree_log.Error(err.From, err.Error())
 		return
 	}
-	files_in_path, err = PathFiles(conf_type, paths)
-	if !err.IsNull() {
-		tree_log.Error(err.From, err.Error())
-		return
+	if len(paths) > 0 {
+		files_in_path, err = PathFiles(conf_type, paths)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+			return
+		}
+		for _, a := range files_in_path {
+			files = append(files, a)
+		}
 	}
-	for _, a := range files_in_path {
-		files = append(files, a)
+	if len(files) > 0 {
+		err = ParseFiles(conf_type, files...)
+		if !err.IsNull() {
+			tree_log.Error(err.From, err.Error())
+			return
+		}
 	}
-	err = ParseFiles(conf_type, files...)
-	if !err.IsNull() {
-		tree_log.Error(err.From, err.Error())
-		return
-	}
+
 	DBFromConfig()
 	err = tree_db.DumpDBPath(out_file)
 	if !err.IsNull() {
