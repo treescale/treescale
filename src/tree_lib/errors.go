@@ -80,6 +80,8 @@ const (
 	FROM_LIST_INFOS = "From ListInfos"
 	FROM_DASHBOARD_API = "From Dashboard Server API"
 	FROM_HANDLE_CONTAINER_COMMAND = "From HandleContainerCommand"
+	FROM_TRIGGER_CUSTOM_EVENT = "From Trigger Custom Event"
+	FROM_ADD_CUSTOM_EVENT = "From Add Custom Event"
 )
 
 const (

@@ -8,7 +8,6 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_node/node_info"
-//	"tree_net
 )
 
 const (
@@ -28,6 +27,7 @@ var (
 	DB_GROUP		=	[]byte("group")  // Database with group name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
 	DB_TAG			=	[]byte("tag")  // Database with tag name keys and node list value (t1, t2, ...) strings.Join(node_list, ",")
 	DB_RELATIONS	=	[]byte("relations")  // Database for storing node relations (parent or child connections) strings.Join(node_list, ",")
+	DB_EVENT		=	[]byte("event")		// Database for storing added custom events with their handlers with encoded Custom Event structure
 )
 
 
@@ -44,7 +44,7 @@ func init() {
 	// creating Buckets in database
 	tree_db.Update(func(tx *bolt.Tx) (err error) {
 		// Setting databases
-		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS, DB_REGISTRY} {
+		for _, d :=range [][]byte{DB_NODE, DB_BALANCER, DB_RANDOM, DB_GROUP, DB_TAG, DB_RELATIONS, DB_REGISTRY, DB_EVENT} {
 			_, err = tx.CreateBucketIfNotExists(d)
 			if err != nil {
 				return err
@@ -53,8 +53,7 @@ func init() {
 		return nil
 	})
 
-	// Closing database before program will be exited
-	// Just in case if program exiting force or we don't want to make dead lock
+	// Handling node change event
 	tree_event.ON(tree_event.ON_UPDATE_NODE_INFO, func(e *tree_event.Event){
 		var (
 			info 				node_info.NodeInfo
@@ -190,6 +189,9 @@ func init() {
 		}
 	})
 
+
+	// Closing database before program will be exited
+	// Just in case if program exiting force or we don't want to make dead lock
 	tree_event.ON(tree_event.ON_PROGRAM_EXIT, func(e *tree_event.Event){
 		CloseDB()
 	})

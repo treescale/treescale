@@ -1,10 +1,10 @@
 [ssh]
-[ssh.php_server1]
+[ssh.tree1]
 host="192.168.107.15"
 port="22"
 username="root"
 
-[ssh.php_server2]
+[ssh.tree2]
 host="192.168.107.18"
 port="22"
 username="root"

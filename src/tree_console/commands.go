@@ -192,7 +192,34 @@ func init() {
 		image_cmd.AddCommand(image_list_cmd, image_delete_cmd, image_pull_cmd)
 	container_cmd.AddCommand(container_start_cmd, container_stop_cmd, container_create_cmd, container_pause_cmd, container_resume_cmd, container_delete_cmd, container_inspect_cmd)
 	container_cmd.AddCommand(container_list_cmd, image_cmd)
-	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd, info_cmd, container_cmd)
+
+	// Custom Events
+	event_cmd := &cobra.Command{
+		Use: "event [commands]",
+		Short: "Manage infrastructure events",
+	}
+		event_add_cmd := &cobra.Command{
+			Use: "add [options]",
+			Short: "Add new event handler or event if it's new event",
+			Run: SendAddEventHandlerCommand,
+		}
+		add_api_default_flags(event_add_cmd)
+		event_add_cmd.Flags().StringP("event", "e", "", "Event Name for adding it to Nodes")
+		event_add_cmd.Flags().String("handler", "", "Command line string for handling this event trigger")
+		event_add_cmd.Flags().Bool("file", false, "Is this a file")
+		event_add_cmd.Flags().String("user", "", "Is this a file")
+		event_add_cmd.Flags().String("pass", "", "Is this a file")
+		event_trigger_cmd := &cobra.Command{
+			Use: "trigger [options]",
+			Short: "Trigger event for specific nodes",
+			Run: SendEventTriggerCommand,
+		}
+		event_trigger_cmd.Flags().StringP("event", "e", "", "Event Name for adding it to Nodes")
+		add_api_default_flags(event_trigger_cmd)
+
+	event_cmd.AddCommand(event_add_cmd, event_trigger_cmd)
+
+	TreeScaleCMD.AddCommand(version, build_tree, config, node_cmd, api_cmd, info_cmd, container_cmd, event_cmd)
 }
 
 // Adding default flags for all API commands or related to that

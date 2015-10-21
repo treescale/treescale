@@ -11,6 +11,7 @@ import (
 	"tree_node/node_info"
 	"github.com/pquerna/ffjson/ffjson"
 	"tree_container/tree_docker"
+	"tree_event/custom_event"
 )
 
 
@@ -732,3 +733,188 @@ func SendDockerCommand (cmd tree_docker.DockerCmd, node string, target []string)
 	<- wait
 }
 
+func SendAddEventHandlerCommand(cmd *cobra.Command, args []string) {
+	var (
+		event_name		string
+		err 			tree_lib.TreeError
+		handler			custom_event.Handler
+		node 			string
+		targets 		[]string
+		target_groups 	[]string
+		target_tags 	[]string
+	)
+
+	err.From = tree_lib.FROM_SEND_COMMAND
+
+	node, err.Err = cmd.Flags().GetString("node")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	targets, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	target_groups, err.Err = cmd.Flags().GetStringSlice("group")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	target_tags, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+
+
+	event_name, err.Err = cmd.Flags().GetString("event")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	handler.Handler, err.Err = cmd.Flags().GetString("handler")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	handler.IsFile, err.Err = cmd.Flags().GetBool("file")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	handler.ExecUser, err.Err = cmd.Flags().GetString("user")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	handler.Password, err.Err = cmd.Flags().GetString("pass")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	var (
+		api_cmd	= tree_api.Command{}
+		wait_to_end =	make(chan bool)
+	)
+	api_cmd.Data, err.Err = ffjson.Marshal(map[string]interface{}{
+		"name": event_name,
+		"handlers": []custom_event.Handler{handler},
+	})
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	if !tree_api.API_INIT(node) {
+		fmt.Println("Unable to init api client")
+		fmt.Println("Exiting ...")
+		return
+	}
+
+	api_cmd.ID = tree_lib.RandomString(20)
+	api_cmd.CommandType = tree_api.COMMAND_ADD_CUSTOM_EVENT
+
+	tree_event.ON(tree_event.ON_CHILD_CONNECTED, func(ev *tree_event.Event){
+		path := &tree_graph.Path{From: node, Nodes: targets, Tags: target_tags, Groups: target_groups }
+
+		tree_api.SendCommand(&api_cmd, path, func(e *tree_event.Event, c tree_api.Command)bool{
+			fmt.Println(string(c.Data))
+			fmt.Println(c.Ended)
+			// TODO: End coming faster than other messages FIX !!!!
+			if c.Ended {
+				return false
+			}
+			return true
+		})
+		wait_to_end <- true
+	})
+
+	<- wait_to_end
+}
+
+
+func SendEventTriggerCommand(cmd *cobra.Command, args []string) {
+	var (
+		event_name		string
+		err 			tree_lib.TreeError
+		node 			string
+		targets 		[]string
+		target_groups 	[]string
+		target_tags 	[]string
+	)
+
+	err.From = tree_lib.FROM_SEND_COMMAND
+
+	node, err.Err = cmd.Flags().GetString("node")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	targets, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	target_groups, err.Err = cmd.Flags().GetStringSlice("group")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	target_tags, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+
+
+	event_name, err.Err = cmd.Flags().GetString("event")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+
+	if !tree_api.API_INIT(node) {
+		fmt.Println("Unable to init api client")
+		fmt.Println("Exiting ...")
+		return
+	}
+
+	var (
+		api_cmd	= tree_api.Command{}
+		wait_to_end =	make(chan bool)
+	)
+	api_cmd.Data = []byte(event_name)
+	api_cmd.ID = tree_lib.RandomString(20)
+	api_cmd.CommandType = tree_api.COMMAND_TRIGGER_EVENT
+
+	tree_event.ON(tree_event.ON_CHILD_CONNECTED, func(ev *tree_event.Event){
+		path := &tree_graph.Path{From: node, Nodes: targets, Tags: target_tags, Groups: target_groups }
+
+		tree_api.SendCommand(&api_cmd, path, func(e *tree_event.Event, c tree_api.Command)bool{
+			fmt.Println(string(c.Data))
+			fmt.Println(c.Ended)
+			// TODO: End coming faster than other messages FIX !!!!
+			if c.Ended {
+				return false
+			}
+			return true
+		})
+		wait_to_end <- true
+	})
+
+	<- wait_to_end
+}
