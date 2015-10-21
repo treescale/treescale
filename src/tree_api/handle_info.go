@@ -26,6 +26,7 @@ func HandleListCommand (ev *tree_event.Event, cmd Command) {
 		err 			tree_lib.TreeError
 		infos 			Info
 	)
+	err.From = tree_lib.FROM_HANDLE_LIST_COMMAND
 	err.Err = ffjson.Unmarshal(ev.Data, &ev_data)
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -85,7 +86,7 @@ func HandleUpdateCommand(ev *tree_event.Event, cmd Command){
 		info 			node_info.NodeInfo
 		err 			tree_lib.TreeError
 	)
-	err.From = "From HandleUpdateCommand"
+	err.From = tree_lib.FROM_HANDLE_UPDATE_COMMAND
 	err.Err = ffjson.Unmarshal(ev.Data, &data)
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())

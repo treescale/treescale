@@ -263,7 +263,12 @@ func ContainerCommands(cmd *DockerCmd, out io.Writer) {
 
 			repository = str_split[0]
 			tag = str_split[1]
-			img_repo = fmt.Sprintf("%s/%s", registry, repository)
+			if len(registry) > 0 {
+				img_repo = fmt.Sprintf("%s/%s", registry, repository)
+			} else {
+				img_repo = repository
+			}
+
 
 			// Getting Registery authentication data
 			if ru, ok := cmd.Content["registry_username"]; ok {
