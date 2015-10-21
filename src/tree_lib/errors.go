@@ -80,6 +80,25 @@ const (
 	FROM_LIST_INFOS = "From ListInfos"
 	FROM_DASHBOARD_API = "From Dashboard Server API"
 	FROM_HANDLE_CONTAINER_COMMAND = "From HandleContainerCommand"
+	FROM_SEND_DOCKER_COMMAND = "From SendDockerCommand"
+	FROM_HANDLE_IMAGE_PULL = "From HandleImagePull"
+	FROM_HANDLE_IMAGE_DELETE = "From HandleImageDelete"
+	FROM_HANDLE_LIST = "From HandleList"
+	FROM_HANDLE_INSPECT = "From HandleInspect"
+	FROM_HANDLE_DELETE = "From HandleDelete"
+	FROM_HANDLE_RESUME = "From HandleResume"
+	FROM_HANDLE_PAUSE = "From HandlePause"
+	FROM_HANDLE_CREATE = "From HandleCreate"
+	FROM_HANDLE_STOP = "From HandleStop"
+	FROM_HANDLE_CONT_START = "From HandleContStart"
+	FROM_UPDATE_INFO = "From UpdateInfo"
+	FROM_HANDLE_LIST_COMMAND = "From HandleListCommand"
+	FROM_HANDLE_UPDATE_COMMAND = "From HandleUpdateCommand"
+	FROM_GROUP_DELETE_NODE = "From GroupDeleteNode"
+	FROM_TAG_DELETE_NODE = "From TagDeleteNode"
+	FROM_DELETE_NODE_FROM_HIS_GROUPS = "From DeleteNodeFromHisGroups"
+	FROM_DELETE_NODE_FROM_HIS_TAGS = "From DeleteNodeFromHisTags"
+
 )
 
 const (

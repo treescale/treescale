@@ -179,7 +179,7 @@ func UpdateInfo(cmd *cobra.Command, args []string) {
 		add_child				string
 		info					node_info.NodeInfo
 	)
-
+	err.From = tree_lib.FROM_UPDATE_INFO
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -277,6 +277,7 @@ func HandleContStart (cmd *cobra.Command, args []string) {
 		container 	string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_CONT_START
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -334,6 +335,7 @@ func HandleStop (cmd *cobra.Command, args []string) {
 		container 	string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_STOP
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -377,6 +379,7 @@ func HandleCreate (cmd *cobra.Command, args []string) {
 		start 		bool
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_CREATE
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -447,6 +450,7 @@ func HandlePause (cmd *cobra.Command, args []string) {
 		container 	string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_PAUSE
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -478,6 +482,7 @@ func HandleResume (cmd *cobra.Command, args []string) {
 		container 	string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_RESUME
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -509,6 +514,7 @@ func HandleDelete (cmd *cobra.Command, args []string) {
 		container 	string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_DELETE
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -540,6 +546,7 @@ func HandleInspect (cmd *cobra.Command, args []string) {
 		container 	string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_INSPECT
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -570,6 +577,7 @@ func HandleList (cmd *cobra.Command, args []string) {
 		target 		[]string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_LIST
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -599,6 +607,7 @@ func HandleImageDelete (cmd *cobra.Command, args []string) {
 		image 		string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_IMAGE_DELETE
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -643,6 +652,7 @@ func HandleImagePull (cmd *cobra.Command, args []string) {
 		email 		string
 		err 		tree_lib.TreeError
 	)
+	err.From = tree_lib.FROM_HANDLE_IMAGE_PULL
 	node, err.Err = cmd.Flags().GetString("node")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
@@ -704,6 +714,7 @@ func SendDockerCommand (cmd tree_docker.DockerCmd, node string, target []string)
 		fmt.Println("Exiting ...")
 		return
 	}
+	err.From = tree_lib.FROM_SEND_DOCKER_COMMAND
 	var (
 		api_cmd =		tree_api.Command{}
 		wait = 			make(chan bool)

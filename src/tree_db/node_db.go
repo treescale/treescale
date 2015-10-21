@@ -187,7 +187,7 @@ func GroupDeleteNode(group, node string) (err tree_lib.TreeError) {
 		gB 				[]byte
 		group_nodes		[]string
 	)
-	err.From = tree_lib.FROM_GROUP_ADD_NODE
+	err.From = tree_lib.FROM_GROUP_DELETE_NODE
 	gB, err = Get(DB_GROUP, []byte(group))
 	if !err.IsNull() {
 		return
@@ -204,7 +204,7 @@ func GroupDeleteNode(group, node string) (err tree_lib.TreeError) {
 }
 func DeleteNodeFromHisGroups(node string) (err tree_lib.TreeError){
 	var nf node_info.NodeInfo
-	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_GROUPS
+	err.From = tree_lib.FROM_DELETE_NODE_FROM_HIS_GROUPS
 	nf, err = GetNodeInfo(node)
 	if !err.IsNull() {
 		return
@@ -268,7 +268,7 @@ func TagDeleteNode (tag, node string) (err tree_lib.TreeError) {
 		gB 			[]byte
 		tag_nodes	[]string
 	)
-	err.From = tree_lib.FROM_TAG_ADD_NODE
+	err.From = tree_lib.FROM_TAG_DELETE_NODE
 	gB, err = Get(DB_TAG, []byte(tag))
 	if !err.IsNull() {
 		return
@@ -284,7 +284,7 @@ func TagDeleteNode (tag, node string) (err tree_lib.TreeError) {
 }
 func DeleteNodeFromHisTags(node string) (err tree_lib.TreeError) {
 	var nf node_info.NodeInfo
-	err.From = tree_lib.FROM_ADD_NODE_TO_HIS_TAGS
+	err.From = tree_lib.FROM_DELETE_NODE_FROM_HIS_TAGS
 	nf, err = GetNodeInfo(node)
 	if !err.IsNull() {
 		return
