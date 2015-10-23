@@ -180,7 +180,7 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 		node_path 		=		make(map[string]*big.Int)
 		path					[]map[string]*big.Int
 	)
-
+	final_path = big.NewInt(1)
 	err.From = tree_lib.FROM_GET_PATH
 	nodes_info, err = tree_db.ListNodeInfos()
 	if !err.IsNull() {
@@ -192,47 +192,7 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 	for _, n := range nodes_info {
 		node_values[n.Name] = n.Value
 	}
-	if len(p.Nodes)>0 && p.Nodes[0] != "*" {
-		for _, n := range p.Nodes {
-			if check_node[n] {
-				targets = append(targets, n)
-				node_path[n], err = NodePath(p.From, n)
-				if !err.IsNull() {
-					return
-				}
-			}else {
-				fmt.Println("there is no server with name ", n)
-				fmt.Println("ignoring server ", n)
-			}
-		}
-		path = append(path, node_path)
-		for _, g := range p.Groups {
-			if check_group[g] {
-				node_path, err = GroupPath(p.From, g)
-				if !err.IsNull() {
-					return
-				}
-				path = append(path, node_path)
-			} else {
-				fmt.Println("there is no group with name ", g)
-				fmt.Println("ignoring group ", g)
-			}
-		}
-		for _, t := range p.Tags {
-			if check_tag[t] {
-				node_path, err = TagPath(p.From, t)
-				if !err.IsNull() {
-					return
-				}
-				path = append(path, node_path)
-			}else {
-				fmt.Println("there is no tag with name ", t)
-				fmt.Println("ignoring tag ", t)
-			}
-		}
-		final_path = merge(path)
-		nodes_info = nil
-	} else if len(p.Nodes) > 0 && p.Nodes[0] == "*" {
+	if len(p.Nodes) > 0 && p.Nodes[0] == "*" {
 		var val big.Int
 		final_path = big.NewInt(1)
 		for _, n := range nodes_info {
@@ -241,7 +201,50 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 			final_path.Mul(final_path, &val)
 			final_path.Mul(final_path, &val)
 		}
+		p.Path = final_path
+		return
 	}
+
+	for _, n := range p.Nodes {
+		if check_node[n] {
+			targets = append(targets, n)
+			node_path[n], err = NodePath(p.From, n)
+			if !err.IsNull() {
+				return
+			}
+		}else {
+			fmt.Println("there is no server with name ", n)
+			fmt.Println("ignoring server ", n)
+		}
+	}
+	path = append(path, node_path)
+	for _, g := range p.Groups {
+		if check_group[g] {
+			node_path, err = GroupPath(p.From, g)
+			if !err.IsNull() {
+				return
+			}
+			path = append(path, node_path)
+		} else {
+			fmt.Println("there is no group with name ", g)
+			fmt.Println("ignoring group ", g)
+		}
+	}
+	for _, t := range p.Tags {
+		if check_tag[t] {
+			node_path, err = TagPath(p.From, t)
+			if !err.IsNull() {
+				return
+			}
+			path = append(path, node_path)
+		}else {
+			fmt.Println("there is no tag with name ", t)
+			fmt.Println("ignoring tag ", t)
+		}
+	}
+	final_path = merge(path)
+	nodes_info = nil
+	targets = []string{}
 	p.Path = final_path
 
 	//if path contains node, then final_path divides to value of node

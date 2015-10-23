@@ -128,7 +128,7 @@ func NextPrimeNumber (n int64) int64 {
 	)
 	for {
 		mark = true
-		for j = 2; j<=int64(math.Sqrt(float64(n))); j++ {
+		for j = 2; j<=int64(math.Sqrt(float64(n)))+1; j++ {
 			if i % j == 0 {
 				mark = false
 				break
