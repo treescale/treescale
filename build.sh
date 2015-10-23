@@ -51,7 +51,7 @@ function publish
 {
     PUB_PATH="$2"
     if [ "$PUB_PATH" == "" ]; then
-        PUB_PATH="tigran@console.treescale.com:/home/tigran/treescale-console/treescale"
+        PUB_PATH="tigran@source.treescale.com:/home/tigran/treescale-console/treescale"
     fi
 
     scp ./treescale "$PUB_PATH"

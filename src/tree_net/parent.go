@@ -27,11 +27,11 @@ func ChildsConnector() {
 	}
 
 	for n, _ :=range node_info.ChildsNodeInfo {
-		go ChildConnect(n)
+		ChildConnectCheck(n)
 	}
 }
 
-func ChildConnect(name string) (err tree_lib.TreeError) {
+func ChildConnectCheck(name string) {
 	// If we don't have this name in childs info map then just returning
 	if _, ok := node_info.ChildsNodeInfo[name]; !ok {
 		return
@@ -42,6 +42,10 @@ func ChildConnect(name string) (err tree_lib.TreeError) {
 		return
 	}
 
+	go ChildConnect(name)
+}
+
+func ChildConnect(name string) (err tree_lib.TreeError) {
 	var (
 		conn			*net.TCPConn
 		curr_data		[]byte

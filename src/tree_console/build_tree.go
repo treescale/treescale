@@ -220,7 +220,9 @@ func BuildTree(console_conf *TreeScaleConf, silent_build, force, multiple bool) 
 
 		fmt.Println(name, " -> ", "Tree component ready")
 		ssh_conf.Disconnect()
-		wg.Done()
+		if multiple {
+			wg.Done()
+		}
 	}
 
 
@@ -260,7 +262,7 @@ func installTreeScale(ssh_conf SSHConfig) (err tree_lib.TreeError) {
 	)
 	err.From = tree_lib.FROM_INSTALL_TREESCALE
 	cmd = `
-	((apt-get update || true && apt-get install -y curl || true); yum install -y curl || true ) && curl -sSL https://console.treescale.com/install | sudo sh
+	((apt-get update || true && apt-get install -y curl || true); yum install -y curl || true ) && curl -sSL https://source.treescale.com/install | sudo sh
 	`
 
 	err = ssh_conf.Exec(runSudo(ssh_conf.Password, cmd), os.Stdout, os.Stderr, input)

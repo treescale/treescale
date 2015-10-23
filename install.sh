@@ -18,7 +18,7 @@ case "$lsb_dist" in
 esac
 
 # putting TreeScale on your system
-wget https://console.treescale.com/install/treescale
+wget https://source.treescale.com/install/treescale
 mv treescale /usr/bin/treescale
 chmod +x /usr/bin/treescale
 mkdir -p /etc/treescale

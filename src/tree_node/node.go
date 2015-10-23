@@ -24,6 +24,14 @@ func init() {
 	tree_event.ON(tree_event.ON_RESTART_NODE, func(ev *tree_event.Event) {
 		Restart()
 	})
+
+	go func() {
+		for {
+			// After we have child information lets connect to them
+			node_info.ChildsConnectionUpdate()
+			time.Sleep(time.Millisecond * 500)
+		}
+	}()
 }
 func SetParent(name string) bool {
 	var err tree_lib.TreeError
@@ -80,9 +88,6 @@ func node_init() {
 
 	// Setting node values based on child list
 	node_info.CalculateChildParentNodeValues()
-
-	// After we have child information lets connect to them
-	node_info.ChildsConnectionUpdate()
 }
 
 func Start() {

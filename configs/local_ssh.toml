@@ -1,0 +1,15 @@
+[ssh]
+[ssh.tree1]
+host="15.15.15.15"
+port=22
+username="vagrant"
+
+[ssh.tree2]
+host="15.15.15.16"
+port=22
+username="vagrant"
+
+[ssh.tree3]
+host="15.15.15.17"
+port=22
+username="vagrant"
