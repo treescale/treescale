@@ -17,6 +17,7 @@ type Path struct {
 var (
 	CalcPath			func (*Path) (*big.Int, tree_lib.TreeError)
 	GetPathValue		func (*Path) (*big.Int, tree_lib.TreeError)
+	CalcApiPath			func (*Path, *big.Int) (*big.Int, tree_lib.TreeError)
 )
 
 func PathValueFromMessage(msg []byte) (body []byte, p *big.Int) {
@@ -34,4 +35,8 @@ func (p *Path) GetValue() (*big.Int, tree_lib.TreeError) {
 
 func (p *Path) CalculatePath() (*big.Int, tree_lib.TreeError) {
 	return CalcPath(p)
+}
+
+func(p *Path) CalculatePathToApi(api *big.Int) (*big.Int, tree_lib.TreeError) {
+	return CalcApiPath(p, api)
 }

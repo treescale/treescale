@@ -166,21 +166,21 @@ func SendCommand(cmd *Command, path *tree_graph.Path, cb func(*tree_event.Event,
 func SendCommandCallback(e *tree_event.Event, data []byte) (err tree_lib.TreeError) {
 	cb_ev := &tree_event.Event{}
 	path  := &tree_graph.Path{}
-	var p	*big.Int
 	cb_ev.Name = tree_event.ON_API_COMMAND_CALLBACK
 	cb_ev.Data = data
 	path.Nodes = []string{e.From}
-	p, err = path.CalculatePath()
+	path.From = node_info.CurrentNodeInfo.Name
+	_, err = path.CalculatePathToApi(big.NewInt(e.FromApi))
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
 	}
 
 	// If it comes from API, then we need multiply also with API's negative value
-	if e.FromApi != 0 {
+	/*if e.FromApi != 0 {
 		p.Mul(p, big.NewInt(e.FromApi))
 		p.Mul(p, big.NewInt(e.FromApi))
-	}
+	}*/
 
 	tree_event.Emit(cb_ev, path)
 	return

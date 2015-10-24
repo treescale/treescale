@@ -23,6 +23,7 @@ func init() {
 	// Initializing Path functions, because otherwise it is giving import cycle error
 	tree_graph.CalcPath = CalculatePath
 	tree_graph.GetPathValue = GetValue
+	tree_graph.CalcApiPath = CalculateApiPath
 }
 
 func Check() {
@@ -249,5 +250,16 @@ func CalculatePath(p *tree_graph.Path) (final_path *big.Int, err tree_lib.TreeEr
 
 	//if path contains node, then final_path divides to value of node
 	//if node is a target, then final path divides square of value of node
+	return
+}
+
+func CalculateApiPath (p *tree_graph.Path, api *big.Int)(final_path *big.Int, err tree_lib.TreeError) {
+	final_path, err = CalculatePath(p)
+	if !err.IsNull() {
+		return
+	}
+	final_path.Div(final_path, big.NewInt(node_values[p.Nodes[0]]))
+	final_path.Mul(final_path, api)
+	final_path.Mul(final_path, api)
 	return
 }

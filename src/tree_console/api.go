@@ -78,9 +78,9 @@ func HandleApiExec(cmd *cobra.Command, args []string) {
 			fmt.Println(string(c.Data))
 			fmt.Println(c.Ended)
 			// TODO: End coming faster than other messages FIX !!!!
-			if c.Ended {
+			/*if c.Ended {
 				return false
-			}
+			}*/
 			return true
 		})
 		wait_to_end <- true
