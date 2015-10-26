@@ -16,7 +16,7 @@ with Horizontal scaling, but the main advantages is
 <ol>
 <li>Full Docker Runtime support (it will be replaced to Tree based container system during stable releases)</li>
 <li>Automatic Network 4th level load balancing for containers and child servers (based on Linux Kernel LVS)</li>
-<li>Infrastructure building from config files (TOML or JSON)</li>
+<li>Infrastructure building from config files (TOML, JSON or YAML)</li>
 <li>Deep Docker container monitoring and Dashboard tools, without any additional agents or services (we are getting detailed information directly from native runtimes, without additional checking and load)</li>
 </ol>
 
@@ -25,8 +25,8 @@ Configuration file for automatic installation of Docker runtime and TreeScale ac
 SSH accesses and run command <code>~$ treescale build</code><br/>
 <b><code>console.toml</code></b>
 ```toml
-# Infrastructure tree config file
-tree="treescale.toml"
+# Infrastructure servers SSH config
+tree="configs/ssh.toml"
 
 [ssh]
     [ssh.node1]
