@@ -101,7 +101,7 @@ func init() {
 	}
 		info_cmd_list := &cobra.Command{
 			Use: "list",
-			Short: "Listing node infos",
+			Short: "List node infos",
 			Run: ListInfos,
 		}
 		add_list_default_flags(info_cmd_list)
@@ -114,18 +114,18 @@ func init() {
 	info_cmd.AddCommand(info_cmd_list, info_cmd_update)
 	container_cmd := &cobra.Command{
 		Use: "container [commands]",
-		Short: "Manage docker containers",
+		Short: "Manage containers",
 	}
 		container_start_cmd := &cobra.Command{
 			Use: "start",
-			Short: "Start docker container",
+			Short: "Start container",
 			Run: HandleContStart,
 		}
 		add_container_flags(container_start_cmd)
 		add_start_flags(container_start_cmd)
 		container_stop_cmd := &cobra.Command{
 			Use: "stop",
-			Short: "Stop docker container",
+			Short: "Stop container",
 			Run: HandleStop,
 		}
 		add_container_flags(container_stop_cmd)
@@ -140,31 +140,31 @@ func init() {
 		add_create_flags(container_create_cmd)
 		container_pause_cmd := &cobra.Command{
 			Use: "pause",
-			Short: "Pause docker container",
+			Short: "Pause container",
 			Run: HandlePause,
 		}
 		add_container_flags(container_pause_cmd)
 		container_resume_cmd := &cobra.Command{
 			Use: "resume",
-			Short: "Resume docker container",
+			Short: "Resume container",
 			Run: HandleResume,
 		}
 		add_container_flags(container_resume_cmd)
 		container_delete_cmd := &cobra.Command{
 			Use: "delete",
-			Short: "Delete docker container",
+			Short: "Delete container",
 			Run: HandleDelete,
 		}
 		add_container_flags(container_delete_cmd)
 		container_inspect_cmd := &cobra.Command{
 			Use: "inspect",
-			Short: "Inspect docker container",
+			Short: "Inspect container",
 			Run: HandleInspect,
 		}
 		add_container_flags(container_inspect_cmd)
 		container_list_cmd := &cobra.Command{
 			Use: "list",
-			Short: "list docker containers",
+			Short: "list containers",
 			Run: HandleList,
 		}
 		add_list_flags(container_list_cmd)
@@ -174,7 +174,7 @@ func init() {
 		}
 			image_list_cmd := &cobra.Command{
 				Use: "list",
-				Short: "list docker images",
+				Short: "list images",
 				Run: HandleList,
 			}
 			add_list_flags(image_list_cmd)
@@ -252,11 +252,13 @@ func add_update_default_flags(cmd *cobra.Command) {
 }
 func add_container_flags(cmd *cobra.Command){
 	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
-	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where will be start/create/stop container")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where will be " + cmd.Name() + " container")
+	cmd.Flags().StringSlice("group", []string{""}, "Group name whom nodes where will be " + cmd.Name() + " container")
+	cmd.Flags().StringSlice("tag", []string{""}, "Tag name whom nodes where will be " + cmd.Name() + " container")
 	cmd.Flags().StringP("container", "c", "", "Container name")
 }
 func add_start_flags(cmd *cobra.Command) {
-	cmd.Flags().StringP("image", "i", "", "Image name where will be start/create container")
+	cmd.Flags().StringP("image", "i", "", "Image name where will be " + cmd.Name() + " container")
 	cmd.Flags().String("command", "", "Conatainer start Command")
 	cmd.Flags().String("cpu", "", "CPU Shares")
 	cmd.Flags().String("ram", "", "Ram")
@@ -271,19 +273,25 @@ func add_stop_flags(cmd *cobra.Command) {
 
 func add_list_flags(cmd *cobra.Command){
 	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
-	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node names whose images will be listed")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node names whose images/containers will be listed")
+	cmd.Flags().StringSlice("group", []string{""}, "Group name whom nodes images/containers will be listed")
+	cmd.Flags().StringSlice("tag", []string{""}, "Tag name whom nodes images/containers will be listed")
 }
 
 func add_image_delete_flags(cmd *cobra.Command){
 	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
 	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where was the image")
+	cmd.Flags().StringSlice("group", []string{""}, "Group name whom nodes was the image")
+	cmd.Flags().StringSlice("tag", []string{""}, "Tag name whom nodes was the image")
 	cmd.Flags().StringP("image", "i", "", "image name")
 	cmd.Flags().BoolP("force", "f", false, "Force removal of the image")
 }
 
 func add_image_pull_flags(cmd *cobra.Command){
 	cmd.Flags().StringP("node", "n", "", "Node name which will be API worker")
-	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where you want to pull image")
+	cmd.Flags().StringSliceP("target", "t", []string{""}, "Node name where to pull image")
+	cmd.Flags().StringSlice("group", []string{""}, "Group name nodes whom to pull image")
+	cmd.Flags().StringSlice("tag", []string{""}, "Tag name whom nodes to pull image")
 	cmd.Flags().StringP("registry", "r", "", "registry name")
 	cmd.Flags().StringP("image", "i", "", "image name")
 	cmd.Flags().StringP("username", "u", "", "registry username")

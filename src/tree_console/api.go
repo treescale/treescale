@@ -271,6 +271,8 @@ func HandleContStart (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		image 		string
 		command 	string
 		ram 		string
@@ -285,6 +287,16 @@ func HandleContStart (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -325,13 +337,15 @@ func HandleContStart (cmd *cobra.Command, args []string) {
 	docker_cmd.Content["cpu"] = cpu
 	docker_cmd.Content["image"] = image
 	docker_cmd.Content["container"] = container
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleStop (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		time 		string
 		container 	string
 		err 		tree_lib.TreeError
@@ -343,6 +357,16 @@ func HandleStop (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -364,13 +388,15 @@ func HandleStop (cmd *cobra.Command, args []string) {
 	docker_cmd.Command = tree_docker.COMMAND_DOCKER_CONTAINER_STOP
 	docker_cmd.Content["timeout"] = time
 	docker_cmd.Content["container"] = container
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleCreate (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		image 		string
 		command 	string
 		ram 		string
@@ -387,6 +413,16 @@ func HandleCreate (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -441,13 +477,15 @@ func HandleCreate (cmd *cobra.Command, args []string) {
 		docker_cmd.Content["start"] = "yes"
 	} else {docker_cmd.Content["start"] = "no"}
 
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandlePause (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		container 	string
 		err 		tree_lib.TreeError
 	)
@@ -458,6 +496,16 @@ func HandlePause (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -473,13 +521,15 @@ func HandlePause (cmd *cobra.Command, args []string) {
 	docker_cmd.Content = make(map[string]string)
 	docker_cmd.Command = tree_docker.COMMAND_DOCKER_CONTAINER_PAUSE
 	docker_cmd.Content["container"] = container
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleResume (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		container 	string
 		err 		tree_lib.TreeError
 	)
@@ -490,6 +540,16 @@ func HandleResume (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -505,13 +565,15 @@ func HandleResume (cmd *cobra.Command, args []string) {
 	docker_cmd.Content = make(map[string]string)
 	docker_cmd.Command = tree_docker.COMMAND_DOCKER_CONTAINER_RESUME
 	docker_cmd.Content["container"] = container
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleDelete (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		container 	string
 		err 		tree_lib.TreeError
 	)
@@ -537,13 +599,15 @@ func HandleDelete (cmd *cobra.Command, args []string) {
 	docker_cmd.Content = make(map[string]string)
 	docker_cmd.Command = tree_docker.COMMAND_DOCKER_CONTAINER_DELETE
 	docker_cmd.Content["container"] = container
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleInspect (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		container 	string
 		err 		tree_lib.TreeError
 	)
@@ -554,6 +618,16 @@ func HandleInspect (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -569,13 +643,15 @@ func HandleInspect (cmd *cobra.Command, args []string) {
 	docker_cmd.Content = make(map[string]string)
 	docker_cmd.Command = tree_docker.COMMAND_DOCKER_CONTAINER_INSPECT
 	docker_cmd.Content["container"] = container
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleList (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		err 		tree_lib.TreeError
 	)
 	err.From = tree_lib.FROM_HANDLE_LIST
@@ -589,6 +665,16 @@ func HandleList (cmd *cobra.Command, args []string) {
 		tree_log.Error(err.From, err.Error())
 		return
 	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
 	var (
 		docker_cmd = 		tree_docker.DockerCmd{}
 	)
@@ -597,13 +683,15 @@ func HandleList (cmd *cobra.Command, args []string) {
 		docker_cmd.Command = tree_docker.COMMAND_DOCKER_CONTAINER_LIST
 	} else {docker_cmd.Command = tree_docker.COMMAND_DOCKER_IMAGE_LIST}
 	docker_cmd.Content["all"] = "yes"
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleImageDelete (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		force 		bool
 		image 		string
 		err 		tree_lib.TreeError
@@ -615,6 +703,16 @@ func HandleImageDelete (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -638,13 +736,15 @@ func HandleImageDelete (cmd *cobra.Command, args []string) {
 	if force {
 		docker_cmd.Content["force"] = "yes"
 	} else {docker_cmd.Content["force"] = "no"}
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
 func HandleImagePull (cmd *cobra.Command, args []string) {
 	var (
 		node 		string
 		target 		[]string
+		tag 		[]string
+		group 		[]string
 		image 		string
 		registry 	string
 		username 	string
@@ -660,6 +760,16 @@ func HandleImagePull (cmd *cobra.Command, args []string) {
 		return
 	}
 	target, err.Err = cmd.Flags().GetStringSlice("target")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	tag, err.Err = cmd.Flags().GetStringSlice("tag")
+	if !err.IsNull() {
+		tree_log.Error(err.From, err.Error())
+		return
+	}
+	group, err.Err = cmd.Flags().GetStringSlice("group")
 	if !err.IsNull() {
 		tree_log.Error(err.From, err.Error())
 		return
@@ -705,10 +815,10 @@ func HandleImagePull (cmd *cobra.Command, args []string) {
 	docker_cmd.Content["registry_password"] = password
 	docker_cmd.Content["registry_address"] = address
 	docker_cmd.Content["registry_email"] = email
-	SendDockerCommand(docker_cmd, node, target)
+	SendDockerCommand(docker_cmd, node, target, tag, group)
 }
 
-func SendDockerCommand (cmd tree_docker.DockerCmd, node string, target []string){
+func SendDockerCommand (cmd tree_docker.DockerCmd, node string, target []string, tag []string, group []string){
 	var err tree_lib.TreeError
 	if !tree_api.API_INIT(node) {
 		fmt.Println("Unable to init api client")
@@ -730,7 +840,7 @@ func SendDockerCommand (cmd tree_docker.DockerCmd, node string, target []string)
 	api_cmd.CommandType = tree_api.COMMAND_CONTAINER
 
 	tree_event.ON(tree_event.ON_CHILD_CONNECTED,func (ev *tree_event.Event) {
-		path := &tree_graph.Path{From: node, Nodes: target }
+		path := &tree_graph.Path{From: node, Nodes: target, Groups: group, Tags: tag}
 		tree_api.SendCommand(&api_cmd, path, func(e *tree_event.Event, c tree_api.Command) bool {
 			fmt.Println(string(c.Data))
 			fmt.Println(c.Ended)
