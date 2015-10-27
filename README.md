@@ -14,6 +14,7 @@ API events for specific Nodes and for entire Infrastructure Tree.
 TreeScale infrastructure resource management tool have a lot of advantages compared to other projects with similar porpose but 
 with Horizontal scaling, but the main advantages is
 <ol>
+<li>Evented infrastructure, with custom events and handlers</li>
 <li>Full Docker Runtime support (it will be replaced to Tree based container system during stable releases)</li>
 <li>Automatic Network 4th level load balancing for containers and child servers (based on Linux Kernel LVS)</li>
 <li>Infrastructure building from config files (TOML, JSON or YAML)</li>
@@ -23,18 +24,18 @@ with Horizontal scaling, but the main advantages is
 # Infrastructure Config Sample
 Configuration file for automatic installation of Docker runtime and TreeScale across 100s of servers, just need's to provide 
 SSH accesses and run command <code>~$ treescale build</code><br/>
-<b><code>console.toml</code></b>
+<b><code>ssh.toml</code></b>
 ```toml
 # Infrastructure servers SSH config
-tree="configs/ssh.toml"
-
 [ssh]
-    [ssh.node1]
+    # using SSH Agent 
+    [ssh.tree1]
     host="192.168.107.106"
     port="22"
-    key="ssh_key.pem"
+    username="vagrant"
     
-    [ssh.node2]
+    # Using username and password
+    [ssh.tree2]
     host="192.168.107.107"
     port="22"
     username="treescale"
@@ -43,35 +44,75 @@ tree="configs/ssh.toml"
 # -------------- And so ON ------------
 
 ```
-<b><code>treescale.toml</code></b>
+<b><code>tree.toml</code></b>
 ```toml
-# every node will have his local copy of this config to get all information about Tree
-current_node=""
+# every node will have his local copy of this config inside local small database file for getting all information about Tree
 
-[servers]
-    [servers.node1]
-    name="node1"
-    ip="192.168.107.106"
-    service_port=8888   # port for running TreeScale Daemon
-    tags=["test_node", "first_node"]    # tags for emiting events/commands to specific group of servers
-    childs=["node2", "node3"]       # childs array who will be under this node in Tree structure
-    [balancers]
-    address="192.168.107.106:443"
-    alg="rr"    # Load balancing algorithm, we are supporting 8 types of load balancing algorithms, and all of them are Network 4th level
-        [containers]
-        # all containers created from Docker image "ubuntu/php:dev"
-        # will be load balanced to 80 port from 192.168.107.106:443
-        "ubuntu/php:dev" = 80
-        "ubuntu/php:test" = 5556  # balancing to 5556 port
+[tree_node]
+    [tree_node.tree1]
+    name="tree1"
+    tree_port=8888 # port for running TreeScale Daemon
+    tree_ip="tree-node-1.cloudapp.net"
+    tags=[] # tags for emiting events/commands to specific group of servers
+    groups=["backend"] # groups array who will be under this node in Tree structure
+    childs=["tree2", "tree4"] # childs array who will be under this node in Tree structure
     
-    [servers.node2]
-    name="node2"
-    ip="192.168.107.107"
-    service_port=8888   # port for running TreeScale Daemon
-    tags=["test_node", "first_node"]    # tags for emiting events/commands to specific group of servers
-    childs=[]       # childs array who will be under this node in Tree structure    
+    [tree_node.tree2]
+    name="tree2"
+    tree_port=8888
+    tree_ip="tree-node-2.cloudapp.net"
+    tags=[]
+    groups=[]
+    childs=["tree3"]
+    
+    [tree_node.tree3]
+    name="tree3"
+    tree_port=8888
+    tree_ip="tree-node-3.cloudapp.net"
+    tags=[]
+    groups=[]
+    childs=[]
+    
+    [tree_node.tree4]
+    name="tree4"
+    tree_port=8888
+    tree_ip="tree-node-4.cloudapp.net"
+    tags=[]
+    groups=[]
+    childs=["tree6", "tree7"]
 
 ```
+
+# Get Started
+Our System using <a href="https://github.com/boltdb/bolt">BoltDB</a> as a local storage engine, so you need to provide path to local db file <code>TREE_DB_PATH</code>
+environment variable example: <code>export TREE_DB_PATH="./tree.db"</code> . Default Path is <code>/etc/treescale/tree.db</code><br/>
+<p>
+For Getting started with our config files which is available in our repository <code>configs/tree.toml, configs/ssh.toml</code> you need to do following commands
+</p>
+```sh
+
+# Before using TreeScale you need to have Tree Based infrastructure, 
+# which could be built using configuration files with SSH access and Tree nodes information
+treescale build  --files=configs/tree.toml,configs/ssh.toml
+
+# Compiling config files into BoltDB storage for faster work, output file will be tree.db
+treescale config compile -p ./configs -o tree.db
+
+# Next we need to restore database to our given TREE_DB_PATH
+treescale config restore -f tree.db
+
+# After this step you can now use TreeScale CLI commands to manipulate your infrastructure
+ 
+# this command will execute bash command on tree3 server by connecting to tree1 server as an API server
+# it's a base Tree structure path calculation
+treescale api exec -c "uname" -n tree1 -t tree3
+
+```
+
+# Wiki Pages
+We are adding documentation to our Wiki pages and it will be ready very soon.<br/>
+But before that you can check our helpers just to understand our command stack and use cases.
+<code>treescale [command] --help</code>
 
 # Stay in touch
 Feel free to contact <a href="mailto:tigran@treescale.com">tigran@treescale.com</a>. <br/>
