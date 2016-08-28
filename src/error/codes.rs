@@ -3,4 +3,6 @@ pub enum ErrorCodes {
     NetworkErrorEvent,
     NetworkTcpServerRegister,
     NetworkTcpConnectionAccept,
+    TcpConnectionRegisterReadInterest,
+    TcpConnectionReRegisterReadInterest,
 }
