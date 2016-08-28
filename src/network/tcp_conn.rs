@@ -1,5 +1,6 @@
 extern crate mio;
 extern crate num;
+extern crate byteorder;
 
 use mio::{Token, EventLoop, EventSet, PollOpt};
 use mio::tcp::TcpStream;
@@ -10,10 +11,14 @@ use error::error::Error;
 use error::codes::ErrorCodes;
 use std::io;
 use mio::util::Slab;
+use std::io::Read;
+use self::byteorder::{BigEndian, ByteOrder};
 
 pub struct TcpConns {
     pub conns: Slab<TcpConnection>
 }
+
+const CONN_READ_CHUNCK_LENGTH: usize = 5120;
 
 impl TcpConns {
     pub fn new(max: usize) -> TcpConns {
@@ -57,8 +62,16 @@ pub struct TcpConnection {
     // this will be token for handling MIO connection loop
     key: Token,
     // Set of event interesting for us for this connection
-    interest: EventSet
+    interest: EventSet,
+
+    // variables for keeping received and remaining data values
+    data_len: u32,
+    // just allocating it here for not making 4 byte allocation on every data receiving
+    data_len_bytes: Vec<u8>,
+    data_received_len: u32,
+    data: Vec<Vec<u8>>
 }
+
 
 impl TcpConnection {
     pub fn new(sock: TcpStream, token: Token, from_server: bool) -> TcpConnection {
@@ -68,7 +81,11 @@ impl TcpConnection {
             token: String::new(),
             value: BigInt::new(Sign::Plus, vec![0]),
             from_server: from_server,
-            interest: EventSet::hup()
+            interest: EventSet::hup(),
+            data_len: 0,
+            data_received_len: 0,
+            data: vec![],  // making empty vector
+            data_len_bytes: vec![0; 4] // 4 bytes for BigEndian number
         }
     }
 
@@ -79,6 +96,96 @@ impl TcpConnection {
         // inserting write interest to handle write event when loop will be ready
         self.interest.insert(EventSet::writable());
         Ok(())
+    }
+
+    /// Main function to read data from socket
+    /// this function will be called inside event loop "read_data" event
+    /// Basic logic of data API is to read first 4 bytes as a BigEndian integer, which would be the length of remaining data
+    /// then just read that remaining data and return from function as a vector of bytes
+    ///
+    /// Main thing is that until data is collected we will keep remaining buffer in "self"
+    /// but allocation process would be chunck by chunck as we receiving
+    /// function will return "true" if we collected all remaining data
+    pub fn read(&mut self) -> io::Result<(bool, Vec<u8>)> {
+        let mut sock = &mut self.sock;
+        // if our data is reseted we need to start reading new data
+        if self.data.len() == 0 && self.data_len == 0 {
+            match sock.take(4).read(&mut self.data_len_bytes) {
+                Ok(n) => {
+                    if n != 4 {
+                        return Ok((false, vec![]));
+                    }
+                },
+                Err(e) => {
+                    Error::handle_error(ErrorCodes::TcpConnectionRead, "Error while trying to read from tcp connection", "Tcp Connection Read");
+                    return Ok((false, vec![]));
+                }
+            }
+
+            self.data_len = BigEndian::read_u32(&self.data_len_bytes);
+            // if we don' have data to read just returning
+            if self.data_len <= 0 {
+                self.data_len = 0;
+                return Ok((false, vec![]));
+            }
+
+            self.data_received_len = 0;
+
+            // Adding new data vector to read
+            // not allocating because we will append to it chunck by chunck
+            self.data.push(vec![]);
+        }
+
+        let mut read_data = vec![0; CONN_READ_CHUNCK_LENGTH];
+
+        loop {
+            match sock.read(&mut read_data) {
+                Ok(n) => {
+                    if n > 0 {
+                        read_data.split_off(n);
+                        self.data[0].append(&mut read_data);
+                        read_data.clear();  // clearing data right after appending it
+                        self.data_received_len += n as u32;
+                    }
+
+                    // if we got less bytes than we ready to read then our data is completed on this EventLoop cycle
+                    if n < CONN_READ_CHUNCK_LENGTH {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+
+        // if we got here then we finished data reading process for this loop cycle
+
+        // if we got more data than expected by API, then just clearing and returning
+        if self.data_received_len > self.data_len {
+            self.data[0].clear();
+            self.data.clear();
+            self.data_len = 0;
+            self.data_received_len = 0;
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Wrong API for recieved data, seems need to close connection"));
+        }
+
+        if self.data_received_len == self.data_len {
+            match self.data.pop() {
+                Some(ret_data) => {
+                    self.data.clear();
+                    self.data_len = 0;
+                    self.data_received_len = 0;
+                    return Ok((true, ret_data));
+                }
+                None => {
+                    return Ok((false, vec![]));
+                }
+            }
+
+        }
+
+        Ok((false, vec![]))
     }
 
     /// Register connection to networking event loop
@@ -142,6 +249,14 @@ impl TcpConnection {
     /// We will read connection data here using speficic TreeScale API
     /// this function will be triggered when networking event loop will be ready to read some data from connection
     pub fn read_data_net(&mut self, event_loop: &mut EventLoop<TcpNetwork>) -> io::Result<()> {
+        match self.read() {
+            Ok((done, data)) => {
+                if done {
+                    // Handle Data here
+                }
+            }
+            Err(e) => return Err(e)
+        }
         self.reregister_net(event_loop)
     }
 

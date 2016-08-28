@@ -6,3 +6,4 @@ authors = ["Tigran Bayburtsyan <tigran@bayburtsyan.com>"]
 [dependencies]
 mio = "0.5"
 num = "0.1"
+byteorder = "0.5"

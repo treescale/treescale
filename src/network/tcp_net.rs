@@ -37,6 +37,7 @@ pub struct TcpNetwork {
     readers_index: usize
 }
 
+
 impl Handler for TcpNetwork {
     type Timeout = ();
     type Message = NetLoopCmd;

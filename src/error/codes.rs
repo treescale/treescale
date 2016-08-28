@@ -5,4 +5,5 @@ pub enum ErrorCodes {
     NetworkTcpConnectionAccept,
     TcpConnectionRegisterReadInterest,
     TcpConnectionReRegisterReadInterest,
+    TcpConnectionRead,
 }
