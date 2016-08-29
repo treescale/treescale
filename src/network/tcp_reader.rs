@@ -39,7 +39,8 @@ impl Handler for TcpReader {
             // If we got some error letting know about that to Networking loop to reset connection
             self.net_chanel.send(NetLoopCmd {
                 cmd: LoopCommand::REMOVE_CONNECTION,
-                token: token
+                token: token,
+                address: String::new()
             });
             return;
         }
@@ -60,7 +61,8 @@ impl Handler for TcpReader {
                 .unwrap_or_else(|_| {
                     self.net_chanel.send(NetLoopCmd {
                         cmd: LoopCommand::REMOVE_CONNECTION,
-                        token: token
+                        token: token,
+                        address: String::new()
                     });
                 })
             }
@@ -77,7 +79,8 @@ impl Handler for TcpReader {
             .unwrap_or_else(|_| {
                 self.net_chanel.send(NetLoopCmd {
                     cmd: LoopCommand::REMOVE_CONNECTION,
-                    token: token
+                    token: token,
+                    address: String::new()
                 });
             })
         }
@@ -106,7 +109,8 @@ impl TcpReader {
             Error::handle_error(ErrorCodes::NetworkErrorEvent, "Unable to transfer connection to Reader loop", "Reader Transfer connection");
             self.net_chanel.send(NetLoopCmd {
                 cmd: LoopCommand::REMOVE_CONNECTION,
-                token: token
+                token: token,
+                address: String::new()
             });
         });
 

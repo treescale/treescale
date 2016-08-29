@@ -11,8 +11,10 @@ use error::error::Error;
 use error::codes::ErrorCodes;
 use std::io;
 use mio::util::Slab;
-use std::io::Read;
+use std::io::{Read, Write};
 use self::byteorder::{BigEndian, ByteOrder};
+use std::sync::RwLock;
+use std::rc::Rc;
 
 pub struct TcpConns {
     pub conns: Slab<TcpConnection>
@@ -69,7 +71,12 @@ pub struct TcpConnection {
     // just allocating it here for not making 4 byte allocation on every data receiving
     data_len_bytes: Vec<u8>,
     data_received_len: u32,
-    data: Vec<Vec<u8>>
+    data: Vec<Vec<u8>>,
+
+    // Write data for keeping some queue of data
+    // this will help save data until it would be ready to write
+    // using Read Write lock for cross thread usage
+    write_queue: RwLock<Vec<Rc<Vec<u8>>>>
 }
 
 
@@ -85,14 +92,21 @@ impl TcpConnection {
             data_len: 0,
             data_received_len: 0,
             data: vec![],  // making empty vector
-            data_len_bytes: vec![0; 4] // 4 bytes for BigEndian number
+            data_len_bytes: vec![0; 4], // 4 bytes for BigEndian number
+            write_queue: RwLock::new(Vec::new())
         }
     }
 
-    // TODO: implement Write functionality with write Queue
     /// Write function for this connection, it will handle byte data and will queue it inside list
     /// and when connection will be ready to send it from MIO loop it will make it from "writable" function
-    pub fn write(&mut self) -> io::Result<()> {
+    pub fn write(&mut self, data: &mut Rc<Vec<u8>>) -> io::Result<()> {
+        // Getting write access and writing data to it
+        // this will lock data until it would be fully written and will end the scope
+        {
+            let mut locker_data = self.write_queue.write().unwrap();
+            locker_data.push(data.clone());
+        }
+
         // inserting write interest to handle write event when loop will be ready
         self.interest.insert(EventSet::writable());
         Ok(())
@@ -253,6 +267,7 @@ impl TcpConnection {
             Ok((done, data)) => {
                 if done {
                     // Handle Data here
+                    println!("{:?}", data);
                 }
             }
             Err(e) => return Err(e)
@@ -261,17 +276,67 @@ impl TcpConnection {
     }
 
     pub fn read_data_reader(&mut self, event_loop: &mut EventLoop<TcpReader>) -> io::Result<()> {
+        match self.read() {
+            Ok((done, data)) => {
+                if done {
+                    // Handle Data here
+                    println!("{:?}", data);
+                }
+            }
+            Err(e) => return Err(e)
+        }
+
         self.reregister_reader(event_loop)
     }
 
-    // TODO: implement this function for write functionality
+    pub fn flush_write_queue(&mut self) -> io::Result<()> {
+        let mut queue_locked = self.write_queue.write().unwrap();
+
+        loop {
+            match queue_locked.pop() {
+                Some(data_rc) => {
+                    // Writing data len, den full data with it
+                    // if we will try to combine first 4 bytes then all data, we will need to allocate new space
+                    // so trying without new allocation
+                    {
+                        let mut write_data_len = vec![0; 4];
+                        BigEndian::write_u32(&mut write_data_len, data_rc.len() as u32);
+                        match self.sock.write_all(write_data_len.as_slice()) {
+                            Ok(()) => {}
+                            Err(e) => return Err(e)
+                        }
+                    }
+                    match self.sock.write_all(data_rc.as_slice()) {
+                        Ok(()) => {}
+                        Err(e) => return Err(e)
+                    };
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// This function will be triggered from event loop, when our socket will be ready for writing
     /// We will write all queued data at once for giving more performance
     pub fn write_data_net(&mut self, event_loop: &mut EventLoop<TcpNetwork>) -> io::Result<()> {
+        match self.flush_write_queue() {
+            Ok(()) => {}
+            Err(e) => return Err(e)
+        };
+
         self.reregister_net(event_loop)
     }
 
     pub fn write_data_reader(&mut self, event_loop: &mut EventLoop<TcpReader>) -> io::Result<()> {
-        self.reregister_reader(event_loop)
+        match self.flush_write_queue() {
+            Ok(()) => {}
+            Err(e) => return Err(e)
+        };
+
+        self.register_reader(event_loop)
     }
 }

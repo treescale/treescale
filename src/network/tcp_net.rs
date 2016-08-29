@@ -8,6 +8,7 @@ use network::tcp_reader::TcpReader;
 use error::error::Error;
 use error::codes::ErrorCodes;
 use std::sync::Arc;
+use network::tcp_client::TcpClient;
 
 pub const INVALID_TOKEN: Token = Token(0);
 const MAX_CONNECTIONS: usize = 100000000;
@@ -15,12 +16,15 @@ const MAX_CONNECTIONS: usize = 100000000;
 pub enum LoopCommand {
     STOP_LOOP,
     REMOVE_CONNECTION,
-    ACCEPT_CONNECTION
+    ACCEPT_CONNECTION,
+    CLIENT_CONNECT,
 }
 
 pub struct NetLoopCmd {
     pub cmd: LoopCommand,
-    pub token: Token
+    pub token: Token,
+    // this address would be used in client connection command
+    pub address: String
 }
 
 pub struct TcpNetwork {
@@ -99,6 +103,12 @@ impl Handler for TcpNetwork {
                 .unwrap_or_else(|_| {
                     // we don't care for this
                 });
+            }
+            LoopCommand::CLIENT_CONNECT => {
+                match self.connect_raw(cmd.address.as_str(), event_loop) {
+                    Ok(()) => {}
+                    Err(e) => Error::handle_error(ErrorCodes::TcpClientConnectionFail, "Error while trying to connect to given address", "Networking TcpClient Ready State")
+                }
             }
         }
     }
