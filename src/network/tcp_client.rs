@@ -1,7 +1,7 @@
 extern crate mio;
 use std::io;
 use std::io::{Error, ErrorKind};
-use mio::{EventLoop, Token};
+use mio::{EventLoop, Token, Sender};
 use mio::tcp::{TcpStream};
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -10,16 +10,15 @@ use network::tcp_net::{TcpNetwork, NetLoopCmd, LoopCommand};
 pub trait TcpClient {
     /// with this function we will send notify from channel to Networking loop
     /// because we expecting to call this function from outiside threads
-    fn connect(&mut self, address: &str) -> io::Result<()>;
+    fn connect(loop_chan: Sender<NetLoopCmd>, address: &str) -> io::Result<()>;
 
     /// this function is for internal loop call, here we will have real connection functionality
     fn connect_raw(&mut self, address: &str, event_loop: &mut EventLoop<TcpNetwork>) -> io::Result<()>;
 }
 
 impl TcpClient for TcpNetwork {
-    fn connect(&mut self, address: &str) -> io::Result<()> {
-        let mut send_chan = self.event_loop.channel();
-        match send_chan.send(NetLoopCmd {
+    fn connect(loop_chan: Sender<NetLoopCmd>, address: &str) -> io::Result<()> {
+        match loop_chan.send(NetLoopCmd {
             token: Token(0), // we don't care about token here
             cmd: LoopCommand::CLIENT_CONNECT,
             address: String::from(address)
@@ -44,18 +43,20 @@ impl TcpClient for TcpNetwork {
             Some(token) => {
                 //if we got here then we successfully inserted connection
                 //now we need to register it
-                match self.connections.find_connection_by_token(token) {
+                let st = match self.connections.find_connection_by_token(token) {
                     Ok(conn) => {
-                        match conn.register_net(event_loop) {
-                            Ok(_) => {},
-                            Err(_) => {
-                                // if we got error during reregister process just removing connection from list
-                                // self.connections.remove(token);
-                            }
-                        }
+                        conn.register_net(event_loop)
                     },
-                    Err(e) => { }
+                    Err(e) => Err(e)
                 };
+
+                match st {
+                    Ok(_) => {},
+                    Err(_) => {
+                        // if we got error during reregister process just removing connection from list
+                        self.connections.remove_connection_by_token(token);
+                    }
+                }
             }
             None => return Err(Error::new(ErrorKind::Interrupted, "error inserting connection to list"))
         };

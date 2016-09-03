@@ -3,7 +3,7 @@ extern crate num;
 extern crate byteorder;
 
 use mio::{Token, EventLoop, EventSet, PollOpt};
-use mio::tcp::TcpStream;
+use mio::tcp::{TcpStream, Shutdown};
 use self::num::bigint::{BigInt, Sign};
 use network::tcp_net::TcpNetwork;
 use network::tcp_reader::TcpReader;
@@ -15,6 +15,7 @@ use std::io::{Read, Write};
 use self::byteorder::{BigEndian, ByteOrder};
 use std::sync::RwLock;
 use std::rc::Rc;
+use std::marker::Sync;
 
 pub struct TcpConns {
     pub conns: Slab<TcpConnection>
@@ -39,9 +40,11 @@ impl TcpConns {
         }
     }
 
-    pub fn remove_connection_by_token(&mut self, token: Token) {
+    pub fn remove_connection_by_token(&mut self, token: Token) -> Option<TcpConnection> {
         if self.conns.contains(token) {
-            self.conns.remove(token);
+            self.conns.remove(token)
+        } else {
+            None
         }
     }
 
@@ -53,9 +56,14 @@ impl TcpConns {
 }
 
 
+unsafe impl Sync for TcpConns {
+
+}
+
 
 pub struct TcpConnection {
     from_server: bool,
+    accepted: bool,
     token: String,
     value: BigInt,
     pub sock: TcpStream,
@@ -93,7 +101,8 @@ impl TcpConnection {
             data_received_len: 0,
             data: vec![],  // making empty vector
             data_len_bytes: vec![0; 4], // 4 bytes for BigEndian number
-            write_queue: RwLock::new(Vec::new())
+            write_queue: RwLock::new(Vec::new()),
+            accepted: false
         }
     }
 
@@ -137,9 +146,14 @@ impl TcpConnection {
             }
 
             self.data_len = BigEndian::read_u32(&self.data_len_bytes);
-            // if we don' have data to read just returning
+            // if we don't have data to read just returning
             if self.data_len <= 0 {
                 self.data_len = 0;
+                return Ok((false, vec![]));
+            }
+
+            if self.data_len > 300 && !self.accepted {
+                sock.shutdown(Shutdown::Both);
                 return Ok((false, vec![]));
             }
 

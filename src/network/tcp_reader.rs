@@ -1,26 +1,39 @@
 extern crate mio;
 
 use mio::{EventLoop, Handler, Token, EventSet, Sender};
-use network::tcp_net::{NetLoopCmd, INVALID_TOKEN, TcpNetwork, LoopCommand};
+use mio::tcp::TcpStream;
+use network::tcp_net::{NetLoopCmd, INVALID_TOKEN, TcpNetwork, LoopCommand, MAX_CONNECTIONS};
 use network::tcp_server::SERVER_TOKEN;
 use network::tcp_conn::{TcpConns};
 use error::error::Error;
 use error::codes::ErrorCodes;
 use std::sync::Arc;
 use std::io;
+use std::thread;
+use std::sync::mpsc::channel;
+use std::rc::Rc;
+
+pub enum ReaderCommands {
+    STOP_LOOP,
+    HANDLE_CONNECTION
+}
+
+pub struct ReaderLoopCommand {
+    pub cmd: ReaderCommands,
+    pub conn_socks: Vec<TcpStream>,
+}
 
 pub struct TcpReader {
-    pub event_loop: EventLoop<TcpReader>,
-
     pub net_chanel: Sender<NetLoopCmd>,
-    pub net: Arc<TcpNetwork>
+    pub conns: TcpConns,
+    pub loop_channel: Vec<Sender<ReaderLoopCommand>>
 }
 
 /// TcpReader event loop will be only connection reader/writer loop
 /// we should't have connection accept functionality
 impl Handler for TcpReader {
     type Timeout = ();
-    type Message = ();
+    type Message = ReaderLoopCommand;
 
     fn ready(&mut self, event_loop: &mut EventLoop<TcpReader>, token: Token, events: EventSet) {
         // If we got here invalid token handling error and just returning
@@ -45,10 +58,6 @@ impl Handler for TcpReader {
             return;
         }
 
-        // extracting network pointer
-        let mut nn = self.net.clone();
-        let mut net = Arc::get_mut(&mut nn).unwrap();
-
         if events.is_readable() {
             if token == SERVER_TOKEN {
                 // We shouldn't get Server token here
@@ -56,7 +65,7 @@ impl Handler for TcpReader {
             } else {
                 // finding connection here, reading some data and then registering to new events
                 // if we got error during read process just reseting connection
-                net.connections.find_connection_by_token(token)
+                self.conns.find_connection_by_token(token)
                 .and_then(|conn| conn.read_data_reader(event_loop))
                 .unwrap_or_else(|_| {
                     self.net_chanel.send(NetLoopCmd {
@@ -74,7 +83,7 @@ impl Handler for TcpReader {
             if token == SERVER_TOKEN {return;}
 
             // Writing data to available socket by token
-            net.connections.find_connection_by_token(token)
+            self.conns.find_connection_by_token(token)
             .and_then(|conn| conn.write_data_reader(event_loop))
             .unwrap_or_else(|_| {
                 self.net_chanel.send(NetLoopCmd {
@@ -85,26 +94,74 @@ impl Handler for TcpReader {
             })
         }
     }
+
+    fn notify (&mut self, event_loop: &mut EventLoop<TcpReader>, cmd: ReaderLoopCommand) {
+        match cmd.cmd {
+            ReaderCommands::STOP_LOOP => {
+                event_loop.shutdown();
+            }
+            ReaderCommands::HANDLE_CONNECTION => {
+                let mut list = cmd.conn_socks;
+                let conn = match list.pop() {
+                    Some(c) => c,
+                    None => return
+                };
+                match self.conns.insert_with(conn){
+                    Some(token) => {
+                        //if we got here then we successfully inserted connection
+                        //now we need to register it
+                        let st = match self.conns.find_connection_by_token(token) {
+                            Ok(conn) => {
+                                conn.register_reader(event_loop)
+                            },
+                            Err(e) => Err(e)
+                        };
+
+                        match st {
+                            Ok(_) => {},
+                            Err(_) => {
+                                // if we got error during reregister process just removing connection from list
+                                self.conns.remove_connection_by_token(token);
+                            }
+                        }
+                    }
+                    Nonde => {
+                        Error::handle_error(ErrorCodes::NetworkTcpConnectionAccept, "Error inserting connection", "TcpReader Transfer Connection");
+                    }
+                };
+            }
+        }
+    }
 }
 
 impl TcpReader {
-    pub fn new(net_chan: Sender<NetLoopCmd>, net: Arc<TcpNetwork>) -> TcpReader {
+    pub fn new(net_chan: Sender<NetLoopCmd>) -> TcpReader {
         TcpReader {
-            event_loop: EventLoop::new().ok().expect("Unable to create event loop for reader"),
             net_chanel: net_chan,
-            net: net
+            conns: TcpConns::new(10),
+            loop_channel: Vec::new(),
         }
+    }
+
+    pub fn run(net_chan: Sender<NetLoopCmd>) -> Sender<ReaderLoopCommand> {
+        let mut event_loop: EventLoop<TcpReader> = EventLoop::new().ok().expect("Unable to create event loop for networking");
+        let ret_chan = event_loop.channel();
+        thread::spawn(move || {
+            let mut r = TcpReader::new(net_chan);
+            r.loop_channel.push(event_loop.channel());
+            event_loop.run(&mut r);
+        });
+
+        return ret_chan;
     }
 
     /// Transfer connection to reader loop
     /// it is required to call event_loop.deregister for this connection before calling this function, for thread safety
-    pub fn transfer_connection(&mut self, token: Token) -> io::Result<()> {
-        // extracting network pointer
-        let mut nn = self.net.clone();
-        let mut net = Arc::get_mut(&mut nn).unwrap();
+    pub fn transfer_connection_raw(&mut self, token: Token, event_loop: &mut EventLoop<TcpReader>) -> io::Result<()> {
+        //extracting network pointer
 
-        net.connections.find_connection_by_token(token)
-        .and_then(|conn| conn.register_reader(&mut self.event_loop))
+        self.conns.find_connection_by_token(token)
+        .and_then(|conn| conn.register_reader(event_loop))
         .unwrap_or_else(|_| {
             Error::handle_error(ErrorCodes::NetworkErrorEvent, "Unable to transfer connection to Reader loop", "Reader Transfer connection");
             self.net_chanel.send(NetLoopCmd {

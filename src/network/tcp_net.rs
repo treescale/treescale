@@ -1,23 +1,30 @@
 extern crate mio;
 
-use mio::{Handler, EventLoop, Token, EventSet};
-use mio::tcp::{TcpListener};
+use mio::{Handler, EventLoop, Token, EventSet, Sender, PollOpt};
+use mio::tcp::{TcpListener, TcpStream};
 use network::tcp_server::{TcpServer, SERVER_TOKEN};
 use network::tcp_conn::{TcpConns};
-use network::tcp_reader::TcpReader;
+use network::tcp_reader::{TcpReader, ReaderLoopCommand, ReaderCommands};
 use error::error::Error;
 use error::codes::ErrorCodes;
-use std::sync::Arc;
+use std::sync::{Arc};
 use network::tcp_client::TcpClient;
+use std::thread;
+use std::sync::mpsc::channel;
+use std::net::SocketAddr;
+use std::str::FromStr;
+use std::io::Write;
+use std::io;
 
 pub const INVALID_TOKEN: Token = Token(0);
-const MAX_CONNECTIONS: usize = 100000000;
+pub const MAX_CONNECTIONS: usize = 100000000;
 
 pub enum LoopCommand {
     STOP_LOOP,
     REMOVE_CONNECTION,
     ACCEPT_CONNECTION,
     CLIENT_CONNECT,
+    TRANSFER_CONNECTION,
 }
 
 pub struct NetLoopCmd {
@@ -30,17 +37,16 @@ pub struct NetLoopCmd {
 pub struct TcpNetwork {
     pub connections: TcpConns,
     pub is_api: bool,
-    pub event_loop: EventLoop<TcpNetwork>,
+    pub loop_channel: Vec<Sender<NetLoopCmd>>,
 
     // main server socket
-    pub server_sock: Vec<TcpListener>,
+    pub server_sock: TcpListener,
     pub server_address: String,
 
     // keeping TcpReaders for transfering connection to read process
-    readers: Vec<TcpReader>,
+    pub readers: Vec<Sender<ReaderLoopCommand>>,
     readers_index: usize
 }
-
 
 impl Handler for TcpNetwork {
     type Timeout = ();
@@ -110,38 +116,49 @@ impl Handler for TcpNetwork {
                     Err(e) => Error::handle_error(ErrorCodes::TcpClientConnectionFail, "Error while trying to connect to given address", "Networking TcpClient Ready State")
                 }
             }
+            LoopCommand::TRANSFER_CONNECTION => {
+                self.transfer_connection(cmd.token);
+            }
         }
     }
 }
 
 impl TcpNetwork{
 
-    pub fn new(server_address: &str, is_api: bool, readers_count: usize) -> Arc<TcpNetwork> {
-        let net = Arc::new(TcpNetwork {
-            connections: TcpConns::new(MAX_CONNECTIONS),
-            server_sock: Vec::new(),
+    pub fn new(server_address: &str, is_api: bool, readers_count: usize) -> TcpNetwork {
+        let addr = SocketAddr::from_str(server_address).unwrap();
+
+        TcpNetwork {
+            connections: TcpConns::new(10),
+            server_sock: TcpListener::bind(&addr).ok().expect("Error binding server"),
             is_api: is_api,
             server_address: String::from(server_address),
-            readers_index: 0,
+            readers_index: readers_count,
             readers: Vec::new(),
-            event_loop: EventLoop::new().ok().expect("Unable to create event loop for networking")
-        });
-        let mut nn = net.clone();
-        let mut n = Arc::get_mut(&mut nn).unwrap();
-
-        // We need to add current network to networks list
-        for i in 0..readers_count {
-            n.readers.push(TcpReader::new(n.event_loop.channel(), net.clone()));
-        };
-
-        net
+            loop_channel: Vec::new()
+        }
     }
 
-
-
     /// This function will start event loop and will register server if it's exists
-    pub fn run(&mut self) {
+    pub fn run(server_address: &str, is_api: bool, readers_count: usize) -> Sender<NetLoopCmd> {
+        let mut sv = String::from(server_address);
+        let (chan_sender, chan_reader) = channel();
+        thread::spawn(move || {
+            let mut net = TcpNetwork::new(sv.as_str(), is_api, readers_count);
+            let mut event_loop: EventLoop<TcpNetwork> = EventLoop::new().ok().expect("Unable to create event loop for networking");
 
+            chan_sender.send(event_loop.channel());
+            net.register_server(&mut event_loop);
+            net.loop_channel.push(event_loop.channel());
+
+            for i in 0..readers_count {
+                net.readers.push(TcpReader::run(event_loop.channel()));
+            }
+
+            event_loop.run(&mut net);
+        });
+
+        return chan_reader.recv().unwrap();
     }
 
     /// Reset connection if we got some error from event loop
@@ -154,5 +171,25 @@ impl TcpNetwork{
         } else {
             self.connections.remove_connection_by_token(token);
         }
+    }
+
+    fn transfer_connection(&mut self, token: Token) {
+        if self.readers_index >= self.readers.len() {
+            self.readers_index = 0;
+        }
+
+        let mut conn = Vec::new();
+        match self.connections.remove_connection_by_token(token) {
+            Some(c) => {
+                conn.push(c.sock);
+                self.readers[self.readers_index].send(ReaderLoopCommand{
+                    cmd: ReaderCommands::HANDLE_CONNECTION,
+                    conn_socks: conn
+                });
+            },
+            None => {}
+        };
+
+        self.readers_index += 1;
     }
 }

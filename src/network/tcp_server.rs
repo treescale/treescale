@@ -25,12 +25,12 @@ impl TcpServer for TcpNetwork {
 
     fn register_server(&mut self, event_loop: &mut EventLoop<TcpNetwork>) -> io::Result<()>  {
         // if we are in server and have already binded socket
-        if !self.is_api && self.server_sock.len() == 1 {
+        if self.is_api {
             Ok(())
         }
         else {
             event_loop.register(
-                &self.server_sock[0],
+                &self.server_sock,
                 SERVER_TOKEN,
                 EventSet::readable(),
                 PollOpt::edge() | PollOpt::oneshot()
@@ -43,12 +43,12 @@ impl TcpServer for TcpNetwork {
 
     fn reregister_server(&mut self, event_loop: &mut EventLoop<TcpNetwork>) -> io::Result<()>  {
         // if we are in server and have already binded socket
-        if !self.is_api || self.server_sock.len() != 1 {
+        if self.is_api {
             Ok(())
         }
         else {
             event_loop.reregister(
-                &self.server_sock[0],
+                &self.server_sock,
                 SERVER_TOKEN,
                 EventSet::readable(),
                 PollOpt::edge() | PollOpt::oneshot()
@@ -61,11 +61,11 @@ impl TcpServer for TcpNetwork {
 
 
     fn accept_connection(&mut self, event_loop: &mut EventLoop<TcpNetwork>) {
-        if !self.is_api || self.server_sock.len() != 1 {
+        if self.is_api {
             return;
         }
 
-        let sock = match self.server_sock[0].accept() {
+        let sock = match self.server_sock.accept() {
             Ok(s) => {
                 match s {
                     Some((sock, _)) => sock,
@@ -91,17 +91,19 @@ impl TcpServer for TcpNetwork {
             Some(token) => {
                 //if we got here then we successfully inserted connection
                 //now we need to register it
-                match self.connections.find_connection_by_token(token) {
+                let st = match self.connections.find_connection_by_token(token) {
                     Ok(conn) => {
-                        match conn.register_net(event_loop) {
-                            Ok(_) => {},
-                            Err(_) => {
-                                // if we got error during reregister process just removing connection from list
-                                // self.connections.remove(token);
-                            }
-                        }
+                        conn.register_net(event_loop)
                     },
-                    Err(e) => { }
+                    Err(e) => Err(e)
+                };
+
+                match st {
+                    Ok(_) => {},
+                    Err(_) => {
+                        // if we got error during reregister process just removing connection from list
+                        self.connections.remove_connection_by_token(token);
+                    }
                 }
             },
             None => {
