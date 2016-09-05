@@ -140,9 +140,11 @@ impl TcpNetwork{
     }
 
     /// This function will start event loop and will register server if it's exists
-    pub fn run(server_address: &str, is_api: bool, readers_count: usize) -> Sender<NetLoopCmd> {
+    pub fn run(server_address: &str, is_api: bool, readers_count: usize) -> (Sender<NetLoopCmd>, Vec<Sender<ReaderLoopCommand>>) {
         let mut sv = String::from(server_address);
         let (chan_sender, chan_reader) = channel();
+        let mut ret_reader_chans: Vec<Sender<ReaderLoopCommand>> = Vec::new();
+        let (chan_s_readers, chan_r_readers) = channel();
         thread::spawn(move || {
             let mut net = TcpNetwork::new(sv.as_str(), is_api, readers_count);
             let mut event_loop: EventLoop<TcpNetwork> = EventLoop::new().ok().expect("Unable to create event loop for networking");
@@ -152,13 +154,20 @@ impl TcpNetwork{
             net.loop_channel.push(event_loop.channel());
 
             for i in 0..readers_count {
-                net.readers.push(TcpReader::run(event_loop.channel()));
+                let reader_chan = TcpReader::run(event_loop.channel());
+                net.readers.push(reader_chan.clone());
+                ret_reader_chans.push(reader_chan.clone());
             }
+
+            chan_s_readers.send(ret_reader_chans);
 
             event_loop.run(&mut net);
         });
 
-        return chan_reader.recv().unwrap();
+        let ret_net_chan = chan_reader.recv().unwrap();
+        let ret_readers_chan = chan_r_readers.recv().unwrap();
+
+        return (ret_net_chan, ret_readers_chan);
     }
 
     /// Reset connection if we got some error from event loop
@@ -184,7 +193,9 @@ impl TcpNetwork{
                 conn.push(c.sock);
                 self.readers[self.readers_index].send(ReaderLoopCommand{
                     cmd: ReaderCommands::HANDLE_CONNECTION,
-                    conn_socks: conn
+                    conn_socks: conn,
+                    write_data: Vec::new(),
+                    write_path: Vec::new()
                 });
             },
             None => {}

@@ -2,24 +2,27 @@ extern crate mio;
 
 mod error;
 mod network;
+mod node;
 
-use network::tcp_net::{TcpNetwork, NetLoopCmd, LoopCommand};
-use network::tcp_conn::TcpConnection;
-use std::{thread, time};
-use mio::Token;
-use mio::tcp::TcpListener;
-use std::mem;
+use node::Node;
+use std::thread;
+use std::time;
+use std::env;
 
 fn main() {
-    let mut net_chan = TcpNetwork::run("0.0.0.0:8888", false, 2);
-    thread::sleep(time::Duration::from_secs(20));
-    net_chan.send(NetLoopCmd {
-        cmd: LoopCommand::STOP_LOOP,
-        token: Token(0),
-        address: String::new()
-    });
-
-    thread::sleep(time::Duration::from_secs(20));
-
-    println!("Size -> {}", mem::size_of::<TcpConnection>());
+    if env::args().nth(1) == Some(String::from("n1")) {
+        let mut n = Node::new(false, 1, String::from("2").as_bytes());
+        n.run("0.0.0.0:8888");
+        n.connect("127.0.0.1:8889");
+        thread::sleep(time::Duration::from_secs(5));
+        n.write_str(String::from("Test Data").as_bytes(), String::from("5"));
+        thread::sleep(time::Duration::from_secs(25));
+    } else {
+        let mut n = Node::new(false, 1, String::from("2").as_bytes());
+        n.run("0.0.0.0:8889");
+        // n.connect("127.0.0.1:8888");
+        // thread::sleep(time::Duration::from_secs(5));
+        // n.write_str(String::from("Test Data").as_bytes(), String::from("5"));
+        thread::sleep(time::Duration::from_secs(25));
+    }
 }

@@ -5,6 +5,7 @@ extern crate byteorder;
 use mio::{Token, EventLoop, EventSet, PollOpt};
 use mio::tcp::{TcpStream, Shutdown};
 use self::num::bigint::{BigInt, Sign};
+use self::num::Zero;
 use network::tcp_net::TcpNetwork;
 use network::tcp_reader::TcpReader;
 use error::error::Error;
@@ -13,9 +14,9 @@ use std::io;
 use mio::util::Slab;
 use std::io::{Read, Write};
 use self::byteorder::{BigEndian, ByteOrder};
-use std::sync::RwLock;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::marker::Sync;
+use std::str;
 
 pub struct TcpConns {
     pub conns: Slab<TcpConnection>
@@ -65,7 +66,7 @@ pub struct TcpConnection {
     from_server: bool,
     accepted: bool,
     token: String,
-    value: BigInt,
+    pub value: BigInt,
     pub sock: TcpStream,
 
     // This fileds is for running connection inside event loop
@@ -84,7 +85,7 @@ pub struct TcpConnection {
     // Write data for keeping some queue of data
     // this will help save data until it would be ready to write
     // using Read Write lock for cross thread usage
-    write_queue: RwLock<Vec<Rc<Vec<u8>>>>
+    write_queue: Vec<Arc<Vec<u8>>>
 }
 
 
@@ -94,27 +95,23 @@ impl TcpConnection {
             sock: sock,
             key: token,
             token: String::new(),
-            value: BigInt::new(Sign::Plus, vec![0]),
+            value: Zero::zero(),
             from_server: from_server,
             interest: EventSet::hup(),
             data_len: 0,
             data_received_len: 0,
             data: vec![],  // making empty vector
             data_len_bytes: vec![0; 4], // 4 bytes for BigEndian number
-            write_queue: RwLock::new(Vec::new()),
+            write_queue: Vec::new(),
             accepted: false
         }
     }
 
     /// Write function for this connection, it will handle byte data and will queue it inside list
     /// and when connection will be ready to send it from MIO loop it will make it from "writable" function
-    pub fn write(&mut self, data: &mut Rc<Vec<u8>>) -> io::Result<()> {
-        // Getting write access and writing data to it
-        // this will lock data until it would be fully written and will end the scope
-        {
-            let mut locker_data = self.write_queue.write().unwrap();
-            locker_data.push(data.clone());
-        }
+    pub fn write(&mut self, data: &Arc<Vec<u8>>) -> io::Result<()> {
+        // Based on application design only one thread should be using this data at a time
+        self.write_queue.push(data.clone());
 
         // inserting write interest to handle write event when loop will be ready
         self.interest.insert(EventSet::writable());
@@ -280,8 +277,30 @@ impl TcpConnection {
         match self.read() {
             Ok((done, data)) => {
                 if done {
-                    // Handle Data here
-                    println!("{:?}", data);
+                    if self.from_server {
+                        let s = match str::from_utf8(data.as_slice()) {
+                            Ok(st) => st,
+                            Err(e) => ""
+                        };
+
+                        if s != "" {
+                            let mut splitted = s.split("|");
+                            self.token = match splitted.nth(0) {
+                                Some(ss) => String::from(ss),
+                                None => String::new()
+                            };
+
+                            let value_str = match splitted.nth(0) {
+                                Some(ss) => String::from(ss),
+                                None => String::new()
+                            };
+
+                            self.value = match BigInt::parse_bytes(value_str.into_bytes().as_slice(), 10) {
+                                Some(n) => n,
+                                None => Zero::zero()
+                            };
+                        }
+                    }
                 }
             }
             Err(e) => return Err(e)
@@ -304,10 +323,8 @@ impl TcpConnection {
     }
 
     pub fn flush_write_queue(&mut self) -> io::Result<()> {
-        let mut queue_locked = self.write_queue.write().unwrap();
-
         loop {
-            match queue_locked.pop() {
+            match self.write_queue.pop() {
                 Some(data_rc) => {
                     // Writing data len, den full data with it
                     // if we will try to combine first 4 bytes then all data, we will need to allocate new space

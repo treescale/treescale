@@ -1,4 +1,5 @@
 extern crate mio;
+extern crate num;
 
 use mio::{EventLoop, Handler, Token, EventSet, Sender};
 use mio::tcp::TcpStream;
@@ -10,17 +11,21 @@ use error::codes::ErrorCodes;
 use std::sync::Arc;
 use std::io;
 use std::thread;
-use std::sync::mpsc::channel;
-use std::rc::Rc;
+use self::num::bigint::{BigInt, Sign};
+use self::num::Zero;
+use self::num::integer::Integer;
 
 pub enum ReaderCommands {
     STOP_LOOP,
-    HANDLE_CONNECTION
+    HANDLE_CONNECTION,
+    WRITE_DATA
 }
 
 pub struct ReaderLoopCommand {
     pub cmd: ReaderCommands,
     pub conn_socks: Vec<TcpStream>,
+    pub write_data: Vec<Arc<Vec<u8>>>,
+    pub write_path: Vec<BigInt>
 }
 
 pub struct TcpReader {
@@ -129,6 +134,22 @@ impl Handler for TcpReader {
                         Error::handle_error(ErrorCodes::NetworkTcpConnectionAccept, "Error inserting connection", "TcpReader Transfer Connection");
                     }
                 };
+            }
+            ReaderCommands::WRITE_DATA => {
+                if cmd.write_path[0] == Zero::zero() {
+                    return;
+                }
+
+                for c in self.conns.conns.iter_mut() {
+                    // if connection value is dividable to given path, then writing data to it
+                    if cmd.write_path[0].mod_floor(&c.value) != Zero::zero() {
+                        continue;
+                    }
+
+                    for i in 0..cmd.write_data.len() {
+                        c.write(&cmd.write_data[i]);
+                    }
+                }
             }
         }
     }
