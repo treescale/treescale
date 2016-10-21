@@ -1,11 +1,12 @@
 extern crate mio;
 
+mod network;
+
 use mio::{Poll, Token, Ready, PollOpt, Events, channel};
 use mio::channel::{Sender, Receiver};
-use mio::tcp::{TcpListener, TcpStream};
+use mio::tcp::{TcpListener};
 
 use std::mem::size_of;
-use std::sync::Mutex;
 
 const SERVER: Token = Token(0);
 const CHANNEL_READER: Token = Token(1);
@@ -15,7 +16,7 @@ struct Message {
 }
 
 fn main() {
-    println!("Token Size -> {}", size_of::<Vec<TcpStream>>());
+    println!("Token Size -> {}", size_of::<Message>());
 
     let addr = "0.0.0.0:8888".parse().unwrap();
     let server = TcpListener::bind(&addr).unwrap();
@@ -36,7 +37,7 @@ fn main() {
             match event.token() {
                 SERVER => {
                     let _ = server.accept();
-                    sender.send(Message{text: String::from("Test Text from Channel")});
+                    sender.send(Message{text: String::from("Test Text from Channel")}).ok();
                 }
                 CHANNEL_READER => {
                     let msg: Message = reader.try_recv().unwrap();
