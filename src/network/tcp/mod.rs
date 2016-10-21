@@ -1,2 +1,2 @@
-mod net;
-mod connection;
+pub mod net;
+pub mod connection;

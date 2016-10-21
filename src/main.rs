@@ -5,8 +5,11 @@ mod network;
 use mio::{Poll, Token, Ready, PollOpt, Events, channel};
 use mio::channel::{Sender, Receiver};
 use mio::tcp::{TcpListener};
+use std::sync::{Arc, Mutex};
 
 use std::mem::size_of;
+
+use network::tcp::connection::{ReaderConnection, Connection};
 
 const SERVER: Token = Token(0);
 const CHANNEL_READER: Token = Token(1);
@@ -16,7 +19,7 @@ struct Message {
 }
 
 fn main() {
-    println!("Token Size -> {}", size_of::<Message>());
+    println!("Token Size -> {}", size_of::<Mutex<Vec<Connection>>>());
 
     let addr = "0.0.0.0:8888".parse().unwrap();
     let server = TcpListener::bind(&addr).unwrap();
