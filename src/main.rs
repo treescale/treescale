@@ -5,11 +5,11 @@ mod network;
 use mio::{Poll, Token, Ready, PollOpt, Events, channel};
 use mio::channel::{Sender, Receiver};
 use mio::tcp::{TcpListener};
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex};
 
 use std::mem::size_of;
 
-use network::tcp::connection::{ReaderConnection, Connection};
+use network::tcp::connection::{Connection};
 
 const SERVER: Token = Token(0);
 const CHANNEL_READER: Token = Token(1);

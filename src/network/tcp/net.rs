@@ -1,8 +1,9 @@
+#![allow(dead_code)]
 extern crate mio;
 
 use self::mio::{Token};
 use self::mio::channel::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use network::tcp::connection::Connection;
 use network::tcp::reader::{Reader, MutexQueue};
 use std::collections::HashMap;

@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 extern crate mio;
 
-use self::mio::{Token, Event, Poll, Ready, PollOpt, Evented, Events};
+use self::mio::{Token, Poll, Ready, PollOpt, Events};
 use self::mio::channel::{Sender, Receiver, channel};
 use network::tcp::connection::ReaderConnection;
 use std::sync::{Arc, Mutex};
@@ -39,7 +40,13 @@ impl Reader {
 
         let (sender, reader): (Sender<fn(&Reader)>, Receiver<fn(&Reader)>) = channel();
         self.sender_channel = sender;
-        poll.register(&reader, CHANNEL_TOKEN, Ready::readable(), PollOpt::edge());
+        match poll.register(&reader, CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
+            Ok(()) => {}
+            Err(_) => {
+                // TODO: Hanlde error for channel registration
+                return;
+            }
+        }
 
         let mut events: Events = Events::with_capacity(1000);
 
@@ -84,7 +91,7 @@ impl Reader {
                         }
                     }
                 }
-                Err(e) => {
+                Err(_) => {
                     // TODO: Handle error here
                     return;
                 }
