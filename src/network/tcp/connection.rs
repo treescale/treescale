@@ -17,9 +17,8 @@ pub struct Connection {
 }
 
 pub struct ReaderConnection {
-    loop_token: Token,
     socket: TcpStream,
-    writable_data: Vec<Vec<u8>>,
+    conn_token: Token,
 
     // partial read variables
     read_chunks: Vec<Vec<u8>>,

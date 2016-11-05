@@ -1,8 +1,14 @@
 extern crate mio;
 
 use self::mio::{Token};
+use self::mio::channel::Sender;
 use std::sync::{Arc, Mutex};
 use network::tcp::connection::Connection;
+use network::tcp::reader::{Reader, MutexQueue};
+use std::collections::HashMap;
+
+const SERVER_TOKEN: Token = Token(1);
+const TOKEN_START_INDEX: usize = 1;
 
 pub struct Network {
     // Address of server to listen
@@ -11,6 +17,13 @@ pub struct Network {
     // token for server event loop
     server_token: Token,
 
-    // Tcp connections for using it from Networking loop
-    connections: Arc<Mutex<Vec<Connection>>>
+    // First position for connections before accepting them
+    pending_connections: HashMap<Token, Connection>,
+
+    // Tcp connections with Key (Reader Token) for using it from Networking loop
+    connections: HashMap<Token, Connection>,
+
+    // List of readers
+    readers: Vec<Sender<Reader>>,
+    reader_write_queue: Vec<Arc<MutexQueue<Token, u8>>>
 }
