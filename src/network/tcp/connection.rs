@@ -4,33 +4,53 @@ extern crate num;
 extern crate byteorder;
 
 use self::mio::{Token};
+use self::mio::channel::{Sender};
 use self::mio::tcp::TcpStream;
 use self::num::bigint::BigInt;
 use std::sync::{Arc, Mutex};
-use std::io::{Read, Result, Error, ErrorKind, Cursor};
+use std::io::{Read, Write, Result, Error, ErrorKind, Cursor};
 use self::byteorder::{BigEndian, ReadBytesExt};
+use network::tcp::reader::Reader;
 
 pub struct Connection {
-    node_token: String,
-    reader_index: usize,
-    reader_token: Token,
+    socket_token: Token,
+    reader_chan: Sender<fn(&Reader)>,
+
+    // prime number value for defining path
     value: BigInt,
 
-    // reader connection mutex for accessing write queue
-    reader_conn: Arc<Mutex<ReaderConnection>>
+    // Token for connected node or api
+    node_token: String,
+
+    // options for connection type
+    is_api: bool,
+    from_server: bool,
+}
+
+pub struct ConnReader {
+    // Connection socket handler
+    pub socket: TcpStream,
+
+    // fields for reading chunked data
+    pub read_chunks: Vec<Vec<u8>>,
+    pub read_length: usize,
+    pub read_index: usize,
+
+    // token for Event Loop identification
+    // this should be set from networking loop
+    pub socket_token: Token,
 }
 
 pub struct ReaderConnection {
-    socket: TcpStream,
-    conn_token: Token,
+    // reader for this connection
+    pub socket_reader: ConnReader,
 
-    // partial read variables
-    read_chunks: Vec<Vec<u8>>,
-    read_length: usize,
-    read_index: usize,
+    // Single write queue per connection
+    // this would be shared with mutex for thread safety
+    pub write_queue: Vec<Vec<u8>>
 }
 
-impl ReaderConnection {
+impl ConnReader {
     pub fn read_data(&mut self, data_len_container: &mut Vec<u8>, data_container: &mut Vec<u8>) -> Result<(bool, Vec<u8>)> {
         // if we have new data to read
         if self.read_length == 0 {
@@ -82,5 +102,31 @@ impl ReaderConnection {
         }
 
         return Ok((false, Vec::new()));
+    }
+}
+
+impl ReaderConnection {
+    pub fn flush_data(&mut self) -> Result<bool> {
+        while !self.write_queue.is_empty() {
+            let write_size = match self.socket_reader.socket.write(self.write_queue[0].as_slice()) {
+                Ok(ws) => ws,
+                Err(e) => return Err(e)
+            };
+
+            if write_size <= 0 || write_size > self.write_queue[0].len() {
+                return Ok(false);
+            }
+
+            if write_size < self.write_queue[0].len() {
+                self.write_queue[0] = self.write_queue[0].split_off(write_size);
+                return Ok(false)
+            }
+
+            // if we got here then we successfully sent all data
+            // so now we need to remove it from list
+            self.write_queue.remove(0);
+        }
+
+        Ok(true)
     }
 }
