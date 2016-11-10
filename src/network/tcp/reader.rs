@@ -95,10 +95,8 @@ impl Reader {
                                 self.writable(&poll, event_token);
                             }
 
-                        } else if event_kind.is_hup() {
-                            // TODO: handle HUP type
-                        } else if event_kind.is_error() {
-                            // TODO: handle ERROR for socket
+                        } else if event_kind.is_hup() || event_kind.is_error() {
+                            self.reset_connection(&poll, event_token);
                         }
                     }
                 }
@@ -168,7 +166,7 @@ impl Reader {
 
         let done = match c.flush_data() {
             Ok(done) => done,
-            Err(e) => {
+            Err(_) => {
                 return;
             }
         };
@@ -181,5 +179,9 @@ impl Reader {
         // if we got here then we don't have error in read process
         // so adding back connection to hashmap
         self.reader_connections.insert(event_token, c);
+    }
+
+    fn reset_connection(&mut self, poll: &Poll, event_token: Token) {
+
     }
 }
