@@ -27,7 +27,8 @@ pub struct Connection {
     from_server: bool,
 }
 
-pub struct ConnReader {
+
+pub struct ReaderConnection {
     // Connection socket handler
     pub socket: TcpStream,
 
@@ -39,18 +40,13 @@ pub struct ConnReader {
     // token for Event Loop identification
     // this should be set from networking loop
     pub socket_token: Token,
-}
-
-pub struct ReaderConnection {
-    // reader for this connection
-    pub socket_reader: ConnReader,
 
     // Single write queue per connection
     // this would be shared with mutex for thread safety
     pub write_queue: Vec<Vec<u8>>
 }
 
-impl ConnReader {
+impl ReaderConnection {
     pub fn read_data(&mut self, data_len_container: &mut Vec<u8>, data_container: &mut Vec<u8>) -> Result<(bool, Vec<u8>)> {
         // if we have new data to read
         if self.read_length == 0 {
@@ -103,12 +99,10 @@ impl ConnReader {
 
         return Ok((false, Vec::new()));
     }
-}
 
-impl ReaderConnection {
     pub fn flush_data(&mut self) -> Result<bool> {
         while !self.write_queue.is_empty() {
-            let write_size = match self.socket_reader.socket.write(self.write_queue[0].as_slice()) {
+            let write_size = match self.socket.write(self.write_queue[0].as_slice()) {
                 Ok(ws) => ws,
                 Err(e) => return Err(e)
             };

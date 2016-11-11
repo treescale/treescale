@@ -85,13 +85,13 @@ impl Reader {
                         if event_kind.is_readable() {
 
                             // if we don't have connection token, just moving forward
-                            if !self.reader_connections.contains_key(&event_token) {
+                            if self.reader_connections.contains_key(&event_token) {
                                 self.readable(&poll, event_token);
                             }
 
                         } else if event_kind.is_writable() {
 
-                            if !self.reader_connections.contains_key(&event_token) {
+                            if self.reader_connections.contains_key(&event_token) {
                                 self.writable(&poll, event_token);
                             }
 
@@ -118,7 +118,7 @@ impl Reader {
             None => return
         };
 
-        let (close_connection, is_final_data, data_buf) = match c.socket_reader.read_data(&mut self.data_len_buf, &mut self.data_chunk) {
+        let (close_connection, is_final_data, data_buf) = match c.read_data(&mut self.data_len_buf, &mut self.data_chunk) {
             Ok((i, d)) => (false, i, d),
             Err(_) => {
                 (true, false, Vec::new())
@@ -126,7 +126,7 @@ impl Reader {
         };
 
         if close_connection {
-            let _ = c.socket_reader.socket.shutdown(Shutdown::Both);
+            let _ = c.socket.shutdown(Shutdown::Both);
             // Removing from connections after disconnect
             {
                 let mut connections = match self.connections.lock() {
@@ -173,10 +173,10 @@ impl Reader {
 
         // if we still have data to write registering as a writable again
         if !done {
-            let _ = poll.reregister(&c.socket_reader.socket, event_token, Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
+            let _ = poll.reregister(&c.socket, event_token, Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
         }
 
-        // if we got here then we don't have error in read process
+        // if we got here then we don't have error in write process
         // so adding back connection to hashmap
         self.reader_connections.insert(event_token, c);
     }

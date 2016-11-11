@@ -1,0 +1,14 @@
+{
+    "rust.racerPath": "/Users/tigran/.cargo/bin/racer",
+    "rust.rustLangSrcPath": "/Users/tigran/source/rust-1.12.1/src",
+    "rust.rustfmtPath": "/Users/tigran/.cargo/bin/rustfmt",
+    "rust.rustsymPath": "/Users/tigran/.cargo/bin/rustsym",
+    "rust.cargoPath": "/Users/tigran/.cargo/bin/cargo",
+    "rust.cargoHomePath": "/Users/tigran/.cargo",
+    "rust.cargoEnv": null,
+    "rust.formatOnSave": false,
+    "rust.checkOnSave": false,
+    "rust.checkWith": "linter",
+    "rust.useJsonErrors": false,
+    "rust.useNewErrorFormat": false
+}
