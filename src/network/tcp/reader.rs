@@ -1,187 +1,179 @@
 #![allow(dead_code)]
+#![allow(unreachable_code)]
 extern crate mio;
-extern crate num;
 
-use self::mio::{Token, Poll, Ready, PollOpt, Events};
-use self::mio::channel::{Sender, Receiver, channel};
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
-use self::num::bigint::BigInt;
-use network::tcp::connection::{ReaderConnection, Connection};
-use std::net::Shutdown;
+use network::tcp::TcpReaderConn;
+use std::io::Result;
+use self::mio::{Poll, Token, Ready, PollOpt, Events};
+use self::mio::channel::{Receiver, Sender, channel};
+use self::mio::tcp::TcpStream;
+use std::sync::Arc;
 
-const CHANNEL_TOKEN: Token = Token(1);
+/// Read buffer size 64KB
+const READER_READ_BUFFER_SIZE: usize = 65000;
+const READER_CHANNEL_TOKEN: Token = Token(1);
 
-enum ReaderCommandsTypes {
-    StopEventLoop,
+pub enum TcpReaderCMD {
+    HandleNewConnection,
+    CloseConnection,
+    SendData,
 }
 
-pub struct ReaderCommand {
-    cmd: ReaderCommandsTypes,
+pub struct TcpReaderCommand {
+    // base command code
+    code: TcpReaderCMD,
+    // socket vector for transfering new connection
+    socket: Vec<TcpStream>,
+    token: Vec<Token>,
+    data: Vec<Arc<Vec<u8>>>
 }
 
-pub struct Reader {
-    // Map of all available connections with
-    // values and write Queue for sending data
-    pub reader_connections: HashMap<Token, ReaderConnection>,
+pub struct TcpReader {
+    // connections transferred to this reader for IO operations
+    connections: Vec<TcpReaderConn>,
 
-    sender_channel: Sender<Box<Fn(&mut Reader)>>,
-    receiver_channel: Receiver<Box<Fn(&mut Reader)>>,
-
-    // Base allocations for more efficient memory usage
+    // buffers for making one time allocations per read process
     data_len_buf: Vec<u8>,
     data_chunk: Vec<u8>,
 
-    // General connections map, with mutex for safe thread access
-    // in reader we will need this for closing connection or calculating path
-    connections: Arc<Mutex<HashMap<Token, Connection>>>,
+    // base event loop handler
+    poll: Poll,
+
+    // chanel sender, receiver for keeping communication with loop
+    channel_sender: Sender<TcpReaderCommand>,
+    channel_receiver: Receiver<TcpReaderCommand>
 }
 
-impl Reader {
-    pub fn run(&mut self) {
-        let poll: Poll = match Poll::new() {
-            Ok(p) => p,
-            Err(e) => {
-                println!("Unable to create Event Loop for Reader -> {:}", e);
-                return;
-            }
-        };
+impl TcpReader {
+    /// creating new TcpReader with default values
+    pub fn new() -> TcpReader {
+        let (s, r)= channel::<TcpReaderCommand>();
+        TcpReader {
+            connections: Vec::new(),
+            data_len_buf: vec![0; 4],
+            data_chunk: vec![0; READER_READ_BUFFER_SIZE],
+            poll: Poll::new().unwrap(),
+            channel_sender: s,
+            channel_receiver: r
+        }
+    }
 
-        let (sender, reader): (Sender<Box<Fn(&mut Reader)>>, Receiver<Box<Fn(&mut Reader)>>) = channel();
-        self.sender_channel = sender;
-        match poll.register(&reader, CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
-            Ok(()) => {}
-            Err(_) => {
-                // TODO: Hanlde error for channel registration
-                return;
+    /// Clonning channel for sending commands
+    pub fn channel(&self) -> Sender<TcpReaderCommand> {
+        self.channel_sender.clone()
+    }
+
+    /// Private function for handling Reader commands
+    #[inline(always)]
+    fn notify(&mut self, cmd: &mut TcpReaderCommand) {
+        match cmd.code {
+            TcpReaderCMD::HandleNewConnection => {
+                // Handling new connection with given socket
+                // if it exists in Vector of sockets
+                while !cmd.socket.is_empty() && !cmd.token.is_empty() {
+                    let sock = match cmd.socket.pop() {
+                        Some(sock) => sock,
+                        None => return
+                    };
+
+                    let token = match cmd.token.pop() {
+                        Some(t) => t,
+                        None => return
+                    };
+
+                    self.connections.push(TcpReaderConn::new(sock, token));
+                }
             }
+
+            TcpReaderCMD::CloseConnection => {
+                // Closing connection by given token
+                while !cmd.token.is_empty() {
+                    let token = match cmd.token.pop() {
+                        Some(t) => t,
+                        _ => return
+                    };
+
+                    // if we have this connection
+                    // just removing it from our list
+                    // after removing it will be automatically deatached from loop
+                    for i in 0..self.connections.len() {
+                        if self.connections[i].token == token {
+                            self.connections.remove(i);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            TcpReaderCMD::SendData => {
+                // if data is empty just returning
+                if cmd.data.len() == 0 {
+                    return;
+                }
+
+                // Closing connection by given token
+                while !cmd.token.is_empty() {
+                    let token = match cmd.token.pop() {
+                        Some(t) => t,
+                        _ => return
+                    };
+
+                    // if we have this connection
+                    // adding sent data to our queue for writing
+                    // and making connection writable
+                    for i in 0..self.connections.len() {
+                        if self.connections[i].token == token {
+                            self.connections[i].write_queue.append(&mut cmd.data);
+                            self.make_writable(&self.connections[i]);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// running TcpReader loop
+    /// this will exit when loop is no longer running
+    pub fn run(&mut self) -> Result<()> {
+        // registering receiver for poll loop
+        match self.poll.register(&self.channel_receiver, READER_CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
+            Ok(_) => {},
+            Err(e) => return Err(e)
         }
 
         let mut events: Events = Events::with_capacity(1000);
 
         loop {
-            match poll.poll(&mut events, None) {
-                Ok(event_count) => {
-                    if event_count == 0 {
-                        continue;
-                    }
+            // using unwrap here because if it is failing anyway process should be closed
+            let event_count = self.poll.poll(&mut events, None).unwrap();
+            if event_count == 0 {
+                continue
+            }
 
-                    for event in events.iter() {
-                        let event_token = event.token();
-                        if event_token == CHANNEL_TOKEN {
-                            match reader.try_recv() {
-                                Ok(callback) => {
-                                    // callback for command implementation
-                                    callback(self);
-                                }
-                                Err(_) => {}
-                            }
-
-                            continue;
+            for event in events.into_iter() {
+                let token = event.token();
+                if token == READER_CHANNEL_TOKEN {
+                    match self.channel_receiver.try_recv() {
+                        Ok(cmd) => {
+                            let mut c = cmd;
+                            self.notify(&mut c);
                         }
-
-                        let event_kind = event.kind();
-
-                        if event_kind.is_readable() {
-
-                            // if we don't have connection token, just moving forward
-                            if self.reader_connections.contains_key(&event_token) {
-                                self.readable(&poll, event_token);
-                            }
-
-                        } else if event_kind.is_writable() {
-
-                            if self.reader_connections.contains_key(&event_token) {
-                                self.writable(&poll, event_token);
-                            }
-
-                        } else if event_kind.is_hup() || event_kind.is_error() {
-                            self.reset_connection(&poll, event_token);
-                        }
+                        Err(_) => {}
                     }
                 }
-                Err(_) => {
-                    // TODO: Handle error here
-                    return;
-                }
             }
         }
+        Ok(())
     }
 
-    fn channel(&self) -> Sender<Box<Fn(&mut Reader)>> {
-        return self.sender_channel.clone();
-    }
-
-    fn readable(&mut self, poll: &Poll, event_token: Token) {
-        let mut c = match self.reader_connections.remove(&event_token) {
-            Some(f) => f,
-            None => return
-        };
-
-        let (close_connection, is_final_data, data_buf) = match c.read_data(&mut self.data_len_buf, &mut self.data_chunk) {
-            Ok((i, d)) => (false, i, d),
-            Err(_) => {
-                (true, false, Vec::new())
-            }
-        };
-
-        if close_connection {
-            let _ = c.socket.shutdown(Shutdown::Both);
-            // Removing from connections after disconnect
-            {
-                let mut connections = match self.connections.lock() {
-                    Ok(cc) => cc,
-                    Err(_) => return
-                };
-
-                if connections.contains_key(&event_token) {
-                    connections.remove(&event_token);
-                }
-
-                // TODO: trigger event about connection close
-            }
-            return;
-        }
-
-        // if we got here then we don't have error in read process
-        // so adding back connection to hashmap
-        self.reader_connections.insert(event_token, c);
-
-        // if we don't have final data yet, just moving forward
-        if !is_final_data {
-            return;
-        }
-
-        // if we got data handling it
-        if data_buf.len() > 0 {
-            // TODO: handle data here!!!
-        }
-    }
-
-    fn writable(&mut self, poll: &Poll, event_token: Token) {
-        let mut c = match self.reader_connections.remove(&event_token) {
-            Some(f) => f,
-            None => return
-        };
-
-        let done = match c.flush_data() {
-            Ok(done) => done,
-            Err(_) => {
-                return;
-            }
-        };
-
-        // if we still have data to write registering as a writable again
-        if !done {
-            let _ = poll.reregister(&c.socket, event_token, Ready::writable(), PollOpt::edge() | PollOpt::oneshot());
-        }
-
-        // if we got here then we don't have error in write process
-        // so adding back connection to hashmap
-        self.reader_connections.insert(event_token, c);
-    }
-
-    fn reset_connection(&mut self, poll: &Poll, event_token: Token) {
-
+    #[inline(always)]
+    fn make_writable(&self, conn: &TcpReaderConn) {
+        let mut r = Ready::readable();
+        r.insert(Ready::writable());
+        let _ = self.poll.reregister(
+            &conn.socket, conn.token, r,
+            PollOpt::edge() | PollOpt::oneshot()
+        );
     }
 }

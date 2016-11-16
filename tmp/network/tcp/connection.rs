@@ -14,7 +14,7 @@ use network::tcp::reader::Reader;
 
 pub struct Connection {
     socket_token: Token,
-    reader_chan: Sender<fn(&Reader)>,
+    pub reader_chan: Sender<Box<Fn(&mut Reader)>>,
 
     // prime number value for defining path
     value: BigInt,

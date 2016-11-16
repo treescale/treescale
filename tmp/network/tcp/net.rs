@@ -12,6 +12,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::net::Shutdown;
+use std::io::{Result, Error, ErrorKind};
 
 const SERVER_TOKEN: Token = Token(1);
 const CHANNEL_TOKEN: Token = Token(2);
@@ -293,10 +294,33 @@ impl Network {
         let _ = c.socket.shutdown(Shutdown::Both);
     }
 
-    fn write_data(&mut self, socket_token: Token, data: Vec<u8>) -> Result<()> {
+    fn write_data(&mut self, socket_token: Token, data: &Vec<u8>) -> Result<bool> {
         let mut c_map = match self.connections.lock() {
             Ok(m) => m,
-            Err(e) => return Err(e)
-        }
+            Err(e) => return Err(Error::new(ErrorKind::InvalidData, "Unable to lock connections hashmap"))
+        };
+
+        let mut c = match c_map.remove(&socket_token) {
+            Some(cc) => cc,
+            None => return Ok(false)
+        };
+
+        let data_copy = data.to_vec();
+
+        c.reader_chan.send(Box::new(move |reader: &mut Reader| {
+            let data_in_copy = data_copy.to_vec();
+            let conn_token = socket_token;
+            let mut r_c = match reader.reader_connections.remove(&conn_token) {
+                Some(cc) => cc,
+                None => return
+            };
+
+            r_c.write_queue.push(data_in_copy);
+            reader.reader_connections.insert(conn_token, r_c);
+        }));
+
+        c_map.insert(socket_token, c);
+
+        Ok(true)
     }
 }
