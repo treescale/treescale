@@ -46,4 +46,8 @@ impl TcpReaderConn {
 
         Ok((ret_data, true))
     }
+
+    pub fn write_data(&mut self) -> Result<bool> {
+        Ok(true)
+    }
 }

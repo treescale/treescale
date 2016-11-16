@@ -91,8 +91,12 @@ impl TcpReader {
                     };
 
                     self.connections.push(TcpReaderConn::new(sock, token));
+                    let i = self.connections.len() - 1;
                     // keeping index of connection inside map
-                    self.connection_keys.insert(token, self.connections.len() - 1);
+                    self.connection_keys.insert(token, i);
+
+                    // registering connection for readable events
+                    self.make_readable(&self.connections[i], true);
                 }
             }
 
@@ -127,7 +131,7 @@ impl TcpReader {
                     if !self.connection_keys.contains_key(&token) {
                         continue;
                     }
-                    
+
                     let i = self.connection_keys[&token];
                     self.connections[i].write_queue.append(&mut cmd.data);
                     self.make_writable(&self.connections[i]);
@@ -199,6 +203,20 @@ impl TcpReader {
     }
 
     #[inline(always)]
+    fn make_readable(&self, conn: &TcpReaderConn, new_register: bool) {
+        let _ = match new_register {
+            true => self.poll.register(
+                &conn.socket, conn.token, Ready::readable(),
+                PollOpt::edge()
+            ),
+            false => self.poll.reregister(
+                &conn.socket, conn.token, Ready::readable(),
+                PollOpt::edge()
+            )
+        };
+    }
+
+    #[inline(always)]
     fn close_connection(&mut self, token: Token, send_data_event: bool) {
         // if we have this connection
         // just removing it from our list
@@ -263,6 +281,24 @@ impl TcpReader {
 
     #[inline(always)]
     fn writable(&mut self, token: Token) {
+        if !self.connection_keys.contains_key(&token) {
+            return;
+        }
 
+        let i = self.connection_keys[&token];
+
+        let done = match self.connections[i].write_data() {
+            Ok(d) => d,
+            // ignoring write errors
+            // in any case connection would be closed from read error
+            Err(_) => false
+        };
+
+        if !done {
+            self.make_writable(&self.connections[i]);
+        }
+        else {
+            self.make_readable(&self.connections[i], false);
+        }
     }
 }
