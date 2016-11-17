@@ -10,8 +10,6 @@ use self::mio::tcp::TcpStream;
 use std::sync::Arc;
 use std::collections::BTreeMap;
 
-/// Read buffer size 64KB
-const READER_READ_BUFFER_SIZE: usize = 65000;
 const READER_CHANNEL_TOKEN: Token = Token(1);
 
 pub enum TcpReaderCMD {
@@ -36,10 +34,6 @@ pub struct TcpReader {
     // beacuse we are getting events based on connection keys
     connection_keys: BTreeMap<Token, usize>,
 
-    // buffers for making one time allocations per read process
-    data_len_buf: Vec<u8>,
-    data_chunk: Vec<u8>,
-
     // base event loop handler
     poll: Poll,
 
@@ -57,8 +51,6 @@ impl TcpReader {
         let (s, r)= channel::<TcpReaderCommand>();
         TcpReader {
             connections: Vec::new(),
-            data_len_buf: vec![0; 4],
-            data_chunk: vec![0; READER_READ_BUFFER_SIZE],
             poll: Poll::new().unwrap(),
             channel_sender: s,
             channel_receiver: r,
@@ -249,33 +241,23 @@ impl TcpReader {
 
         let i = self.connection_keys[&token];
 
-        let mut total_data: Vec<Arc<Vec<u8>>> = Vec::new();
-        loop {
-            let (rd, completed) = match self.connections[i].read_data(&mut self.data_len_buf, &mut self.data_chunk) {
-                Ok(r) => r,
-                Err(_) => {
-                    // if we got error we need to close connection
-                    self.close_connection(token, true);
-                    return;
-                }
-            };
-
-            // if we got some comlete data based on our API
-            // saving it for transfering to Networking loop
-            if rd.len() > 0 {
-                total_data.push(Arc::new(rd));
+        let rd = match self.connections[i].read_data() {
+            Ok(r) => r,
+            Err(_) => {
+                // if we got error we need to close connection
+                self.close_connection(token, true);
+                return;
             }
+        };
 
-            // if we completed read process, just breaking the loop
-            if !completed {
-                break;
-            }
+        if rd.len() == 0 {
+            return;
         }
 
         let _ = self.channel_tcp_net.send(TcpNetworkCommand {
             cmd: TcpNetworkCMD::HandleNewData,
             token: token,
-            data: total_data
+            data: rd
         });
     }
 
