@@ -10,7 +10,7 @@ use self::mio::tcp::TcpStream;
 use std::sync::Arc;
 use std::collections::BTreeMap;
 
-const READER_CHANNEL_TOKEN: Token = Token(1);
+const READER_CHANNEL_TOKEN: Token = Token(0);
 
 pub enum TcpReaderCMD {
     HandleNewConnection,
@@ -60,6 +60,7 @@ impl TcpReader {
     }
 
     /// Clonning channel for sending commands
+    #[inline(always)]
     pub fn channel(&self) -> Sender<TcpReaderCommand> {
         self.channel_sender.clone()
     }
@@ -155,12 +156,17 @@ impl TcpReader {
             for event in events.into_iter() {
                 let token = event.token();
                 if token == READER_CHANNEL_TOKEN {
-                    match self.channel_receiver.try_recv() {
-                        Ok(cmd) => {
-                            let mut c = cmd;
-                            self.notify(&mut c);
+                    // trying to get commands while there is available data
+                    loop {
+                        match self.channel_receiver.try_recv() {
+                            Ok(cmd) => {
+                                let mut c = cmd;
+                                self.notify(&mut c);
+                            }
+                            // if we got error, then data is unavailable
+                            // and breaking receive loop
+                            Err(_) => break
                         }
-                        Err(_) => {}
                     }
                     continue;
                 }
@@ -228,7 +234,7 @@ impl TcpReader {
         // connection handler loop or not
         if send_data_event {
             let _ = self.channel_tcp_net.send(TcpNetworkCommand {
-                cmd: TcpNetworkCMD::ConnectionClosed,
+                code: TcpNetworkCMD::ConnectionClosed,
                 token: token,
                 data: Vec::new()
             });
@@ -257,7 +263,7 @@ impl TcpReader {
         }
 
         let _ = self.channel_tcp_net.send(TcpNetworkCommand {
-            cmd: TcpNetworkCMD::HandleNewData,
+            code: TcpNetworkCMD::HandleNewData,
             token: token,
             data: rd
         });
