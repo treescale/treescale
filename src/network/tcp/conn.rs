@@ -15,6 +15,11 @@ const MAX_MESSAGE_DATA_LEN: usize = 30000000;
 /// Read buffer size 64KB
 const READ_BUFFER_SIZE: usize = 65000;
 
+pub struct TcpWritableData {
+    pub buf: Arc<Vec<u8>>,
+    pub offset: usize
+}
+
 /// Base networking connection struct
 /// this wouldn't contain TcpStream
 /// main IO operations would be done in Reader Threads
@@ -37,7 +42,7 @@ pub struct TcpReaderConn {
 
     // Write data queue for partial data write
     // when socket becomming writable
-    pub write_queue: Vec<Arc<Vec<u8>>>
+    pub write_queue: Vec<TcpWritableData>
 }
 
 impl TcpReaderConn {
@@ -109,8 +114,6 @@ impl TcpReaderConn {
                     self.read_data_index = 0;
                     return Err(Error::new(ErrorKind::InvalidData, "Wrong Data API: Message length is bigger than MAX. message size!"));
                 }
-
-                self.read_data_queue.push(self.read_data_len_buf.to_vec());
             }
 
             let mut potential_read_len = self.read_data_len - self.read_data_index;
@@ -148,7 +151,7 @@ impl TcpReaderConn {
             data_chunk.truncate(read_len);
             // keeping data in queue
             self.read_data_queue.push(data_chunk);
-            
+
             if self.read_data_index == self.read_data_len {
                 // extracting all data in read queue for this connection
                 let mut data_part: Vec<u8> = Vec::new();

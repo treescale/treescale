@@ -2,7 +2,7 @@
 #![allow(unreachable_code)]
 extern crate mio;
 
-use network::tcp::{TcpReaderConn, TcpNetworkCommand, TcpNetworkCMD};
+use network::tcp::{TcpReaderConn, TcpNetworkCommand, TcpNetworkCMD, TcpWritableData};
 use std::io::Result;
 use self::mio::{Poll, Token, Ready, PollOpt, Events};
 use self::mio::channel::{Receiver, Sender, channel};
@@ -125,7 +125,12 @@ impl TcpReader {
                     }
 
                     let i = self.connection_keys[&token];
-                    self.connections[i].write_queue.append(&mut cmd.data);
+                    while !cmd.data.is_empty() {
+                        self.connections[i].write_queue.push(TcpWritableData {
+                            buf: cmd.data.remove(0),
+                            offset: 0
+                        });
+                    }
                     self.make_writable(&self.connections[i]);
                 }
             }
