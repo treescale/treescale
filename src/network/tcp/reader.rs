@@ -126,10 +126,7 @@ impl TcpReader {
 
                     let i = self.connection_keys[&token];
                     while !cmd.data.is_empty() {
-                        self.connections[i].write_queue.push(TcpWritableData {
-                            buf: cmd.data.remove(0),
-                            offset: 0
-                        });
+                        self.connections[i].write_queue.push(TcpWritableData::new(cmd.data.remove(0)));
                     }
                     self.make_writable(&self.connections[i]);
                 }

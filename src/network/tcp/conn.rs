@@ -5,9 +5,8 @@ extern crate byteorder;
 use self::mio::{Token};
 use self::mio::tcp::TcpStream;
 use std::sync::Arc;
-use std::io::{Result, Read, ErrorKind, Error};
-use std::io::Cursor;
-use self::byteorder::{BigEndian, ReadBytesExt};
+use std::io::{Result, Read, ErrorKind, Error, Cursor, Write};
+use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 /// Max length for individual message is 30mb
 const MAX_MESSAGE_DATA_LEN: usize = 30000000;
@@ -18,6 +17,15 @@ const READ_BUFFER_SIZE: usize = 65000;
 pub struct TcpWritableData {
     pub buf: Arc<Vec<u8>>,
     pub offset: usize
+}
+
+impl TcpWritableData {
+    pub fn new(b: Arc<Vec<u8>>) -> TcpWritableData {
+        TcpWritableData {
+            buf: b,
+            offset: MAX_MESSAGE_DATA_LEN
+        }
+    }
 }
 
 /// Base networking connection struct
@@ -109,7 +117,7 @@ impl TcpReaderConn {
                     Err(_) => return Ok(ret_data)
                 };
 
-                if self.read_data_len > MAX_MESSAGE_DATA_LEN {
+                if self.read_data_len >= MAX_MESSAGE_DATA_LEN {
                     self.read_data_len = 0;
                     self.read_data_index = 0;
                     return Err(Error::new(ErrorKind::InvalidData, "Wrong Data API: Message length is bigger than MAX. message size!"));
@@ -176,6 +184,51 @@ impl TcpReaderConn {
     }
 
     pub fn write_data(&mut self) -> Result<bool> {
+        while !self.write_queue.is_empty() {
+            // writing first part of current data, so we need to write
+            // 4 bytes data length as a BigEndian, based on our DATA API
+            if self.write_queue[0].offset == MAX_MESSAGE_DATA_LEN {
+                let mut data_len_buf = vec![];
+                match data_len_buf.write_u32::<BigEndian>(self.write_queue[0].buf.len() as u32) {
+                    Ok(_) => {},
+                    // if we got error during converting process
+                    // of data length to BigEndian, then we have some data error and
+                    // removeing this part of a data from write queue
+                    Err(_) => {
+                        self.write_queue.remove(0);
+                        continue;
+                    }
+                }
+
+                // trying to write all 4 bytes
+                // we hope that 4 bytes is very small amount of data to wait
+                match self.socket.write_all(&mut data_len_buf) {
+                    Ok(wl) => wl,
+                    Err(_) => return Ok(false)
+                };
+
+                // if we got here then we have written data length BigEndian
+                // so setting normal offset value
+                self.write_queue[0].offset = 0;
+            }
+            let b = self.write_queue[0].buf.clone();
+            // getting data based on offset
+            let (_, wd) = b.split_at(self.write_queue[0].offset);
+            let write_len = match self.socket.write(wd) {
+                Ok(wl) => wl,
+                Err(_) => return Ok(false)
+            };
+
+            if write_len < self.write_queue[0].buf.len() {
+                self.write_queue[0].offset += write_len;
+                return Ok(false);
+            }
+
+            // if we got here then data write is done,
+            // so we need to remove data from our queue
+            self.write_queue.remove(0);
+        }
+
         Ok(true)
     }
 }
