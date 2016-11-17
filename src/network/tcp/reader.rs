@@ -20,11 +20,11 @@ pub enum TcpReaderCMD {
 
 pub struct TcpReaderCommand {
     // base command code
-    code: TcpReaderCMD,
+    pub code: TcpReaderCMD,
     // socket vector for transfering new connection
-    socket: Vec<TcpStream>,
-    token: Vec<Token>,
-    data: Vec<Arc<Vec<u8>>>
+    pub socket: Vec<TcpStream>,
+    pub token: Vec<Token>,
+    pub data: Vec<Arc<Vec<u8>>>
 }
 
 pub struct TcpReader {

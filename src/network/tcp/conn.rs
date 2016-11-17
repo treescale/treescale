@@ -1,12 +1,17 @@
 #![allow(dead_code)]
 extern crate mio;
 extern crate byteorder;
+extern crate num;
 
 use self::mio::{Token};
+use self::mio::channel::Sender;
 use self::mio::tcp::TcpStream;
 use std::sync::Arc;
 use std::io::{Result, Read, ErrorKind, Error, Cursor, Write};
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use self::num::Zero;
+use self::num::bigint::BigInt;
+use network::tcp::{TcpReaderCommand, TcpReaderCMD};
 
 /// Max length for individual message is 30mb
 const MAX_MESSAGE_DATA_LEN: usize = 30000000;
@@ -19,20 +24,31 @@ pub struct TcpWritableData {
     pub offset: usize
 }
 
-impl TcpWritableData {
-    pub fn new(b: Arc<Vec<u8>>) -> TcpWritableData {
-        TcpWritableData {
-            buf: b,
-            offset: MAX_MESSAGE_DATA_LEN
-        }
-    }
-}
-
 /// Base networking connection struct
 /// this wouldn't contain TcpStream
 /// main IO operations would be done in Reader Threads
 pub struct TcpConnection {
+    // token for connection socket
+    // used for sending data to reader loops
+    pub socket_token: Token,
 
+    // prime number value for connected Node path calculation
+    // NOTE: if connection is API Client, then value should be 0
+    pub value: BigInt,
+
+    // token for connected node
+    // this is a unique token sent on a first handshake
+    pub token: String,
+
+    pub accepted: bool,
+    pub from_server: bool,
+
+    // Network API version number, which will help to keep
+    // multiple API level capability
+    pub api_version: usize,
+
+    // channel to reader which owns this connection
+    pub reader_channel: Sender<TcpReaderCommand>
 }
 
 /// This struct mainly for making IO for TCP connections
@@ -51,6 +67,66 @@ pub struct TcpReaderConn {
     // Write data queue for partial data write
     // when socket becomming writable
     pub write_queue: Vec<TcpWritableData>
+}
+
+impl TcpWritableData {
+    pub fn new(b: Arc<Vec<u8>>) -> TcpWritableData {
+        TcpWritableData {
+            buf: b,
+            offset: MAX_MESSAGE_DATA_LEN
+        }
+    }
+}
+
+impl TcpConnection {
+    /// we need reader channel and token to make a new connection object
+    /// connection Node Token and BigInt value would be received during first handshake process
+    pub fn new(reader_channel: Sender<TcpReaderCommand>, token: Token) -> TcpConnection {
+        TcpConnection {
+            socket_token: token,
+            value: BigInt::zero(),
+            token: String::new(),
+            accepted: false,
+            from_server: false,
+            api_version: 0,
+            reader_channel: reader_channel
+        }
+    }
+
+    /// This function sends command to specific Reader to write data
+    /// simulating higher level abstraction
+    #[inline(always)]
+    pub fn write_data(&self, buf: Arc<Vec<u8>>) {
+        let _ = self.reader_channel.send(TcpReaderCommand {
+            code: TcpReaderCMD::SendData,
+            token: vec![self.socket_token],
+            socket: Vec::new(),
+            data: vec![buf],
+        });
+    }
+
+    /// Write vector of data at the same time using one call
+    /// this would be usefull if we want to send batch data once
+    #[inline(always)]
+    pub fn write_batch(&self, buf: Vec<Arc<Vec<u8>>>) {
+        let _ = self.reader_channel.send(TcpReaderCommand {
+            code: TcpReaderCMD::SendData,
+            token: vec![self.socket_token],
+            socket: Vec::new(),
+            data: buf,
+        });
+    }
+
+    /// Function to send command to reader for closing connection if needed
+    #[inline(always)]
+    pub fn close(&self) {
+        let _ = self.reader_channel.send(TcpReaderCommand {
+            code: TcpReaderCMD::CloseConnection,
+            token: vec![self.socket_token],
+            socket: Vec::new(),
+            data: Vec::new(),
+        });
+    }
 }
 
 impl TcpReaderConn {
