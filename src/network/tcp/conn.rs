@@ -263,7 +263,7 @@ impl TcpReaderConn {
         while !self.write_queue.is_empty() {
             // writing first part of current data, so we need to write
             // 4 bytes data length as a BigEndian, based on our DATA API
-            if self.write_queue[0].offset == MAX_MESSAGE_DATA_LEN {
+            if self.write_queue[0].offset == 0 {
                 let mut data_len_buf = vec![];
                 match data_len_buf.write_u32::<BigEndian>(self.write_queue[0].buf.len() as u32) {
                     Ok(_) => {},
