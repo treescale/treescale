@@ -7,8 +7,8 @@
     "rust.cargoHomePath": "/Users/tigran/.cargo",
     "rust.cargoEnv": null,
     "rust.formatOnSave": false,
-    "rust.checkOnSave": false,
-    "rust.checkWith": "linter",
+    "rust.checkOnSave": true,
+    "rust.checkWith": "check",
     "rust.useJsonErrors": false,
     "rust.useNewErrorFormat": false
 }
