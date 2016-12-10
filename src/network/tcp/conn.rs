@@ -45,7 +45,10 @@ impl TcpConnection {
     // NOTE: based on this, we can't use this method on Windows!!
     pub fn new(sock: TcpStream) -> TcpConnection {
         TcpConnection {
-            socket_token: Token(sock.as_raw_fd() as usize),
+            // extracting token from already opened connection file descriptor
+            // and adding +2 because we have already 0 and 1 tokens reserved, on TcpNetwork side
+            // so we don't want to make same token for multiple handles
+            socket_token: Token((sock.as_raw_fd() as usize) + 2),
             socket: sock,
 
             pending_data_len: 0,
