@@ -4,6 +4,9 @@ mod event;
 mod node;
 mod network;
 
+use std::mem::size_of;
+use network::tcp::TcpConnection;
+
 fn main() {
-    print!("{:?}", "Just a main function");
+    println!("{}", size_of::<TcpConnection>());
 }

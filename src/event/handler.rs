@@ -10,18 +10,18 @@ use self::mio::channel::{channel, Receiver, Sender};
 use self::mio::{Poll, Token, Ready, PollOpt, Events};
 use std::process::exit;
 
-enum EventHandlerCMD {
+pub enum EventHandlerCMD {
     TriggerFromEvent
 }
 
-struct EventHandlerCommand {
+pub struct EventHandlerCommand {
     cmd: EventHandlerCMD,
     event: Arc<Event>
 }
 
 const EVENT_CHAN_TOKEN: Token = Token(1);
 
-struct EventHandler {
+pub struct EventHandler {
     callbacks: BTreeMap<String, Vec<Box<Fn(Arc<Event>)>>>,
     receiver_channel: Receiver<EventHandlerCommand>,
     sender_chan: Sender<EventHandlerCommand>,

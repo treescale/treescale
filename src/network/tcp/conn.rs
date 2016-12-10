@@ -16,7 +16,7 @@ const MAX_API_VERSION: usize = 500;
 // Maximum length for each message is 30mb
 static MAX_NETWORK_MESSAGE_LEN: usize = 30000000;
 
-struct TcpConnection {
+pub struct TcpConnection {
     pub token: String,
     pub value: BigInt,
     pub api_version: usize,
