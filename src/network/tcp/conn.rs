@@ -93,11 +93,29 @@ impl TcpConnection {
                     return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
                 }
             }
-            Err(e) => return Err(e)
+            Err(e) => {
+                // if we got WouldBlock, then this is Non Blocking socket
+                // and data still not available for this, so it's not a connection error
+                if e.kind() == ErrorKind::WouldBlock {
+                    return Ok(false);
+                }
+
+                return Err(e);
+            }
         }
 
         // if we got here then we are done with API version reading
         self.pending_endian_buf.clear();
+        Ok(true)
+    }
+
+    // as a first handshake we need to read connection token and prime value
+    // this will help to authenticate connection and calculate paths for sending messages
+    // if return value is "true" then we got all data, "false" if we need more data to read
+    // but socket don't have it at this moment
+    #[inline(always)]
+    pub fn read_token_value(&mut self) -> Result<bool> {
+        // TODO: read token and value string!!!
         Ok(true)
     }
 
@@ -106,8 +124,8 @@ impl TcpConnection {
     // if this function returns false as a second parameter, then we need to close connection
     // it gave wrong API during data read process
     #[inline(always)]
-    pub fn handle_data(&mut self, buffer: &Vec<u8>) -> (Vec<Vec<u8>>, bool) {
-        let (buffer_len, mut offset) = (buffer.len(), 0);
+    pub fn handle_data(&mut self, buffer: &Vec<u8>, buffer_len: usize) -> (Vec<Vec<u8>>, bool) {
+        let mut offset = 0;
         let mut data_chunks: Vec<Vec<u8>> = Vec::new();
         loop {
             let mut still_have = buffer_len - offset;

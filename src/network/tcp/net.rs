@@ -14,6 +14,7 @@ use std::thread;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::process;
+use std::io::{Read, ErrorKind};
 
 const TCP_SERVER_TOKEN: Token = Token(0);
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
@@ -29,6 +30,8 @@ pub struct TcpNetworkCommand {
 pub struct TcpNetwork {
     // base connections list
     pub connections: Arc<RwLock<BTreeMap<Token, TcpConnection>>>,
+    // connections which are still not accepted
+    pending_connections: BTreeMap<Token, TcpConnection>,
 
     sender_channel: Sender<TcpNetworkCommand>,
     receiver_channel: Receiver<TcpNetworkCommand>,
@@ -37,7 +40,11 @@ pub struct TcpNetwork {
     // vector of channels for sending commands to TcpReaders
     reader_channels: Vec<Sender<TcpReaderCommand>>,
     // basic Round Rubin load balancer index for readers
-    reader_channel_index: usize
+    reader_channel_index: usize,
+
+    // buffer for reading chunked data
+    // making allocation once for performance
+    data_buffer: Vec<u8>
 }
 
 impl TcpNetwork {
@@ -45,11 +52,16 @@ impl TcpNetwork {
         let (s, r) = channel::<TcpNetworkCommand>();
         TcpNetwork {
             connections: Arc::new(RwLock::new(BTreeMap::new())),
+            pending_connections: BTreeMap::new(),
             reader_channels: Vec::new(),
             event_handler_channel: event_channel,
             sender_channel: s,
             receiver_channel: r,
-            reader_channel_index: 0
+            reader_channel_index: 0,
+
+            // allocation buffer with 5K bytes
+            // we don't need more for TcpNetwork
+            data_buffer: Vec::with_capacity(5000)
         }
     }
 
@@ -128,7 +140,7 @@ impl TcpNetwork {
                         match self.receiver_channel.try_recv() {
                             Ok(cmd) => {
                                 let mut c = cmd;
-                                self.notify(&mut c);
+                                self.notify(&poll, &mut c);
                             }
                             // if we got error, then data is unavailable
                             // and breaking receive loop
@@ -152,15 +164,15 @@ impl TcpNetwork {
 
                 if kind == Ready::readable() {
                     if token == TCP_SERVER_TOKEN {
-                        self.acceptable();
+                        self.acceptable(&poll, &server_socket);
                     } else {
-                        self.readable(token);
+                        self.readable(&poll, token);
                     }
                     continue;
                 }
 
                 if kind == Ready::writable() {
-                    self.writable(token);
+                    self.writable(&poll, token);
                     continue;
                 }
             }
@@ -169,24 +181,105 @@ impl TcpNetwork {
     }
 
     #[inline(always)]
-    fn acceptable(&mut self) {
+    fn acceptable(&mut self, poll: &Poll, server_sock: &TcpListener) {
+        loop {
+            match server_sock.accept() {
+                Ok((sock, _)) => {
+                    let conn = TcpConnection::new(sock);
+                    match poll.register(&conn.socket, conn.socket_token, Ready::readable(), PollOpt::edge()) {
+                        Ok(_) => {
+                            // inserting connection as a pending
+                            self.pending_connections.insert(conn.socket_token, conn);
+                        }
 
+                        Err(e) => {
+                            // after this accepted connection would be automatically deleted
+                            // by closures deallocation
+                            warn!("Unable to register accepted connection -> {}", e);
+                        }
+                    }
+                }
+                // if we got error on server accept process
+                // we need to break accept loop and wait until new connections
+                // would be available in event loop
+                Err(_) => break
+            }
+        }
     }
 
     #[inline(always)]
-    fn notify(&mut self, command: &mut TcpNetworkCommand) {
+    fn notify(&mut self, poll: &Poll, command: &mut TcpNetworkCommand) {
         match command.cmd {
 
         }
     }
 
     #[inline(always)]
-    fn readable(&mut self, token: Token) {
+    fn readable(&mut self, poll: &Poll, token: Token) {
+        let mut delete_conn = false;
+        {
+            let mut conn =  match self.pending_connections.get_mut(&token) {
+                Some(c) => c,
+                None => return
+            };
 
+            // if we yet don't have an api version
+            // reading it
+            if conn.api_version <= 0 {
+                match conn.read_api_version() {
+                    Ok(is_done) => {
+                        // if we need more data for getting API version
+                        // then wiating until socket would become readable again
+                        if !is_done {
+                            return;
+                        }
+                    },
+                    Err(e) => {
+                        // if we got WouldBlock, then this is Non Blocking socket
+                        // and data still not available for this, so it's not a connection error
+                        if e.kind() == ErrorKind::WouldBlock {
+                            return;
+                        }
+
+                        delete_conn = true;
+                    }
+                }
+            }
+
+            // if all ok with reading API version
+            if !delete_conn {
+                match conn.socket.read(&mut self.data_buffer) {
+                    Ok(rsize) => {
+                        let (data, leave_open) = conn.handle_data(&self.data_buffer, rsize);
+                        // checking if we need to close connection or not
+                        if leave_open {
+
+                        } else {
+                            delete_conn = true;
+                        }
+                    },
+                    Err(e) => {
+                        // if we got WouldBlock, then this is Non Blocking socket
+                        // and data still not available for this, so it's not a connection error
+                        if e.kind() == ErrorKind::WouldBlock {
+                            return;
+                        }
+
+                        delete_conn = true;
+                    }
+                };
+            }
+        }
+
+        if delete_conn {
+            // this will also close connection, because
+            // tcp socket would be deallocated
+            self.pending_connections.remove(&token);
+        }
     }
 
     #[inline(always)]
-    fn writable(&mut self, token: Token) {
+    fn writable(&mut self, poll: &Poll, token: Token) {
 
     }
 }
