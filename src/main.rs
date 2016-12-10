@@ -1,4 +1,5 @@
-
+#[macro_use]
+extern crate log;
 mod event;
 
 fn main() {

@@ -2,7 +2,6 @@
 extern crate byteorder;
 
 use std::io::{Result, Cursor, Error, ErrorKind};
-use std::sync::Arc;
 use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::iter::FromIterator;
 
@@ -16,7 +15,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn from_raw(data: Arc<Vec<u8>>) -> Result<Event> {
+    pub fn from_raw(data: &Vec<u8>) -> Result<Event> {
         let mut offset = 0 as usize;
 
         Ok( Event {
@@ -136,7 +135,7 @@ impl Event {
     }
 
     #[inline(always)]
-    fn read_field(data: &Arc<Vec<u8>>, off: usize) -> Result<(String, usize)> {
+    fn read_field(data: &Vec<u8>, off: usize) -> Result<(String, usize)> {
         let mut endian_bytes = vec![0; 4];
         let data_len = data.len() as usize;
         let mut offset = off as usize;
