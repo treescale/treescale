@@ -8,11 +8,12 @@ use self::mio::channel::{channel, Sender, Receiver};
 use network::tcp::{TcpConnection};
 
 pub enum TcpReaderCMD {
-
+    HandleConnection
 }
 
 pub struct TcpReaderCommand {
-
+    pub cmd: TcpReaderCMD,
+    pub conn: Vec<TcpConnection>
 }
 
 pub struct TcpReader {

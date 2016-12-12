@@ -2,30 +2,35 @@
 extern crate mio;
 extern crate num;
 extern crate log;
+extern crate byteorder;
 
 use std::sync::{Arc, RwLock};
 use std::collections::BTreeMap;
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
-use self::mio::tcp::TcpListener;
+use self::mio::tcp::{TcpListener, TcpStream};
 use self::mio::channel::{channel, Sender, Receiver};
-use network::tcp::{TcpConnection, TcpReaderCommand, TcpReader};
+use network::tcp::{TcpConnection, TcpReaderCommand, TcpReader, TcpReaderCMD};
 use event::*;
 use std::thread;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::process;
-use std::io::{ErrorKind};
+use std::io::{Result, Error, ErrorKind};
+use self::byteorder::{ByteOrder, BigEndian};
 use self::num::BigInt;
+use network::tcp::TOKEN_VALUE_SEP;
 
 const TCP_SERVER_TOKEN: Token = Token(0);
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
+const CURRENT_API_VERSION: u32 = 1;
 
 pub enum TcpNetworkCMD {
-
+    HandleClientConnection
 }
 
 pub struct TcpNetworkCommand {
-    cmd: TcpNetworkCMD
+    cmd: TcpNetworkCMD,
+    conn: Vec<TcpConnection>
 }
 
 pub struct TcpNetwork {
@@ -50,7 +55,10 @@ pub struct TcpNetwork {
 
     // buffer for reading chunked data
     // making allocation once for performance
-    data_buffer: Vec<u8>
+    data_buffer: Vec<u8>,
+
+    // base poll object
+    poll: Poll
 }
 
 impl TcpNetwork {
@@ -80,12 +88,23 @@ impl TcpNetwork {
             // token for current networking/node
             current_token: current_token,
             current_value: cur_val.clone(),
-            current_value_square: (cur_val.clone() * cur_val)
+            current_value_square: (cur_val.clone() * cur_val),
+            poll: Poll::new().unwrap()
         }
     }
 
     pub fn channel(&self) -> Sender<TcpNetworkCommand> {
         self.sender_channel.clone()
+    }
+
+    fn get_reader(&mut self) -> &Sender<TcpReaderCommand> {
+        if self.reader_channel_index >= self.reader_channels.len() {
+            self.reader_channel_index = 0;
+        }
+
+        let r = &self.reader_channels[self.reader_channel_index];
+        self.reader_channel_index += 1;
+        return r;
     }
 
     // base function for running TcpNetwork service with TcpReaders
@@ -117,16 +136,7 @@ impl TcpNetwork {
             }
         };
 
-        // making poll and registering base handlers
-        let poll = match Poll::new() {
-            Ok(p) => p,
-            Err(e) => {
-                warn!("Error creating Poll service -> {}", e);
-                return;
-            }
-        };
-
-        match poll.register(&server_socket, TCP_SERVER_TOKEN, Ready::readable(), PollOpt::edge()) {
+        match self.poll.register(&server_socket, TCP_SERVER_TOKEN, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {},
             Err(e) => {
                 warn!("Unable to register server socket to Poll service -> {}", e);
@@ -134,7 +144,7 @@ impl TcpNetwork {
             }
         }
 
-        match poll.register(&self.receiver_channel, RECEIVER_CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
+        match self.poll.register(&self.receiver_channel, RECEIVER_CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {},
             Err(e) => {
                 warn!("Unable to register receiver channel to Poll service -> {}", e);
@@ -146,7 +156,7 @@ impl TcpNetwork {
         let mut events: Events = Events::with_capacity(5000);
 
         loop {
-            let event_count = poll.poll(&mut events, None).unwrap();
+            let event_count = self.poll.poll(&mut events, None).unwrap();
             if event_count == 0 {
                 continue;
             }
@@ -159,7 +169,7 @@ impl TcpNetwork {
                         match self.receiver_channel.try_recv() {
                             Ok(cmd) => {
                                 let mut c = cmd;
-                                self.notify(&poll, &mut c);
+                                self.notify(&mut c);
                             }
                             // if we got error, then data is unavailable
                             // and breaking receive loop
@@ -183,15 +193,15 @@ impl TcpNetwork {
 
                 if kind == Ready::readable() {
                     if token == TCP_SERVER_TOKEN {
-                        self.acceptable(&poll, &server_socket);
+                        self.acceptable(&server_socket);
                     } else {
-                        self.readable(&poll, token);
+                        self.readable(token);
                     }
                     continue;
                 }
 
                 if kind == Ready::writable() {
-                    self.writable(&poll, token);
+                    self.writable(token);
                     continue;
                 }
             }
@@ -199,13 +209,36 @@ impl TcpNetwork {
         }
     }
 
+    pub fn connect(&mut self, address: &str) -> Result<()> {
+        // making TcpListener for making server socket
+        let addr = match SocketAddr::from_str(address) {
+            Ok(a) => a,
+            Err(_) => return Err(Error::new(ErrorKind::AddrNotAvailable, "Unable to make address lookup"))
+        };
+
+        // connecting to tcp client
+        let socket = match TcpStream::connect(&addr) {
+            Ok(s) => s,
+            Err(e) => return Err(e)
+        };
+
+        // transfering connection by chanel for registering it
+        // and making handshake
+        let _ = self.sender_channel.send(TcpNetworkCommand {
+            cmd: TcpNetworkCMD::HandleClientConnection,
+            conn: vec![TcpConnection::new(socket)]
+        });
+
+        Ok(())
+    }
+
     #[inline(always)]
-    fn acceptable(&mut self, poll: &Poll, server_sock: &TcpListener) {
+    fn acceptable(&mut self, server_sock: &TcpListener) {
         loop {
             match server_sock.accept() {
                 Ok((sock, _)) => {
                     let conn = TcpConnection::new(sock);
-                    match poll.register(&conn.socket, conn.socket_token, Ready::readable(), PollOpt::edge()) {
+                    match self.poll.register(&conn.socket, conn.socket_token, Ready::readable(), PollOpt::edge()) {
                         Ok(_) => {
                             // inserting connection as a pending
                             self.pending_connections.insert(conn.socket_token, conn);
@@ -227,14 +260,42 @@ impl TcpNetwork {
     }
 
     #[inline(always)]
-    fn notify(&mut self, poll: &Poll, command: &mut TcpNetworkCommand) {
+    fn notify(&mut self, command: &mut TcpNetworkCommand) {
         match command.cmd {
+            TcpNetworkCMD::HandleClientConnection => {
+                let mut conn = match command.conn.pop() {
+                    Some(c) => c,
+                    None => return
+                };
 
+                // if we got here then we made successfull connection with server
+                // now we need to write our API version
+                let mut write_data = [0; 4];
+                BigEndian::write_u32(&mut write_data, CURRENT_API_VERSION);
+                let mut send_data = Vec::new();
+                send_data.extend_from_slice(&write_data);
+                conn.writae_queue.push(send_data);
+
+                let token_value = (self.current_token.clone() + TOKEN_VALUE_SEP.to_string().as_str() + self.current_value.to_str_radix(10).as_str())
+                                    .into_bytes();
+
+                conn.writae_queue.push(token_value);
+                match self.poll.register(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
+                    Ok(_) => {},
+                    Err(e) => {
+                        warn!("Unable to register client connection -> {}", e);
+                        return;
+                    }
+                }
+
+                // inserting connection for handling handshake information
+                self.pending_connections.insert(conn.socket_token, conn);
+            }
         }
     }
 
     #[inline(always)]
-    fn readable(&mut self, poll: &Poll, token: Token) {
+    fn readable(&mut self, token: Token) {
         // when we will return functuin without inserting back
         // this connection would be deallocated and would be automatically closed
         let mut conn =  match self.pending_connections.remove(&token) {
@@ -277,6 +338,10 @@ impl TcpNetwork {
         // setting them up, and sending event to User level
         // for authenticating this connection
         if is_done {
+            // deregistering connection from Networking loop, because we don't want to receive data anymore
+            // until this connection is not accepted
+            let _ = self.poll.deregister(&conn.socket);
+
             conn.token = conn_token;
             conn.value = match BigInt::from_str(conn_value.as_str()) {
                 Ok(v) => v,
@@ -286,17 +351,24 @@ impl TcpNetwork {
                 }
             };
 
-            let _ = self.event_handler_channel.send(EventHandlerCommand {
-                cmd: EventHandlerCMD::TriggerFromEvent,
-                event: Arc::new(Event{
-                    name: String::from(EVENT_ON_PENDING_CONNECTION),
-                    from: conn.token.clone(),
-                    target: String::new(),
-                    data: conn_value,
-                    path: String::new(),
-                    public_data: String::new()
-                })
-            });
+            if conn.from_server {
+                let _ = self.event_handler_channel.send(EventHandlerCommand {
+                    cmd: EventHandlerCMD::TriggerFromEvent,
+                    event: Arc::new(Event{
+                        name: String::from(EVENT_ON_PENDING_CONNECTION),
+                        from: conn.token.clone(),
+                        target: String::new(),
+                        data: conn_value,
+                        path: String::new(),
+                        public_data: String::new()
+                    })
+                });
+            }
+            else {
+                // if this connection is from client, then we don't need to check it using User space code
+                // just accepting connection after we have server node information
+                self.accept_conn(conn.token.clone());
+            }
         }
 
         // if we got here then all operations done
@@ -305,7 +377,7 @@ impl TcpNetwork {
     }
 
     #[inline(always)]
-    fn writable(&mut self, poll: &Poll, token: Token) {
+    fn writable(&mut self, token: Token) {
         // when we will return functuin without inserting back
         // this connection would be deallocated and would be automatically closed
         let mut conn =  match self.pending_connections.remove(&token) {
@@ -324,7 +396,7 @@ impl TcpNetwork {
         // if we done with writing data
         // reregistering connection only readable again
         if is_done {
-            match poll.reregister(&conn.socket, token, Ready::readable(), PollOpt::edge()) {
+            match self.poll.reregister(&conn.socket, token, Ready::readable(), PollOpt::edge()) {
                 Ok(_) => {},
                 Err(e) => {
                     warn!("Unable to reregister connection as writable, closing connection -> {}", e);
@@ -336,5 +408,32 @@ impl TcpNetwork {
         // if we got here then all operations done
         // adding back connection for keeping it
         self.pending_connections.insert(token, conn);
+    }
+
+    pub fn accept_conn(&mut self, token_str: String) {
+        let mut t = Token(0);
+        for (s_token, conn) in &self.pending_connections {
+            // finding connection with given token
+            if conn.token == token_str {
+                t = *s_token;
+                break;
+            }
+        }
+
+        // deleting connection from pending connections list
+        let c = match self.pending_connections.remove(&t) {
+            Some(c) => c,
+            // probably we wouldn't do this
+            None => return
+        };
+
+        // clearing socket handle from Networking loop
+        let _ = self.poll.deregister(&c.socket);
+
+        // sending connection to TcpReader for registering it
+        let _ = self.get_reader().send(TcpReaderCommand{
+            cmd: TcpReaderCMD::HandleConnection,
+            conn: vec![c]
+        });
     }
 }

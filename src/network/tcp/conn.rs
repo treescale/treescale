@@ -11,9 +11,9 @@ use std::io::{Result, Read, Cursor, Error, ErrorKind};
 use self::byteorder::{BigEndian, ReadBytesExt};
 use std::os::unix::io::AsRawFd;
 use std::str::FromStr;
+use network::tcp::TOKEN_VALUE_SEP;
 
 const MAX_API_VERSION: usize = 500;
-const TOKEN_VALUE_SEP: char = '|';
 // Maximum length for each message is 30mb
 static MAX_NETWORK_MESSAGE_LEN: usize = 30000000;
 
@@ -37,7 +37,7 @@ pub struct TcpConnection {
     pending_endian_buf: Vec<u8>,
 
     // queue for keeping writeabale data
-    writae_queue: Vec<Vec<u8>>
+    pub writae_queue: Vec<Vec<u8>>
 }
 
 impl TcpConnection {
