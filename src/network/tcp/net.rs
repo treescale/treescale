@@ -29,6 +29,11 @@ pub struct TcpNetworkCommand {
 }
 
 pub struct TcpNetwork {
+    // token for current networking/node
+    current_token: String,
+    current_value: BigInt,
+    current_value_square: BigInt,
+
     // base connections list
     pub connections: Arc<RwLock<BTreeMap<Token, TcpConnection>>>,
     // connections which are still not accepted
@@ -49,8 +54,16 @@ pub struct TcpNetwork {
 }
 
 impl TcpNetwork {
-    pub fn new(event_channel: Sender<EventHandlerCommand>) -> TcpNetwork {
+    pub fn new(current_token: String, current_value: String, event_channel: Sender<EventHandlerCommand>) -> TcpNetwork {
         let (s, r) = channel::<TcpNetworkCommand>();
+        let cur_val = match BigInt::from_str(current_value.as_str()) {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("Unable to parse given prime value for current Node -> {}", e);
+                process::exit(1);
+            }
+        };
+
         TcpNetwork {
             connections: Arc::new(RwLock::new(BTreeMap::new())),
             pending_connections: BTreeMap::new(),
@@ -62,7 +75,12 @@ impl TcpNetwork {
 
             // allocation buffer with 5K bytes
             // we don't need more for TcpNetwork
-            data_buffer: Vec::with_capacity(5000)
+            data_buffer: Vec::with_capacity(5000),
+
+            // token for current networking/node
+            current_token: current_token,
+            current_value: cur_val.clone(),
+            current_value_square: (cur_val.clone() * cur_val)
         }
     }
 
