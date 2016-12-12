@@ -9,12 +9,13 @@ use self::mio::{Token, Poll, Ready, PollOpt, Events};
 use self::mio::tcp::TcpListener;
 use self::mio::channel::{channel, Sender, Receiver};
 use network::tcp::{TcpConnection, TcpReaderCommand, TcpReader};
-use event::{EventHandlerCommand};
+use event::*;
 use std::thread;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::process;
 use std::io::{Read, ErrorKind};
+use self::num::BigInt;
 
 const TCP_SERVER_TOKEN: Token = Token(0);
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
@@ -216,66 +217,73 @@ impl TcpNetwork {
 
     #[inline(always)]
     fn readable(&mut self, poll: &Poll, token: Token) {
-        let mut delete_conn = false;
-        {
-            let mut conn =  match self.pending_connections.get_mut(&token) {
-                Some(c) => c,
-                None => return
-            };
+        // when we will return functuin without inserting back
+        // this connection would be deallocated and would be automatically closed
+        let mut conn =  match self.pending_connections.remove(&token) {
+            Some(c) => c,
+            None => return
+        };
 
-            // if we yet don't have an api version
-            // reading it
-            if conn.api_version <= 0 {
-                match conn.read_api_version() {
-                    Ok(is_done) => {
-                        // if we need more data for getting API version
-                        // then wiating until socket would become readable again
-                        if !is_done {
-                            return;
-                        }
-                    },
-                    Err(e) => {
-                        // if we got WouldBlock, then this is Non Blocking socket
-                        // and data still not available for this, so it's not a connection error
-                        if e.kind() == ErrorKind::WouldBlock {
-                            return;
-                        }
-
-                        delete_conn = true;
+        // if we yet don't have an api version
+        // reading it
+        if conn.api_version <= 0 {
+            match conn.read_api_version() {
+                Ok(is_done) => {
+                    // if we need more data for getting API version
+                    // then wiating until socket would become readable again
+                    if !is_done {
+                        return;
                     }
+                },
+                Err(e) => {
+                    // if we got WouldBlock, then this is Non Blocking socket
+                    // and data still not available for this, so it's not a connection error
+                    if e.kind() == ErrorKind::WouldBlock {
+                        self.pending_connections.insert(token, conn);
+                    }
+
+                    return;
                 }
             }
+        }
 
-            // if all ok with reading API version
-            if !delete_conn {
-                match conn.socket.read(&mut self.data_buffer) {
-                    Ok(rsize) => {
-                        let (data, leave_open) = conn.handle_data(&self.data_buffer, rsize);
-                        // checking if we need to close connection or not
-                        if leave_open {
-
-                        } else {
-                            delete_conn = true;
-                        }
-                    },
-                    Err(e) => {
-                        // if we got WouldBlock, then this is Non Blocking socket
-                        // and data still not available for this, so it's not a connection error
-                        if e.kind() == ErrorKind::WouldBlock {
-                            return;
-                        }
-
-                        delete_conn = true;
-                    }
-                };
+        let (conn_token, conn_value, is_done) = match conn.read_token_value() {
+            Ok((t,v,d)) => (t,v,d),
+            Err(e) => {
+                warn!("Error while reading connection token, closing connection -> {}", e);
+                return;
             }
+        };
+
+        // if we got token and value
+        // setting them up, and sending event to User level
+        // for authenticating this connection
+        if is_done {
+            conn.token = conn_token;
+            conn.value = match BigInt::from_str(conn_value.as_str()) {
+                Ok(v) => v,
+                Err(e) => {
+                    warn!("Unable to convert value string, closing connection -> {}", e);
+                    return;
+                }
+            };
+
+            let _ = self.event_handler_channel.send(EventHandlerCommand {
+                cmd: EventHandlerCMD::TriggerFromEvent,
+                event: Arc::new(Event{
+                    name: String::from(EVENT_ON_PENDING_CONNECTION),
+                    from: conn.token.clone(),
+                    target: String::new(),
+                    data: conn_value,
+                    path: String::new(),
+                    public_data: String::new()
+                })
+            });
         }
 
-        if delete_conn {
-            // this will also close connection, because
-            // tcp socket would be deallocated
-            self.pending_connections.remove(&token);
-        }
+        // if we got here then all operations done
+        // adding back connection for keeping it
+        self.pending_connections.insert(token, conn);
     }
 
     #[inline(always)]

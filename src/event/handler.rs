@@ -15,8 +15,8 @@ pub enum EventHandlerCMD {
 }
 
 pub struct EventHandlerCommand {
-    cmd: EventHandlerCMD,
-    event: Arc<Event>
+    pub cmd: EventHandlerCMD,
+    pub event: Arc<Event>
 }
 
 const EVENT_CHAN_TOKEN: Token = Token(1);
