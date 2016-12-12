@@ -14,7 +14,7 @@ use std::thread;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::process;
-use std::io::{Read, ErrorKind};
+use std::io::{ErrorKind};
 use self::num::BigInt;
 
 const TCP_SERVER_TOKEN: Token = Token(0);
@@ -288,6 +288,35 @@ impl TcpNetwork {
 
     #[inline(always)]
     fn writable(&mut self, poll: &Poll, token: Token) {
+        // when we will return functuin without inserting back
+        // this connection would be deallocated and would be automatically closed
+        let mut conn =  match self.pending_connections.remove(&token) {
+            Some(c) => c,
+            None => return
+        };
 
+        let is_done = match conn.flush_write_queue() {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("Connection Write error, closing connection -> {}", e);
+                return;
+            }
+        };
+
+        // if we done with writing data
+        // reregistering connection only readable again
+        if is_done {
+            match poll.reregister(&conn.socket, token, Ready::readable(), PollOpt::edge()) {
+                Ok(_) => {},
+                Err(e) => {
+                    warn!("Unable to reregister connection as writable, closing connection -> {}", e);
+                    return;
+                }
+            }
+        }
+
+        // if we got here then all operations done
+        // adding back connection for keeping it
+        self.pending_connections.insert(token, conn);
     }
 }

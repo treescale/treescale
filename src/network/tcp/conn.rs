@@ -267,4 +267,8 @@ impl TcpConnection {
 
         return (data_chunks, true);
     }
+
+    pub fn flush_write_queue(&mut self) -> Result<bool> {
+        Ok(true)
+    }
 }
