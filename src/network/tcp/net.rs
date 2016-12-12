@@ -97,16 +97,6 @@ impl TcpNetwork {
         self.sender_channel.clone()
     }
 
-    fn get_reader(&mut self) -> &Sender<TcpReaderCommand> {
-        if self.reader_channel_index >= self.reader_channels.len() {
-            self.reader_channel_index = 0;
-        }
-
-        let r = &self.reader_channels[self.reader_channel_index];
-        self.reader_channel_index += 1;
-        return r;
-    }
-
     // base function for running TcpNetwork service with TcpReaders
     pub fn run(&mut self, server_address: &str, readers_count: usize) {
         self.reader_channels.reserve(readers_count);
@@ -230,6 +220,33 @@ impl TcpNetwork {
         });
 
         Ok(())
+    }
+
+    pub fn accept_conn(&mut self, token_str: String) {
+        let mut t = Token(0);
+        for (s_token, conn) in &self.pending_connections {
+            // finding connection with given token
+            if conn.token == token_str {
+                t = *s_token;
+                break;
+            }
+        }
+
+        // deleting connection from pending connections list
+        let c = match self.pending_connections.remove(&t) {
+            Some(c) => c,
+            // probably we wouldn't do this
+            None => return
+        };
+
+        // clearing socket handle from Networking loop
+        let _ = self.poll.deregister(&c.socket);
+
+        // sending connection to TcpReader for registering it
+        let _ = self.get_reader().send(TcpReaderCommand{
+            cmd: TcpReaderCMD::HandleConnection,
+            conn: vec![c]
+        });
     }
 
     #[inline(always)]
@@ -410,30 +427,13 @@ impl TcpNetwork {
         self.pending_connections.insert(token, conn);
     }
 
-    pub fn accept_conn(&mut self, token_str: String) {
-        let mut t = Token(0);
-        for (s_token, conn) in &self.pending_connections {
-            // finding connection with given token
-            if conn.token == token_str {
-                t = *s_token;
-                break;
-            }
+    fn get_reader(&mut self) -> &Sender<TcpReaderCommand> {
+        if self.reader_channel_index >= self.reader_channels.len() {
+            self.reader_channel_index = 0;
         }
 
-        // deleting connection from pending connections list
-        let c = match self.pending_connections.remove(&t) {
-            Some(c) => c,
-            // probably we wouldn't do this
-            None => return
-        };
-
-        // clearing socket handle from Networking loop
-        let _ = self.poll.deregister(&c.socket);
-
-        // sending connection to TcpReader for registering it
-        let _ = self.get_reader().send(TcpReaderCommand{
-            cmd: TcpReaderCMD::HandleConnection,
-            conn: vec![c]
-        });
+        let r = &self.reader_channels[self.reader_channel_index];
+        self.reader_channel_index += 1;
+        return r;
     }
 }
