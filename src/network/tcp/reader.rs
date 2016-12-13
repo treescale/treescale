@@ -37,7 +37,9 @@ pub struct TcpReader {
     sender_channel: Sender<TcpReaderCommand>,
     receiver_channel: Receiver<TcpReaderCommand>,
 
-    poll: Poll
+
+    poll: Poll,
+    big_zero: BigInt
 }
 
 impl TcpReader {
@@ -48,7 +50,8 @@ impl TcpReader {
             sender_channel: s,
             receiver_channel: r,
             poll: Poll::new().unwrap(),
-            connections_write_queue: BTreeMap::new()
+            connections_write_queue: BTreeMap::new(),
+            big_zero: Zero::zero()
         }
     }
 
@@ -186,6 +189,11 @@ impl TcpReader {
                         Err(_) => return
                     };
 
+                    // if our path is empty then just moving on
+                    if path == self.big_zero {
+                        continue;
+                    }
+
                     let mut conn_tokens: Vec<Token> = vec![];
 
                     // locking connections for readable lock
@@ -204,13 +212,14 @@ impl TcpReader {
                                 continue;
                             }
 
-                            if path.clone() % conn.value.clone() == Zero::zero() {
+                            if path.clone() % conn.value.clone() == self.big_zero {
                                 path = path.clone() / conn.value.clone();
                                 conn_tokens.push(*t);
                             }
                         }
                     }
 
+                    // saving final path for passing it over network
                     ev.path = path.to_str_radix(10);
 
                     let send_data = Arc::new(match ev.to_raw() {
@@ -227,7 +236,7 @@ impl TcpReader {
                             Ok(c) => c,
                             Err(e) => {
                                 warn!("Unable to lock connections for reading 2 -> {}", e);
-                                return;
+                                continue;
                             }
                         };
 
@@ -260,7 +269,50 @@ impl TcpReader {
             }
 
             TcpReaderCMD::WriteWithToken => {
+                let send_data = Arc::new(
+                    match command.event.pop() {
+                        Some(ev) => {
+                            match ev.to_raw() {
+                                Ok(d) => d,
+                                Err(e) => {
+                                    warn!("Unable to convert event to raaw data at Reader Token Emmit -> {}", e);
+                                    return;
+                                }
+                            }
+                        }
+                        None => return
+                    }
+                );
 
+                let locked_conns = match self.connections.read() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        warn!("Unable to lock connections for reading 2 -> {}", e);
+                        return;
+                    }
+                };
+
+                for (t, conn) in locked_conns.iter() {
+                    // if we trying to send data to this connection
+                    if command.token.contains(&conn.token) {
+                        // registering connection as writable
+                        match self.poll.reregister(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
+                            Ok(_) => {},
+                            Err(e) => {
+                                warn!("Unable to reregister connection as writable Reader Token Emmit -> {}", e);
+                                continue
+                            }
+                        };
+
+                        let mut q = match self.connections_write_queue.remove(t) {
+                            Some(q) => q,
+                            None => Vec::new()
+                        };
+
+                        q.push(send_data.clone());
+                        self.connections_write_queue.insert(*t, q);
+                    }
+                }
             }
         }
     }
