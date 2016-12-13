@@ -245,7 +245,35 @@ impl TcpNetwork {
         // sending connection to TcpReader for registering it
         let _ = self.get_reader().send(TcpReaderCommand{
             cmd: TcpReaderCMD::HandleConnection,
-            conn: vec![c]
+            conn: vec![c],
+            path: vec![],
+            data: vec![]
+        });
+    }
+
+    // writing data based on given path
+    // this will exclude API connections because they don't have Path value
+    pub fn write(&mut self, path: String, data: Arc<Vec<u8>>) {
+        // picking up one of the readers and sending command to write over connection
+        // based on path information
+        let _ = self.get_reader().send(TcpReaderCommand {
+            cmd: TcpReaderCMD::WriteWithPath,
+            path: vec![path],
+            conn: vec![],
+            data: vec![data]
+        });
+    }
+
+    // using this function we can write to batch of connections
+    // by giving their tokens
+    pub fn write_to(&mut self, tokens: Vec<String>, data: Arc<Vec<u8>>) {
+        // picking up one of the readers and sending command to write over connection
+        // based on path information
+        let _ = self.get_reader().send(TcpReaderCommand {
+            cmd: TcpReaderCMD::WriteWithToken,
+            path: tokens,
+            conn: vec![],
+            data: vec![data]
         });
     }
 

@@ -8,12 +8,16 @@ use self::mio::channel::{channel, Sender, Receiver};
 use network::tcp::{TcpConnection};
 
 pub enum TcpReaderCMD {
-    HandleConnection
+    HandleConnection,
+    WriteWithPath,
+    WriteWithToken,
 }
 
 pub struct TcpReaderCommand {
     pub cmd: TcpReaderCMD,
-    pub conn: Vec<TcpConnection>
+    pub conn: Vec<TcpConnection>,
+    pub path: Vec<String>,
+    pub data: Vec<Arc<Vec<u8>>>
 }
 
 pub struct TcpReader {
