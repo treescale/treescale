@@ -1,310 +1,273 @@
 #![allow(dead_code)]
+extern crate num;
 extern crate mio;
 extern crate byteorder;
-extern crate num;
 
-use self::mio::{Token};
-use self::mio::channel::Sender;
-use self::mio::tcp::TcpStream;
-use std::sync::Arc;
-use std::io::{Result, Read, ErrorKind, Error, Cursor, Write};
-use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use self::num::Zero;
 use self::num::bigint::BigInt;
-use network::tcp::{TcpReaderCommand, TcpReaderCMD};
+use self::num::Zero;
+use self::mio::tcp::TcpStream;
+use self::mio::Token;
+use std::io::{Result, Read, Cursor, Error, ErrorKind};
+use self::byteorder::{BigEndian, ReadBytesExt};
+use std::os::unix::io::AsRawFd;
+use std::str::FromStr;
+use network::tcp::{TOKEN_VALUE_SEP};
 
-/// Max length for individual message is 30mb
-const MAX_MESSAGE_DATA_LEN: usize = 30000000;
+const MAX_API_VERSION: usize = 500;
+// Maximum length for each message is 30mb
+static MAX_NETWORK_MESSAGE_LEN: usize = 30000000;
 
-/// Read buffer size 64KB
-const READ_BUFFER_SIZE: usize = 65000;
-
-pub struct TcpWritableData {
-    pub buf: Arc<Vec<u8>>,
-    pub offset: usize
+pub struct TcpConnectionValue {
+    pub token: String,
+    pub value: BigInt,
+    pub api_version: usize,
+    pub from_server: bool,
+    pub accepted: bool,
+    pub socket_token: Token
 }
 
-/// Base networking connection struct
-/// this wouldn't contain TcpStream
-/// main IO operations would be done in Reader Threads
 pub struct TcpConnection {
-    // token for connection socket
-    // used for sending data to reader loops
+    // fields for EventLoop
+    pub socket: TcpStream,
     pub socket_token: Token,
 
-    // prime number value for connected Node path calculation
-    // NOTE: if connection is API Client, then value should be 0
-    pub value: BigInt,
+    // partial data keepers for handling
+    // networking data based on chunks
+    pending_data_len: usize,
+    pending_data_index: usize,
+    pending_data: Vec<u8>,
+    // 4 bytes for reading big endian numbers from network
+    pending_endian_buf: Vec<u8>,
 
-    // token for connected node
-    // this is a unique token sent on a first handshake
-    pub token: String,
-
-    pub accepted: bool,
-    pub from_server: bool,
-
-    // Network API version number, which will help to keep
-    // multiple API level capability
-    pub api_version: usize,
-
-    // channel to reader which owns this connection
-    pub reader_channel: Sender<TcpReaderCommand>
-}
-
-/// This struct mainly for making IO for TCP connections
-pub struct TcpReaderConn {
-    pub token: Token,
-
-    // connection socket for Read/Write operations
-    pub socket: TcpStream,
-
-    // fields for handling partial data read
-    read_data_queue: Vec<Vec<u8>>,
-    read_data_index: usize,
-    read_data_len: usize,
-    read_data_len_buf: Vec<u8>,
-
-    // Write data queue for partial data write
-    // when socket becomming writable
-    pub write_queue: Vec<TcpWritableData>
-}
-
-impl TcpWritableData {
-    pub fn new(b: Arc<Vec<u8>>) -> TcpWritableData {
-        TcpWritableData {
-            buf: b,
-            offset: MAX_MESSAGE_DATA_LEN
-        }
-    }
+    // queue for keeping writeabale data
+    pub writae_queue: Vec<Vec<u8>>,
 }
 
 impl TcpConnection {
-    /// we need reader channel and token to make a new connection object
-    /// connection Node Token and BigInt value would be received during first handshake process
-    pub fn new(reader_channel: Sender<TcpReaderCommand>, token: Token) -> TcpConnection {
+    // making new TCP connection based on already created TCP Stream
+    // NOTE: we will get connection socket_token from handled connection FD
+    // NOTE: based on this, we can't use this method on Windows!!
+    pub fn new(sock: TcpStream) -> TcpConnection {
         TcpConnection {
-            socket_token: token,
-            value: BigInt::zero(),
-            token: String::new(),
-            accepted: false,
-            from_server: false,
-            api_version: 0,
-            reader_channel: reader_channel
-        }
-    }
-
-    /// This function sends command to specific Reader to write data
-    /// simulating higher level abstraction
-    #[inline(always)]
-    pub fn write_data(&self, buf: Arc<Vec<u8>>) {
-        let _ = self.reader_channel.send(TcpReaderCommand {
-            code: TcpReaderCMD::SendData,
-            token: vec![self.socket_token],
-            socket: Vec::new(),
-            data: vec![buf],
-        });
-    }
-
-    /// Write vector of data at the same time using one call
-    /// this would be usefull if we want to send batch data once
-    #[inline(always)]
-    pub fn write_batch(&self, buf: Vec<Arc<Vec<u8>>>) {
-        let _ = self.reader_channel.send(TcpReaderCommand {
-            code: TcpReaderCMD::SendData,
-            token: vec![self.socket_token],
-            socket: Vec::new(),
-            data: buf,
-        });
-    }
-
-    /// Function to send command to reader for closing connection if needed
-    #[inline(always)]
-    pub fn close(&self) {
-        let _ = self.reader_channel.send(TcpReaderCommand {
-            code: TcpReaderCMD::CloseConnection,
-            token: vec![self.socket_token],
-            socket: Vec::new(),
-            data: Vec::new(),
-        });
-    }
-}
-
-impl TcpReaderConn {
-    pub fn new(sock: TcpStream, token: Token) -> TcpReaderConn {
-        TcpReaderConn {
+            // extracting token from already opened connection file descriptor
+            // and adding +2 because we have already 0 and 1 tokens reserved, on TcpNetwork side
+            // so we don't want to make same token for multiple handles
+            socket_token: Token((sock.as_raw_fd() as usize) + 2),
             socket: sock,
-            read_data_queue: Vec::new(),
-            read_data_index: 0,
-            read_data_len: 0,
-            read_data_len_buf: Vec::new(),
-            write_queue: Vec::new(),
-            token: token
+
+            pending_data_len: 0,
+            pending_data_index: 0,
+            pending_data: Vec::new(),
+            pending_endian_buf: Vec::new(),
+
+            writae_queue: Vec::new()
         }
     }
 
-    pub fn read_data(&mut self) -> Result<Vec<Arc<Vec<u8>>>> {
-        let mut ret_data: Vec<Arc<Vec<u8>>> = Vec::new();
+    // reading API version on the very beginning and probably inside base TCP networking
+    // this will help getting API version first to define how communicate with this connection
+    #[inline(always)]
+    pub fn read_api_version(&mut self) -> Result<usize> {
+        // if we have already data defined bigger than 4 bytes
+        // then we need to clean up
+        if self.pending_endian_buf.len() >= 4 {
+            self.pending_endian_buf.clear();
+        }
 
-        // reading data until socket have pending buffer to read
-        loop {
+        let mut api_version = 0;
 
-            // if we are starting to read new data, getting first 4 bytes, for handling data length
-            if self.read_data_len == 0 {
-                // clearing length buffer for getting new data to it
-                if self.read_data_len_buf.len() >= 4 {
-                    self.read_data_len_buf.clear();
+        let pending_data_len = 4 - self.pending_endian_buf.len();
+        let mut version_buf = vec![0; pending_data_len];
+
+        match self.socket.read(&mut version_buf) {
+            Ok(length) => {
+                self.pending_endian_buf.extend(&version_buf[..length]);
+                if self.pending_endian_buf.len() < 4 {
+                    // not ready yet for converting Big Endian bytes to API version
+                    return Ok(0);
                 }
 
-                let mut len_buf: Vec<u8> = vec![0; 4 - self.read_data_len_buf.len()];
-                let read_len = match self.socket.read(&mut len_buf) {
-                    Ok(s) => {
-                        // We got EOF here
-                        if s == 0 {
-                            return Err(Error::new(ErrorKind::ConnectionReset, "Connection closed !"));
-                        }
-
-                        s
-                    },
-                    Err(e) => {
-                        // if we got WouldBlock, then this is Non Blocking socket
-                        // and data still not available for this, so it's not a connection error
-                        if e.kind() == ErrorKind::WouldBlock {
-                            return Ok(ret_data);
-                        }
-
-                        return Err(e);
-                    }
-                };
-
-                // keeping only read data
-                len_buf.truncate(read_len);
-
-                self.read_data_len_buf.append(&mut len_buf);
-
-                // if we don't have 4 bytes for data length
-                // trying to read again
-                if self.read_data_len_buf.len() != 4 {
-                    return Ok(ret_data);
-                }
-
-                let mut rdr = Cursor::new(&self.read_data_len_buf);
-                self.read_data_len =  match rdr.read_u32::<BigEndian>() {
-                    Ok(s) => s as usize,
-                    Err(_) => return Ok(ret_data)
-                };
-
-                if self.read_data_len >= MAX_MESSAGE_DATA_LEN {
-                    self.read_data_len = 0;
-                    self.read_data_index = 0;
-                    return Err(Error::new(ErrorKind::InvalidData, "Wrong Data API: Message length is bigger than MAX. message size!"));
+                let mut rdr = Cursor::new(&self.pending_endian_buf);
+                api_version = rdr.read_u32::<BigEndian>().unwrap() as usize;
+                if api_version >= MAX_API_VERSION {
+                    return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
                 }
             }
+            Err(e) => {
+                // if we got WouldBlock, then this is Non Blocking socket
+                // and data still not available for this, so it's not a connection error
+                if e.kind() == ErrorKind::WouldBlock {
+                    return Ok(0);
+                }
 
-            let mut potential_read_len = self.read_data_len - self.read_data_index;
-            // we don't want to overflow memory at once
-            // reading data part by part if it is bigger than READ_BUFFER_SIZE
-            if potential_read_len > READ_BUFFER_SIZE {
-                potential_read_len = READ_BUFFER_SIZE;
+                return Err(e);
+            }
+        }
+
+        // if we got here then we are done with API version reading
+        self.pending_endian_buf.clear();
+        Ok(api_version)
+    }
+
+    // as a first handshake we need to read connection token and prime value
+    // this will help to authenticate connection and calculate paths for sending messages
+    // if return value is "true" then we got all data, "false" if we need more data to read
+    // but socket don't have it at this moment
+    // (String, String, bool) - Token, Value, Is Done
+    #[inline(always)]
+    pub fn read_token_value(&mut self) -> Result<(String, String, bool)> {
+        let mut token_str = String::new();
+        let mut value_str = String::new();
+        if self.pending_data_len == 0 {
+            // if we have already data defined bigger than 4 bytes
+            // then we need to clean up
+            if self.pending_endian_buf.len() >= 4 {
+                self.pending_endian_buf.clear();
             }
 
-            let mut data_chunk: Vec<u8> = vec![0; potential_read_len];
-
-            let read_len = match self.socket.read(&mut data_chunk) {
-                Ok(size) => {
-                    // We got EOF here
-                    if size == 0 {
-                        return Err(Error::new(ErrorKind::ConnectionReset, "Connection closed !"));
+            let pending_data_len = 4 - self.pending_endian_buf.len();
+            let mut buffer_len_buf = vec![0; pending_data_len];
+            match self.socket.read(&mut buffer_len_buf) {
+                Ok(length) => {
+                    self.pending_endian_buf.extend(&buffer_len_buf[..length]);
+                    if self.pending_endian_buf.len() < 4 {
+                        // not ready yet for converting Big Endian bytes to API version
+                        return Ok((token_str, value_str, false));
                     }
 
-                    size
-                },
+                    let mut rdr = Cursor::new(&self.pending_endian_buf);
+                    self.pending_data_len = rdr.read_u32::<BigEndian>().unwrap() as usize;
+                    if self.pending_data_len >= MAX_NETWORK_MESSAGE_LEN {
+                        return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
+                    }
+                }
                 Err(e) => {
                     // if we got WouldBlock, then this is Non Blocking socket
                     // and data still not available for this, so it's not a connection error
                     if e.kind() == ErrorKind::WouldBlock {
-                        return Ok(ret_data);
+                        return Ok((token_str, value_str, false));
                     }
 
                     return Err(e);
                 }
-            };
-
-            // moving read index foward
-            self.read_data_index += read_len;
-            // keeping only read data
-            data_chunk.truncate(read_len);
-            // keeping data in queue
-            self.read_data_queue.push(data_chunk);
-
-            if self.read_data_index == self.read_data_len {
-                // extracting all data in read queue for this connection
-                let mut data_part: Vec<u8> = Vec::new();
-                while !self.read_data_queue.is_empty() {
-                    data_part.append(&mut self.read_data_queue.remove(0));
-                }
-
-                // keeping read data to return
-                ret_data.push(Arc::new(data_part));
-
-                // cleanning up for next data
-                self.read_data_len = 0;
-                self.read_data_index = 0;
             }
 
-            if read_len < potential_read_len {
-                break;
-            }
+            // if we got here then we are done with API version reading
+            self.pending_endian_buf.clear();
         }
 
-        Ok(ret_data)
-    }
+        let need_to_read = self.pending_data_len - self.pending_data_index;
+        let mut data_buffer = vec![0; need_to_read];
 
-    pub fn write_data(&mut self) -> Result<bool> {
-        while !self.write_queue.is_empty() {
-            // writing first part of current data, so we need to write
-            // 4 bytes data length as a BigEndian, based on our DATA API
-            if self.write_queue[0].offset == 0 {
-                let mut data_len_buf = vec![];
-                match data_len_buf.write_u32::<BigEndian>(self.write_queue[0].buf.len() as u32) {
-                    Ok(_) => {},
-                    // if we got error during converting process
-                    // of data length to BigEndian, then we have some data error and
-                    // removeing this part of a data from write queue
-                    Err(_) => {
-                        self.write_queue.remove(0);
-                        continue;
-                    }
+        match self.socket.read(&mut data_buffer) {
+            Ok(rsize) => {
+                self.pending_data.extend(&data_buffer[..rsize]);
+                self.pending_data_index += rsize;
+                if self.pending_data_index < self.pending_data_len {
+                    // we need more data to read
+                    return Ok((token_str, value_str, false));
                 }
 
-                // trying to write all 4 bytes
-                // we hope that 4 bytes is very small amount of data to wait
-                match self.socket.write_all(&mut data_len_buf) {
-                    Ok(wl) => wl,
-                    Err(_) => return Ok(false)
+                if self.pending_data_index > self.pending_data_len {
+                    return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
+                }
+
+                let total_str = String::from_utf8(self.pending_data.clone()).unwrap();
+                self.pending_data.clear();
+                self.pending_data_len = 0;
+                self.pending_data_index = 0;
+
+                let sep_index = match total_str.find(TOKEN_VALUE_SEP) {
+                    Some(i) => i,
+                    None => return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"))
                 };
 
-                // if we got here then we have written data length BigEndian
-                // so setting normal offset value
-                self.write_queue[0].offset = 0;
+                let (t, v) = total_str.split_at(sep_index);
+                token_str = String::from_str(t).unwrap();
+                value_str = String::from_str(v).unwrap();
             }
-            let b = self.write_queue[0].buf.clone();
-            // getting data based on offset
-            let (_, wd) = b.split_at(self.write_queue[0].offset);
-            let write_len = match self.socket.write(wd) {
-                Ok(wl) => wl,
-                Err(_) => return Ok(false)
-            };
+            Err(e) => {
+                // if we got WouldBlock, then this is Non Blocking socket
+                // and data still not available for this, so it's not a connection error
+                if e.kind() == ErrorKind::WouldBlock {
+                    return Ok((token_str, value_str, false));
+                }
 
-            if write_len < self.write_queue[0].buf.len() {
-                self.write_queue[0].offset += write_len;
-                return Ok(false);
+                return Err(e);
             }
-
-            // if we got here then data write is done,
-            // so we need to remove data from our queue
-            self.write_queue.remove(0);
         }
 
+        Ok((token_str, value_str, true))
+    }
+
+    // handling given data from Tcp socket read with by byte chunk
+    // so this function will split that data based on Protocol API
+    // if this function returns false as a second parameter, then we need to close connection
+    // it gave wrong API during data read process
+    #[inline(always)]
+    pub fn handle_data(&mut self, buffer: &Vec<u8>, buffer_len: usize) -> (Vec<Vec<u8>>, bool) {
+        let mut offset = 0;
+        let mut data_chunks: Vec<Vec<u8>> = Vec::new();
+        loop {
+            let mut still_have = buffer_len - offset;
+            if still_have <= 0 {
+                break;
+            }
+
+            if self.pending_data_len == 0 {
+                // cleaning up just in case
+                if self.pending_endian_buf.len() >= 4 {
+                    self.pending_endian_buf.clear();
+                }
+                // calculating how many bytes we need to read to complete 4 bytes
+                let endian_pending_len = 4 - self.pending_endian_buf.len();
+                if still_have < endian_pending_len {
+                    self.pending_endian_buf.extend(&buffer[offset..still_have]);
+                    break;
+                }
+
+                self.pending_endian_buf.extend(&buffer[offset..endian_pending_len]);
+                offset += endian_pending_len;
+                still_have = buffer_len - offset;
+
+                let mut rdr = Cursor::new(self.pending_endian_buf.clone());
+                self.pending_data_len = rdr.read_u32::<BigEndian>().unwrap() as usize;
+                self.pending_endian_buf.clear();
+
+                if self.pending_data_len > MAX_NETWORK_MESSAGE_LEN {
+                    // notifying to close connection
+                    return (vec![], false)
+                }
+
+                // allocating buffer for new data
+                self.pending_data.reserve(self.pending_data_len);
+            }
+
+            let mut copy_buffer_len = self.pending_data_len;
+            if still_have < self.pending_data_len {
+                copy_buffer_len = still_have;
+            }
+
+            // reading data to our pending data
+            self.pending_data[self.pending_data_index..(self.pending_data_index + copy_buffer_len)]
+                    .copy_from_slice(&buffer[offset..(offset + copy_buffer_len)]);
+            offset += copy_buffer_len;
+            self.pending_data_index += copy_buffer_len;
+
+            // we got all data which we wanted
+            if self.pending_data_len == self.pending_data_len {
+                // saving our data as a copy and cleanning pending data
+                data_chunks.push(self.pending_data.clone());
+                self.pending_data.clear();
+                self.pending_data_len = 0;
+                self.pending_data_index = 0;
+            }
+        }
+
+        return (data_chunks, true);
+    }
+
+    pub fn flush_write_queue(&mut self) -> Result<bool> {
         Ok(true)
     }
 }
