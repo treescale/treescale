@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
 use self::mio::tcp::{TcpListener, TcpStream};
 use self::mio::channel::{Sender, Receiver, channel};
-use network::tcp::{TcpConnValue, TcpConn, TcpReaderCommand, TcpReaderCMD, TcpReader};
+use network::tcp::{TOKEN_VALUE_SEP, TcpConnValue, TcpConn, TcpReaderCommand, TcpReaderCMD, TcpReader};
 use self::num::{BigInt};
 use std::str::FromStr;
 use std::process;
@@ -17,17 +17,19 @@ use event::*;
 use std::net::{SocketAddr};
 use std::io::{ErrorKind, Error, Result};
 use std::thread;
+use self::byteorder::{BigEndian, ByteOrder};
 
 const TCP_SERVER_TOKEN: Token = Token(0);
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
 const CURRENT_API_VERSION: u32 = 1;
 
 enum TcpNetworkCMD {
-
+    HandleClientConnection
 }
 
 pub struct TcpNetworkCommand {
-    cmd: TcpNetworkCMD
+    cmd: TcpNetworkCMD,
+    socket: Vec<TcpStream>
 }
 
 pub struct TcpNetwork {
@@ -195,7 +197,15 @@ impl TcpNetwork {
     #[inline(always)]
     fn notify(&mut self, command: &mut TcpNetworkCommand) {
         match command.cmd {
+            TcpNetworkCMD::HandleClientConnection => {
+                let socket = match command.socket.pop() {
+                    Some(c) => c,
+                    None => return
+                };
 
+                // adding connection here
+                self.add_pending_conn(socket, true);
+            }
         }
     }
 
@@ -240,7 +250,18 @@ impl TcpNetwork {
 
     #[inline(always)]
     fn write_handshake_info(&self, conn: &mut TcpConn) {
-        unimplemented!();
+        // if we got here then we made successfull connection with server
+        // now we need to write our API version
+        let mut write_data = [0; 4];
+        BigEndian::write_u32(&mut write_data, CURRENT_API_VERSION);
+        let mut send_data = Vec::new();
+        send_data.extend_from_slice(&write_data);
+        conn.writae_queue.push(send_data);
+
+        let token_value = (self.current_token.clone() + TOKEN_VALUE_SEP.to_string().as_str() + self.current_value.to_str_radix(10).as_str())
+                            .into_bytes();
+
+        conn.writae_queue.push(token_value);
     }
 
     #[inline(always)]
@@ -367,7 +388,7 @@ impl TcpNetwork {
         }
 
         match self.get_reader().send(TcpReaderCommand {
-            cmd: TcpReaderCMD::HANDLE_CONNECTION,
+            cmd: TcpReaderCMD::HandleConnection,
             conn_value: match conn.pop_conn_value() {
                 Some(c) => vec![c],
                 None => vec![]
@@ -406,13 +427,14 @@ impl TcpNetwork {
             Err(_) => return Err(Error::new(ErrorKind::AddrNotAvailable, "Unable to make address lookup"))
         };
 
-        // connecting to tcp client
-        let socket = match TcpStream::connect(&addr) {
-            Ok(s) => s,
-            Err(e) => return Err(e)
-        };
+        let _ = self.sender_channel.send(TcpNetworkCommand {
+            cmd: TcpNetworkCMD::HandleClientConnection,
+            socket: vec![match TcpStream::connect(&addr) {
+                Ok(s) => s,
+                Err(e) => return Err(e)
+            }]
+        });
 
-        self.add_pending_conn(socket, true);
         Ok(())
     }
 }

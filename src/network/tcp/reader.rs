@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use self::mio::channel::{Sender, Receiver, channel};
 
 pub enum TcpReaderCMD {
-    HANDLE_CONNECTION
+    HandleConnection
 }
 
 pub struct TcpReaderCommand {

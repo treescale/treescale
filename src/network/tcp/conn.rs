@@ -101,7 +101,7 @@ impl TcpConn {
         if self.pending_endian_buf.len() >= 4 {
             self.pending_endian_buf.clear();
         }
-        
+
         let pending_data_len = 4 - self.pending_endian_buf.len();
         let mut version_buf = vec![0; pending_data_len];
 
