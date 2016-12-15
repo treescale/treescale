@@ -96,9 +96,24 @@ impl TcpNetwork {
 
     pub fn run(&mut self, server_address: &str, readers_count: usize) {
         self.reader_channels.reserve(readers_count);
+        let mut readers: Vec<TcpReader> = vec![];
         for i in 0..readers_count {
             let mut r = TcpReader::new(self.connections.clone());
+            r.reader_index = i;
             self.reader_channels[i] = r.channel();
+            readers.push(r);
+        }
+
+        // setting channels and start reader thread
+        loop {
+            let mut r = match readers.pop() {
+                Some(r) => r,
+                None => break
+            };
+
+            // setting channels here
+            r.reader_channels = self.reader_channels.clone();
+
             thread::spawn(move || {
                 r.run();
             });

@@ -21,7 +21,8 @@ pub struct TcpConnValue {
     pub value: BigInt,
     pub api_version: usize,
     pub from_server: bool,
-    pub socket_token: Token
+    pub socket_token: Token,
+    pub reader_index: usize
 }
 
 pub struct TcpConn {
@@ -54,7 +55,8 @@ impl TcpConnValue {
             },
             api_version: 0,
             from_server: true,
-            socket_token: socket_token
+            socket_token: socket_token,
+            reader_index: 0
         }
     }
 }
