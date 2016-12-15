@@ -21,13 +21,14 @@ pub struct TcpConnValue {
     pub value: BigInt,
     pub api_version: usize,
     pub from_server: bool,
-    pub accepted: bool,
     pub socket_token: Token
 }
 
 pub struct TcpConn {
     pub socket: TcpStream,
     pub socket_token: Token,
+    pub api_version: usize,
+    pub from_server: bool,
 
     // partial data keepers for handling
     // networking data based on chunks
@@ -39,6 +40,8 @@ pub struct TcpConn {
 
     // queue for keeping writeabale data
     pub writae_queue: Vec<Vec<u8>>,
+
+    conn_value: Vec<TcpConnValue>
 }
 
 impl TcpConnValue {
@@ -51,7 +54,6 @@ impl TcpConnValue {
             },
             api_version: 0,
             from_server: true,
-            accepted: false,
             socket_token: socket_token
         }
     }
@@ -70,53 +72,67 @@ impl TcpConn {
             pending_data_index: 0,
             pending_data: vec![],
             pending_endian_buf: vec![],
-            writae_queue: vec![]
+            writae_queue: vec![],
+            api_version: 0,
+            from_server: true,
+            conn_value: Vec::new()
         }
+    }
+
+    #[inline(always)]
+    pub fn add_conn_value(&mut self, socket_token: Token, token: String, value: String) {
+        let mut tv = TcpConnValue::new(socket_token, token, value);
+        tv.api_version = self.api_version;
+        tv.from_server = self.from_server;
+        self.conn_value.push(tv);
+    }
+
+    #[inline(always)]
+    pub fn pop_conn_value(&mut self) -> Option<TcpConnValue> {
+        self.conn_value.pop()
     }
 
     // reading API version on the very beginning and probably inside base TCP networking
     // this will help getting API version first to define how communicate with this connection
     #[inline(always)]
-    pub fn read_api_version(&mut self) -> Result<usize> {
+    pub fn read_api_version(&mut self) -> Result<bool> {
         // if we have already data defined bigger than 4 bytes
         // then we need to clean up
         if self.pending_endian_buf.len() >= 4 {
             self.pending_endian_buf.clear();
         }
-
+        
         let pending_data_len = 4 - self.pending_endian_buf.len();
         let mut version_buf = vec![0; pending_data_len];
 
-        let api_version = match self.socket.read(&mut version_buf) {
+        match self.socket.read(&mut version_buf) {
             Ok(length) => {
                 self.pending_endian_buf.extend(&version_buf[..length]);
                 if self.pending_endian_buf.len() < 4 {
                     // not ready yet for converting Big Endian bytes to API version
-                    return Ok(0);
+                    return Ok(false);
                 }
 
                 let mut rdr = Cursor::new(&self.pending_endian_buf);
-                let version = rdr.read_u32::<BigEndian>().unwrap() as usize;
-                if version >= MAX_API_VERSION {
+                self.api_version = rdr.read_u32::<BigEndian>().unwrap() as usize;
+                if self.api_version >= MAX_API_VERSION {
                     return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
                 }
-
-                version
             }
             Err(e) => {
                 // if we got WouldBlock, then this is Non Blocking socket
                 // and data still not available for this, so it's not a connection error
                 if e.kind() == ErrorKind::WouldBlock {
-                    return Ok(0);
+                    return Ok(false);
                 }
 
                 return Err(e);
             }
-        };
+        }
 
         // if we got here then we are done with API version reading
         self.pending_endian_buf.clear();
-        Ok(api_version)
+        Ok(true)
     }
 
     // as a first handshake we need to read connection token and prime value
@@ -275,5 +291,11 @@ impl TcpConn {
         }
 
         return (data_chunks, true);
+    }
+
+
+    pub fn flush_write_queue(&mut self) -> Result<bool> {
+        unimplemented!();
+        Ok(true)
     }
 }
