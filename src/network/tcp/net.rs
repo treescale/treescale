@@ -98,7 +98,7 @@ impl TcpNetwork {
         self.reader_channels.reserve(readers_count);
         let mut readers: Vec<TcpReader> = vec![];
         for i in 0..readers_count {
-            let mut r = TcpReader::new(self.connections.clone());
+            let mut r = TcpReader::new(self.connections.clone(), self.event_handler_channel.clone());
             r.reader_index = i;
             self.reader_channels[i] = r.channel();
             readers.push(r);
@@ -408,7 +408,9 @@ impl TcpNetwork {
                 Some(c) => vec![c],
                 None => vec![]
             },
-            conn: vec![conn]
+            conn: vec![conn],
+            data: vec![],
+            socket_token: vec![]
         }) {
             Ok(_) => {},
             Err(_) => {
