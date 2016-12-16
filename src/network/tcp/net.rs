@@ -271,12 +271,12 @@ impl TcpNetwork {
         BigEndian::write_u32(&mut write_data, CURRENT_API_VERSION);
         let mut send_data = Vec::new();
         send_data.extend_from_slice(&write_data);
-        conn.writae_queue.push(send_data);
+        conn.add_writable_data(Arc::new(send_data));
 
         let token_value = (self.current_token.clone() + TOKEN_VALUE_SEP.to_string().as_str() + self.current_value.to_str_radix(10).as_str())
                             .into_bytes();
 
-        conn.writae_queue.push(token_value);
+        conn.add_writable_data(Arc::new(token_value));
     }
 
     #[inline(always)]

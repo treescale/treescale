@@ -7,6 +7,7 @@ use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Token, Poll};
 use self::num::{BigInt, Zero};
 use std::process;
+use std::collections::BTreeMap;
 
 pub enum TcpReaderCMD {
     HandleConnection
@@ -20,6 +21,7 @@ pub struct TcpReaderCommand {
 
 pub struct TcpReader {
     connections: Arc<RwLock<Vec<TcpConnValue>>>,
+    reader_conns: BTreeMap<Token, TcpConn>,
 
     // reader sender channels
     sender_channel: Sender<TcpReaderCommand>,
@@ -49,7 +51,8 @@ impl TcpReader {
                     process::exit(1);
                 }
             },
-            big_zero: Zero::zero()
+            big_zero: Zero::zero(),
+            reader_conns: BTreeMap::new()
         }
     }
 

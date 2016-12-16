@@ -7,10 +7,12 @@ use self::num::{BigInt, Zero};
 use self::mio::{Token};
 use self::mio::tcp::TcpStream;
 use std::os::unix::io::AsRawFd;
-use std::io::{Result, Read, Cursor, Error, ErrorKind};
+use std::io::{Result, Read, Write, Cursor, Error, ErrorKind};
 use self::byteorder::{BigEndian, ReadBytesExt};
 use network::tcp::{TOKEN_VALUE_SEP};
 use std::str::FromStr;
+use std::collections::LinkedList;
+use std::sync::Arc;
 
 const MAX_API_VERSION: usize = 500;
 // Maximum length for each message is 30mb
@@ -23,6 +25,11 @@ pub struct TcpConnValue {
     pub from_server: bool,
     pub socket_token: Token,
     pub reader_index: usize
+}
+
+pub struct WritableData {
+    buffer: Arc<Vec<u8>>,
+    offset: usize
 }
 
 pub struct TcpConn {
@@ -40,7 +47,7 @@ pub struct TcpConn {
     pending_endian_buf: Vec<u8>,
 
     // queue for keeping writeabale data
-    pub writae_queue: Vec<Vec<u8>>,
+    pub writae_queue: LinkedList<WritableData>,
 
     conn_value: Vec<TcpConnValue>
 }
@@ -74,7 +81,7 @@ impl TcpConn {
             pending_data_index: 0,
             pending_data: vec![],
             pending_endian_buf: vec![],
-            writae_queue: vec![],
+            writae_queue: LinkedList::new(),
             api_version: 0,
             from_server: true,
             conn_value: Vec::new()
@@ -92,6 +99,14 @@ impl TcpConn {
     #[inline(always)]
     pub fn pop_conn_value(&mut self) -> Option<TcpConnValue> {
         self.conn_value.pop()
+    }
+
+    #[inline(always)]
+    pub fn add_writable_data(&mut self, buffer: Arc<Vec<u8>>) {
+        self.writae_queue.push_back(WritableData {
+            offset: 0,
+            buffer: buffer
+        })
     }
 
     // reading API version on the very beginning and probably inside base TCP networking
@@ -295,9 +310,43 @@ impl TcpConn {
         return (data_chunks, true);
     }
 
-
+    // writing data to socket handle
+    // this function returns
+    // Ok(true) - if all data is sent, and false if there is a pending data
+    // Err - if we have an error on connection socket
+    #[inline(always)]
     pub fn flush_write_queue(&mut self) -> Result<bool> {
-        unimplemented!();
+        loop {
+            // removing and getting first element
+            let mut data = match self.writae_queue.pop_front() {
+                Some(b) => b,
+                None => break
+            };
+
+            match self.socket.write(&data.buffer[data.offset..data.buffer.len()]) {
+                Ok(nsize) => {
+                    data.offset += nsize;
+
+                    // if we still have a pending data in buffer
+                    // telling outside function that we have pending data
+                    if data.offset < data.buffer.len() {
+                        // adding data back to the list
+                        self.writae_queue.push_front(data);
+                        return Ok(false);
+                    }
+                }
+                Err(e) => {
+                    // if we got WouldBlock, then this is Non Blocking socket
+                    // and data still not available for this, so it's not a connection error
+                    if e.kind() == ErrorKind::WouldBlock {
+                        return Ok(false);
+                    }
+
+                    return Err(e);
+                }
+            }
+        };
+
         Ok(true)
     }
 }
