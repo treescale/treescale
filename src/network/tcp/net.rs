@@ -15,7 +15,7 @@ use std::str::FromStr;
 use std::process;
 use event::*;
 use std::net::{SocketAddr};
-use std::io::{ErrorKind, Error, Result};
+use std::io::{Result, ErrorKind, Error};
 use std::thread;
 use self::byteorder::{BigEndian, ByteOrder};
 
@@ -410,7 +410,9 @@ impl TcpNetwork {
             },
             conn: vec![conn],
             data: vec![],
-            socket_token: vec![]
+            socket_token: vec![],
+            tokens: vec![],
+            event: vec![]
         }) {
             Ok(_) => {},
             Err(_) => {
@@ -453,5 +455,21 @@ impl TcpNetwork {
         });
 
         Ok(())
+    }
+
+    // emit event to given path from Event object and/or to provided connection tokens
+    // if we are using API Clients then they wouldn't have Prime values
+    pub fn emit(&mut self, ev: Event, tokens: Vec<String>) -> bool {
+        let _ = self.get_reader().send(TcpReaderCommand {
+            cmd: TcpReaderCMD::WriteDataWithPath,
+            conn: vec![],
+            conn_value: vec![],
+            data: vec![],
+            socket_token: vec![],
+            event: vec![ev],
+            tokens: tokens
+        });
+
+        true
     }
 }

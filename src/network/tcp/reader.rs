@@ -17,7 +17,8 @@ const READER_BUFFER_SIZE: usize = 65000;
 
 pub enum TcpReaderCMD {
     HandleConnection,
-    WriteDataToConn
+    WriteDataToConn,
+    WriteDataWithPath
 }
 
 pub struct TcpReaderCommand {
@@ -25,7 +26,9 @@ pub struct TcpReaderCommand {
     pub conn_value: Vec<TcpConnValue>,
     pub conn: Vec<TcpConn>,
     pub data: Vec<Arc<Vec<u8>>>,
-    pub socket_token: Vec<Token>
+    pub socket_token: Vec<Token>,
+    pub tokens: Vec<String>,
+    pub event: Vec<Event>
 }
 
 pub struct TcpReader {
@@ -198,6 +201,23 @@ impl TcpReader {
                     }
                 }
             }
+
+            TcpReaderCMD::WriteDataWithPath => {
+                let mut ev = match command.event.pop() {
+                    Some(e) => e,
+                    None => return
+                };
+
+                let path = match BigInt::from_str(ev.path.as_str()) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!("Unable to convert path from event, to BigInt for handline Write By path command -> {}", e);
+                        return;
+                    }
+                };
+
+                self.write_by_path(path, &mut ev);
+            }
         }
     }
 
@@ -356,7 +376,7 @@ impl TcpReader {
             }
         };
 
-        let mut path = match BigInt::from_str(ev.path.as_str()) {
+        let path = match BigInt::from_str(ev.path.as_str()) {
             Ok(p) => p,
             Err(e) => {
                 warn!("Error while trying to convert parsed Event Path to BigInt path -> {}", e);
@@ -367,57 +387,67 @@ impl TcpReader {
         // if path is 0
         // we don't need to check path combination
         if path != self.big_zero {
-            let readers_len = self.reader_channels.len();
-            // we will save connection token and reader index
-            let mut conn_tokens: Vec<Vec<Token>> = Vec::with_capacity(readers_len);
-
-            // locking connections as readable for checking
-            // path information from parsed event
-            {
-                let conns_v = match self.connections.read() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        warn!("Unable to set readable lock for global connections list -> {}", e);
-                        return;
-                    }
-                };
-
-                for c in conns_v.iter() {
-                    // if connection is dividable to path then keeping divided path
-                    // and saving connection token for later writing to that connection
-                    if path.clone() % c.value.clone() == self.big_zero {
-                        path = path.clone() / c.value.clone();
-                        conn_tokens[c.reader_index].push(c.socket_token);
-                    }
-                }
-            }
-
-            // setting final path
-            ev.path = path.to_str_radix(10);
-            let send_data = Arc::new(match ev.to_raw() {
-                Ok(d) => d,
-                Err(e) => {
-                    warn!("Unable to parse event to data with final path -> {}", e);
-                    return;
-                }
-            });
-
-            for i in 0..readers_len {
-                // sending async command to write data for this connection
-                let _ = self.reader_channels[i].send(TcpReaderCommand {
-                    cmd: TcpReaderCMD::WriteDataToConn,
-                    conn_value: vec![],
-                    conn: vec![],
-                    data: vec![send_data.clone()],
-                    socket_token: conn_tokens.remove(i)
-                });
-            }
+            self.write_by_path(path, &mut ev);
         }
 
         if !ev.name.is_empty() {
             let _ = self.event_handler_channel.send(EventHandlerCommand {
                 cmd: EventHandlerCMD::TriggerFromEvent,
                 event: Arc::new(ev)
+            });
+        }
+    }
+
+    fn write_by_path(&self, send_path: BigInt, ev: &mut Event) {
+        let readers_len = self.reader_channels.len();
+        // we will save connection token and reader index
+        let mut conn_tokens: Vec<Vec<Token>> = Vec::with_capacity(readers_len);
+        let mut path = send_path;
+        // locking connections as readable for checking
+        // path information from parsed event
+        {
+            let conns_v = match self.connections.read() {
+                Ok(c) => c,
+                Err(e) => {
+                    warn!("Unable to set readable lock for global connections list -> {}", e);
+                    return;
+                }
+            };
+
+            for c in conns_v.iter() {
+                if c.value == self.big_zero {
+                    continue
+                }
+
+                // if connection is dividable to path then keeping divided path
+                // and saving connection token for later writing to that connection
+                if path.clone() % c.value.clone() == self.big_zero {
+                    path = path.clone() / c.value.clone();
+                    conn_tokens[c.reader_index].push(c.socket_token);
+                }
+            }
+        }
+
+        // setting final path
+        ev.path = path.to_str_radix(10);
+        let send_data = Arc::new(match ev.to_raw() {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("Unable to parse event to data with final path -> {}", e);
+                return;
+            }
+        });
+
+        for i in 0..readers_len {
+            // sending async command to write data for this connection
+            let _ = self.reader_channels[i].send(TcpReaderCommand {
+                cmd: TcpReaderCMD::WriteDataToConn,
+                conn_value: vec![],
+                conn: vec![],
+                data: vec![send_data.clone()],
+                socket_token: conn_tokens.remove(i),
+                tokens: vec![],
+                event: vec![]
             });
         }
     }
