@@ -23,7 +23,7 @@ pub struct EventHandlerCommand {
 const EVENT_CHAN_TOKEN: Token = Token(1);
 
 pub struct EventHandler {
-    callbacks: BTreeMap<String, Vec<Box<Fn(Arc<Event>)>>>,
+    callbacks: BTreeMap<String, Vec<Box<Fn(Arc<Event>, &mut Node)>>>,
     receiver_channel: Receiver<EventHandlerCommand>,
     sender_chan: Sender<EventHandlerCommand>,
 }
@@ -46,7 +46,7 @@ impl EventHandler {
         self.sender_chan.clone()
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&self, node: &mut Node) {
         let poll = match Poll::new() {
             Ok(p) => p,
             Err(e) => {
@@ -77,7 +77,7 @@ impl EventHandler {
                         match self.receiver_channel.try_recv() {
                             Ok(cmd) => {
                                 let mut c = cmd;
-                                self.notify(&mut c);
+                                self.notify(&mut c, node);
                             }
                             // if we got error, then data is unavailable
                             // and breaking receive loop
@@ -91,13 +91,13 @@ impl EventHandler {
     }
 
     #[inline(always)]
-    fn notify(&mut self, command: &mut EventHandlerCommand) {
+    fn notify(&self, command: &mut EventHandlerCommand, node: &mut Node) {
         match command.cmd {
             EventHandlerCMD::TriggerFromEvent => {
                 match self.callbacks.get(&command.event.name) {
                     Some(cbs) => {
                         for i in 0..cbs.len() {
-                            cbs[i](command.event.clone());
+                            cbs[i](command.event.clone(), node);
                         }
                     }
                     None => {}
@@ -107,7 +107,7 @@ impl EventHandler {
     }
 
     // setting event here
-    pub fn on(&mut self, name: &str, callback: Box<Fn(Arc<Event>)>) {
+    pub fn on(&mut self, name: &str, callback: Box<Fn(Arc<Event>, &mut Node)>) {
         let mut name_str = String::from_str(name).unwrap();
         if !self.callbacks.contains_key(&mut name_str) {
             self.callbacks.insert(name_str.clone(), Vec::new());

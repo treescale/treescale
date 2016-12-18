@@ -33,22 +33,23 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args[1] == String::from("t1") {
         let mut n = Node::new("test1", "2", "0.0.0.0:8888");
-        n.on_pending_conn(Box::new(|ev: Arc<Event>| {
+        n.on_pending_conn(Box::new(|ev: Arc<Event>, node: &mut Node| {
             println!("Got Pending Connection from -> {}", ev.from);
+            node.accept(ev.from.clone());
         }));
 
-        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>| {
+        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, _: &mut Node| {
             println!("New Connection -> {}", ev.from);
         }));
 
         n.run();
     } else {
         let mut n = Node::new("test2", "5", "0.0.0.0:8889");
-        n.on_pending_conn(Box::new(|ev: Arc<Event>| {
+        n.on_pending_conn(Box::new(|ev: Arc<Event>, _: &mut Node| {
             println!("Got Pending Connection from -> {}", ev.from);
         }));
 
-        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>| {
+        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, _: &mut Node| {
             println!("New Connection -> {}", ev.from);
         }));
 
