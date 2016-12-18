@@ -2,7 +2,7 @@ extern crate mio;
 extern crate num;
 
 use network::tcp::{TcpConnValue, TcpConn};
-use event::{EventHandlerCommand, Event, EventHandlerCMD, EVENT_ON_CONNECTION_CLOSE};
+use event::{EventHandlerCommand, Event, EventHandlerCMD, EVENT_ON_CONNECTION_CLOSE, EVENT_ON_CONNECTION};
 use std::sync::{Arc, RwLock};
 use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
@@ -35,6 +35,10 @@ pub struct TcpReader {
     connections: Arc<RwLock<Vec<TcpConnValue>>>,
     reader_conns: BTreeMap<Token, TcpConn>,
 
+    // prime value for current node
+    // we will use this for checking event trigger
+    current_value: BigInt,
+
     // reader sender channels
     sender_channel: Sender<TcpReaderCommand>,
     receiver_channel: Receiver<TcpReaderCommand>,
@@ -54,7 +58,7 @@ pub struct TcpReader {
 }
 
 impl TcpReader {
-    pub fn new(connections: Arc<RwLock<Vec<TcpConnValue>>>, event_handler: Sender<EventHandlerCommand>) -> TcpReader {
+    pub fn new(connections: Arc<RwLock<Vec<TcpConnValue>>>, event_handler: Sender<EventHandlerCommand>, value: BigInt) -> TcpReader {
         let (s, r) = channel::<TcpReaderCommand>();
         TcpReader {
             connections: connections,
@@ -72,7 +76,8 @@ impl TcpReader {
             big_zero: Zero::zero(),
             reader_conns: BTreeMap::new(),
             readable_buffer: Vec::with_capacity(READER_BUFFER_SIZE),
-            event_handler_channel: event_handler
+            event_handler_channel: event_handler,
+            current_value: value
         }
     }
 
@@ -150,6 +155,9 @@ impl TcpReader {
                     None => return
                 };
 
+                // keeping this for event trigger
+                let conn_value_token = conn_value.token.clone();
+
                 match self.poll.register(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
                     Ok(_) => {},
                     Err(e) => {
@@ -173,6 +181,19 @@ impl TcpReader {
 
                 // inserting connection to the list of current reader
                 self.reader_conns.insert(conn.socket_token, conn);
+
+                // triggering event about new accepted connection
+                let _ = self.event_handler_channel.send(EventHandlerCommand {
+                    cmd: EventHandlerCMD::TriggerFromEvent,
+                    event: Arc::new(Event {
+                        name: String::from(EVENT_ON_CONNECTION),
+                        from: conn_value_token,
+                        data: String::new(),
+                        path: String::new(),
+                        public_data: String::new(),
+                        target: String::new()
+                    })
+                });
             }
 
             TcpReaderCMD::WriteDataToConn => {
@@ -208,7 +229,7 @@ impl TcpReader {
                     None => return
                 };
 
-                let path = match BigInt::from_str(ev.path.as_str()) {
+                let mut path = match BigInt::from_str(ev.path.as_str()) {
                     Ok(p) => p,
                     Err(e) => {
                         warn!("Unable to convert path from event, to BigInt for handline Write By path command -> {}", e);
@@ -216,7 +237,22 @@ impl TcpReader {
                     }
                 };
 
+                let mut need_to_trigger = false;
+                // if event path is dividable to current node value
+                // then we need to trigger event
+                if path.clone() % self.current_value.clone() == self.big_zero {
+                    path = path.clone() / self.current_value.clone();
+                    need_to_trigger = true;
+                }
+
                 self.write_by_path(path, &mut ev);
+
+                if need_to_trigger {
+                    let _ = self.event_handler_channel.send(EventHandlerCommand {
+                        cmd: EventHandlerCMD::TriggerFromEvent,
+                        event: Arc::new(ev)
+                    });
+                }
             }
         }
     }

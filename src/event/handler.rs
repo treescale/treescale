@@ -9,6 +9,7 @@ use std::str::FromStr;
 use self::mio::channel::{channel, Receiver, Sender};
 use self::mio::{Poll, Token, Ready, PollOpt, Events};
 use std::process::exit;
+use node::Node;
 
 pub enum EventHandlerCMD {
     TriggerFromEvent
@@ -33,11 +34,19 @@ impl EventHandler {
         EventHandler {
             callbacks: BTreeMap::new(),
             receiver_channel: r,
-            sender_chan: s
+            sender_chan: s,
         }
     }
 
-    pub fn start(&mut self) {
+    pub fn set_node(&mut self) {
+
+    }
+
+    pub fn channel(&self) -> Sender<EventHandlerCommand> {
+        self.sender_chan.clone()
+    }
+
+    pub fn run(&mut self) {
         let poll = match Poll::new() {
             Ok(p) => p,
             Err(e) => {

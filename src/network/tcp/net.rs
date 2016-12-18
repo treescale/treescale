@@ -15,7 +15,7 @@ use std::str::FromStr;
 use std::process;
 use event::*;
 use std::net::{SocketAddr};
-use std::io::{Result, ErrorKind, Error};
+use std::io::{ErrorKind};
 use std::thread;
 use self::byteorder::{BigEndian, ByteOrder};
 
@@ -23,13 +23,15 @@ const TCP_SERVER_TOKEN: Token = Token(0);
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
 const CURRENT_API_VERSION: u32 = 1;
 
-enum TcpNetworkCMD {
-    HandleClientConnection
+pub enum TcpNetworkCMD {
+    HandleClientConnection,
+    AcceptPendingConnection
 }
 
 pub struct TcpNetworkCommand {
-    cmd: TcpNetworkCMD,
-    socket: Vec<TcpStream>
+    pub cmd: TcpNetworkCMD,
+    pub socket: Vec<TcpStream>,
+    pub token: String
 }
 
 pub struct TcpNetwork {
@@ -43,7 +45,6 @@ pub struct TcpNetwork {
     // token for current networking/node
     current_token: String,
     current_value: BigInt,
-    current_value_square: BigInt,
 
     sender_channel: Sender<TcpNetworkCommand>,
     receiver_channel: Receiver<TcpNetworkCommand>,
@@ -74,7 +75,6 @@ impl TcpNetwork {
             pending_connections: BTreeMap::new(),
             current_token: token,
             current_value: v.clone(),
-            current_value_square: v.clone() * v.clone(),
             sender_channel: s,
             receiver_channel: r,
             event_handler_channel: event_chan,
@@ -95,12 +95,11 @@ impl TcpNetwork {
     }
 
     pub fn run(&mut self, server_address: &str, readers_count: usize) {
-        self.reader_channels.reserve(readers_count);
         let mut readers: Vec<TcpReader> = vec![];
         for i in 0..readers_count {
-            let mut r = TcpReader::new(self.connections.clone(), self.event_handler_channel.clone());
+            let mut r = TcpReader::new(self.connections.clone(), self.event_handler_channel.clone(), self.current_value.clone());
             r.reader_index = i;
-            self.reader_channels[i] = r.channel();
+            self.reader_channels.push(r.channel());
             readers.push(r);
         }
 
@@ -221,6 +220,21 @@ impl TcpNetwork {
                 // adding connection here
                 self.add_pending_conn(socket, true);
             }
+
+            TcpNetworkCMD::AcceptPendingConnection => {
+                let mut conn_token = Token(0);
+                for (t, conn) in self.pending_connections.iter() {
+                    if conn.conn_value.len() > 0
+                        && conn.conn_value[0].token == command.token {
+                            conn_token = *t;
+                            break;
+                        }
+                }
+
+                if conn_token != Token(0) {
+                    self.accept_conn(conn_token);
+                }
+            }
         }
     }
 
@@ -245,7 +259,7 @@ impl TcpNetwork {
         conn.from_server = !from_client;
         let mut ready_state = Ready::readable();
         if from_client {
-            ready_state = ready_state | Ready::writable();
+            ready_state = Ready::readable() | Ready::writable();
             self.write_handshake_info(&mut conn);
         }
 
@@ -271,12 +285,16 @@ impl TcpNetwork {
         BigEndian::write_u32(&mut write_data, CURRENT_API_VERSION);
         let mut send_data = Vec::new();
         send_data.extend_from_slice(&write_data);
-        conn.add_writable_data(Arc::new(send_data));
 
         let token_value = (self.current_token.clone() + TOKEN_VALUE_SEP.to_string().as_str() + self.current_value.to_str_radix(10).as_str())
                             .into_bytes();
 
-        conn.add_writable_data(Arc::new(token_value));
+        // writing totoal data length
+        BigEndian::write_u32(&mut write_data, token_value.len() as u32);
+        send_data.extend_from_slice(&write_data);
+        send_data.extend_from_slice(token_value.as_slice());
+
+        conn.add_writable_data(Arc::new(send_data));
     }
 
     #[inline(always)]
@@ -314,6 +332,7 @@ impl TcpNetwork {
         let (conn_token, conn_value, is_done) = match conn.read_token_value() {
             Ok((t,v,d)) => (t,v,d),
             Err(e) => {
+                println!("{}", "ERRR");
                 warn!("Error while reading connection token, closing connection -> {}", e);
                 return;
             }
@@ -437,24 +456,6 @@ impl TcpNetwork {
     fn close_connection(&mut self, token: Token) {
         // deleting connection from our map, it would be deleted automatically
         self.pending_connections.remove(&token);
-    }
-
-    pub fn connect(&mut self, address: &str) -> Result<()> {
-        // making TcpListener for making server socket
-        let addr = match SocketAddr::from_str(address) {
-            Ok(a) => a,
-            Err(_) => return Err(Error::new(ErrorKind::AddrNotAvailable, "Unable to make address lookup"))
-        };
-
-        let _ = self.sender_channel.send(TcpNetworkCommand {
-            cmd: TcpNetworkCMD::HandleClientConnection,
-            socket: vec![match TcpStream::connect(&addr) {
-                Ok(s) => s,
-                Err(e) => return Err(e)
-            }]
-        });
-
-        Ok(())
     }
 
     // emit event to given path from Event object and/or to provided connection tokens

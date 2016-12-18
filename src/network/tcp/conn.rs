@@ -49,7 +49,7 @@ pub struct TcpConn {
     // queue for keeping writeabale data
     pub writae_queue: LinkedList<WritableData>,
 
-    conn_value: Vec<TcpConnValue>
+    pub conn_value: Vec<TcpConnValue>
 }
 
 impl TcpConnValue {
@@ -181,7 +181,7 @@ impl TcpConn {
                     let mut rdr = Cursor::new(&self.pending_endian_buf);
                     self.pending_data_len = rdr.read_u32::<BigEndian>().unwrap() as usize;
                     if self.pending_data_len >= MAX_NETWORK_MESSAGE_LEN {
-                        return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
+                        return Err(Error::new(ErrorKind::InvalidData, "Messager Length is larger than expected!"));
                     }
                 }
                 Err(e) => {
@@ -212,7 +212,7 @@ impl TcpConn {
                 }
 
                 if self.pending_data_index > self.pending_data_len {
-                    return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
+                    return Err(Error::new(ErrorKind::InvalidData, "Wrong network message offset!"));
                 }
 
                 let total_str = String::from_utf8(self.pending_data.clone()).unwrap();
@@ -222,7 +222,7 @@ impl TcpConn {
 
                 let sep_index = match total_str.find(TOKEN_VALUE_SEP) {
                     Some(i) => i,
-                    None => return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"))
+                    None => return Err(Error::new(ErrorKind::InvalidData, "Wrong token->value combination"))
                 };
 
                 let (t, v) = total_str.split_at(sep_index);
