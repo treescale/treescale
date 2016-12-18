@@ -227,7 +227,7 @@ impl TcpConn {
 
                 let (t, v) = total_str.split_at(sep_index);
                 token_str = String::from_str(t).unwrap();
-                value_str = String::from_str(v).unwrap();
+                value_str = String::from_str(&v[1..]).unwrap();
             }
             Err(e) => {
                 // if we got WouldBlock, then this is Non Blocking socket
@@ -265,7 +265,7 @@ impl TcpConn {
                 // calculating how many bytes we need to read to complete 4 bytes
                 let endian_pending_len = 4 - self.pending_endian_buf.len();
                 if still_have < endian_pending_len {
-                    self.pending_endian_buf.extend(&buffer[offset..still_have]);
+                    self.pending_endian_buf.extend(&buffer[offset..offset + still_have]);
                     break;
                 }
 
@@ -283,7 +283,7 @@ impl TcpConn {
                 }
 
                 // allocating buffer for new data
-                self.pending_data.reserve(self.pending_data_len);
+                self.pending_data = vec![0; self.pending_data_len];
             }
 
             let mut copy_buffer_len = self.pending_data_len;
@@ -306,7 +306,7 @@ impl TcpConn {
                 self.pending_data_index = 0;
             }
         }
-
+        
         return (data_chunks, true);
     }
 

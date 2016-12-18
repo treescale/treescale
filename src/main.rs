@@ -3,7 +3,7 @@ extern crate log;
 mod network;
 mod event;
 mod node;
-use event::{Event, EVENT_ON_CONNECTION};
+use event::{Event, EVENT_ON_CONNECTION, EVENT_ON_CONNECTION_CLOSE};
 use node::Node;
 use std::sync::Arc;
 use std::env;
@@ -24,6 +24,8 @@ impl log::Log for SimpleLogger {
     }
 }
 
+static BIG_DATA: &'static str = "sdfgfdgdfghdfhdfghdfghgjshfdjshd sjhdg jhsdfghskdfg kjshdgkj skjdg kjs dgkjsh dkjgf skjdhg kjsh dfkgj s kjdgh kjshdfg kjsh kdjgf ksjdhfg kjdf";
+
 fn main() {
     let _ = log::set_logger(|max_log_level| {
         max_log_level.set(LogLevelFilter::Info);
@@ -38,8 +40,24 @@ fn main() {
             node.accept(ev.from.clone());
         }));
 
-        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, _: &mut Node| {
+        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, node: &mut Node| {
             println!("New Connection -> {}", ev.from);
+            let mut big_str = String::new();
+            for i in 0..300 {
+                big_str.push_str(BIG_DATA);
+            }
+
+            node.emit("test_event", "25", big_str.as_str());
+        }));
+
+        n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
+            // println!("Event -> {}", ev.data.len());
+
+            node.emit("test_event", "25", ev.data.as_str());
+        }));
+
+        n.on(EVENT_ON_CONNECTION_CLOSE, Box::new(|ev: Arc<Event>, _: &mut Node| {
+            println!("Close Conn -> {}", ev.from);
         }));
 
         n.run();
@@ -51,6 +69,16 @@ fn main() {
 
         n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, _: &mut Node| {
             println!("New Connection -> {}", ev.from);
+        }));
+
+        n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
+            // println!("Event -> {}", ev.data.len());
+
+            node.emit("test_event", "4", ev.data.as_str());
+        }));
+
+        n.on(EVENT_ON_CONNECTION_CLOSE, Box::new(|ev: Arc<Event>, _: &mut Node| {
+            println!("Close Conn -> {}", ev.from);
         }));
 
         match n.connect("127.0.0.1:8888") {

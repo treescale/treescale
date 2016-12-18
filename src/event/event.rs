@@ -2,7 +2,7 @@
 extern crate byteorder;
 
 use std::io::{Result, Cursor, Error, ErrorKind};
-use self::byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use self::byteorder::{BigEndian, ReadBytesExt, ByteOrder};
 use std::iter::FromIterator;
 
 pub struct Event {
@@ -17,55 +17,67 @@ pub struct Event {
 impl Event {
     pub fn from_raw(data: &Vec<u8>) -> Result<Event> {
         let mut offset = 0 as usize;
+        let mut ev = Event{
+            path: String::new(),
+            name: String::new(),
+            from: String::new(),
+            target: String::new(),
+            public_data: String::new(),
+            data: String::new(),
+        };
 
-        Ok( Event {
-            path: match Event::read_field(&data, offset) {
-                Ok((f, off)) => {
-                    offset += off;
-                    f
-                }
-                Err(e) => return Err(e)
-            },
-            name: match Event::read_field(&data, offset) {
-                Ok((f, off)) => {
-                    offset += off;
-                    f
-                }
-                Err(e) => return Err(e)
-            },
-
-            from: match Event::read_field(&data, offset) {
-                Ok((f, off)) => {
-                    offset += off;
-                    f
-                }
-                Err(e) => return Err(e)
-            },
-            target: match Event::read_field(&data, offset) {
-                Ok((f, off)) => {
-                    offset += off;
-                    f
-                }
-                Err(e) => return Err(e)
-            },
-            public_data: match Event::read_field(&data, offset) {
-                Ok((f, off)) => {
-                    offset += off;
-                    f
-                }
-                Err(e) => return Err(e)
-            },
-            data: match Event::read_field(&data, offset) {
-                Ok((f, _)) => {
-                    f
-                }
-                Err(e) => return Err(e)
+        ev.path = match Event::read_field(&data, offset) {
+            Ok((f, off)) => {
+                offset = off;
+                f
             }
-        })
+            Err(e) => return Err(e)
+        };
+
+        ev.name = match Event::read_field(&data, offset) {
+            Ok((f, off)) => {
+                offset = off;
+                f
+            }
+            Err(e) => return Err(e)
+        };
+
+        ev.from = match Event::read_field(&data, offset) {
+            Ok((f, off)) => {
+                offset = off;
+                f
+            }
+            Err(e) => return Err(e)
+        };
+
+        ev.target = match Event::read_field(&data, offset) {
+            Ok((f, off)) => {
+                offset = off;
+                f
+            }
+            Err(e) => return Err(e)
+        };
+
+        ev.public_data = match Event::read_field(&data, offset) {
+            Ok((f, off)) => {
+                offset = off;
+                f
+            }
+            Err(e) => return Err(e)
+        };
+
+        ev.data = match Event::read_field(&data, offset) {
+            Ok((f, _)) => {
+                f
+            }
+            Err(e) => return Err(e)
+        };
+
+        Ok(ev)
     }
 
     pub fn to_raw(&self) -> Result<Vec<u8>> {
-        let (path_len, name_len, from_len, target_len, public_data_len, data_len)
+        let (path_len, name_len, from_len, target_len, public_data_len, event_data_len)
                     = (self.path.len(), self.name.len(), self.from.len(), self.target.len(), self.public_data.len(), self.data.len());
 
         // calculating total data length
@@ -75,17 +87,14 @@ impl Event {
             + from_len + 4
             + target_len + 4
             + public_data_len + 4
-            + data_len + 4;
+            + event_data_len + 4;
 
         let mut buf: Vec<u8> = vec![0; data_len];
         let mut len_buf: Vec<u8> = vec![0; 4];
         let mut offset = 0;
 
         // writing full data length only
-        match len_buf.write_u32::<BigEndian>((data_len - 4) as u32) {
-            Ok(_) => {},
-            Err(_) => return Err(Error::new(ErrorKind::InvalidData, "Unable to write data length"))
-        }
+        BigEndian::write_u32(&mut len_buf, (data_len - 4) as u32);
         buf[0..4].copy_from_slice(len_buf.as_slice());
         offset += 4;
 
@@ -125,13 +134,13 @@ impl Event {
         offset += 4 + public_data_len;
 
         // setting "data" data here
-        match Event::write_field(&mut len_buf, &mut buf, self.data.as_bytes(), data_len, offset) {
+        match Event::write_field(&mut len_buf, &mut buf, self.data.as_bytes(), event_data_len, offset) {
             Ok(_) => {},
             Err(e) => return Err(e)
         }
         // offset += 4 + data_len;
 
-        Ok(Vec::new())
+        Ok(buf)
     }
 
     #[inline(always)]
@@ -150,8 +159,8 @@ impl Event {
             return Err(Error::new(ErrorKind::InvalidData, "error decoding given data"));
         }
 
-        Ok(match String::from_utf8(Vec::from_iter(data[offset..endian_len].iter().cloned())) {
-            Ok(s) => (s, offset),
+        Ok(match String::from_utf8(Vec::from_iter(data[offset..offset + endian_len].iter().cloned())) {
+            Ok(s) => (s, offset + endian_len),
             Err(_) => return Err(Error::new(ErrorKind::InvalidData, "Unable to convert data to string"))
         })
     }
@@ -159,10 +168,7 @@ impl Event {
     #[inline(always)]
     fn write_field(len_buf: &mut Vec<u8>, buf: &mut Vec<u8>, data: &[u8], filed_len: usize, offset: usize) -> Result<()> {
         // Writing Path
-        match len_buf.write_u32::<BigEndian>((filed_len) as u32) {
-            Ok(_) => {},
-            Err(_) => return Err(Error::new(ErrorKind::InvalidData, "Unable to write data length"))
-        }
+        BigEndian::write_u32(len_buf, (filed_len) as u32);
         let mut off = offset;
         buf[off..off + 4].copy_from_slice(len_buf.as_slice());
         off += 4;

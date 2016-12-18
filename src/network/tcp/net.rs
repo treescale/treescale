@@ -25,13 +25,15 @@ const CURRENT_API_VERSION: u32 = 1;
 
 pub enum TcpNetworkCMD {
     HandleClientConnection,
-    AcceptPendingConnection
+    AcceptPendingConnection,
+    EmitEvent
 }
 
 pub struct TcpNetworkCommand {
     pub cmd: TcpNetworkCMD,
     pub socket: Vec<TcpStream>,
-    pub token: String
+    pub token: Vec<String>,
+    pub event: Vec<Event>
 }
 
 pub struct TcpNetwork {
@@ -180,7 +182,7 @@ impl TcpNetwork {
 
                 let kind = event.kind();
 
-                if kind == Ready::error() || kind == Ready::hup() {
+                if kind.is_error() || kind.is_hup() {
                     if token == TCP_SERVER_TOKEN {
                         warn!("Got Error for TCP server, exiting Application");
                         process::exit(1);
@@ -190,7 +192,7 @@ impl TcpNetwork {
                     continue;
                 }
 
-                if kind == Ready::readable() {
+                if kind.is_readable() {
                     if token == TCP_SERVER_TOKEN {
                         self.acceptable(&server_socket);
                     } else {
@@ -199,7 +201,7 @@ impl TcpNetwork {
                     continue;
                 }
 
-                if kind == Ready::writable() {
+                if kind.is_writable() {
                     self.writable(token);
                     continue;
                 }
@@ -225,7 +227,7 @@ impl TcpNetwork {
                 let mut conn_token = Token(0);
                 for (t, conn) in self.pending_connections.iter() {
                     if conn.conn_value.len() > 0
-                        && conn.conn_value[0].token == command.token {
+                        && conn.conn_value[0].token == command.token[0] {
                             conn_token = *t;
                             break;
                         }
@@ -234,6 +236,15 @@ impl TcpNetwork {
                 if conn_token != Token(0) {
                     self.accept_conn(conn_token);
                 }
+            }
+
+            TcpNetworkCMD::EmitEvent => {
+                let ev = match command.event.pop() {
+                    Some(e) => e,
+                    None => return
+                };
+
+                self.emit(ev, command.token.clone());
             }
         }
     }
@@ -332,7 +343,6 @@ impl TcpNetwork {
         let (conn_token, conn_value, is_done) = match conn.read_token_value() {
             Ok((t,v,d)) => (t,v,d),
             Err(e) => {
-                println!("{}", "ERRR");
                 warn!("Error while reading connection token, closing connection -> {}", e);
                 return;
             }
@@ -362,18 +372,18 @@ impl TcpNetwork {
                         public_data: String::new()
                     })
                 });
+
+                // if we got here then all operations done
+                // adding back connection for keeping it
+                self.pending_connections.insert(token, conn);
             }
             else {
                 // if this connection is from client, then we don't need to check it using User space code
                 // just accepting connection after we have server node information
-
+                self.pending_connections.insert(token, conn);
                 self.accept_conn(token);
             }
         }
-
-        // if we got here then all operations done
-        // adding back connection for keeping it
-        self.pending_connections.insert(token, conn);
     }
 
     #[inline(always)]
@@ -420,6 +430,9 @@ impl TcpNetwork {
         if conn.from_server {
             self.write_handshake_info(&mut conn);
         }
+
+        // deregistering socket from this loop
+        let _ = self.poll.deregister(&conn.socket);
 
         match self.get_reader().send(TcpReaderCommand {
             cmd: TcpReaderCMD::HandleConnection,

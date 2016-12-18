@@ -75,7 +75,7 @@ impl TcpReader {
             },
             big_zero: Zero::zero(),
             reader_conns: BTreeMap::new(),
-            readable_buffer: Vec::with_capacity(READER_BUFFER_SIZE),
+            readable_buffer: vec![0; READER_BUFFER_SIZE],
             event_handler_channel: event_handler,
             current_value: value
         }
@@ -122,18 +122,18 @@ impl TcpReader {
 
                 let kind = event.kind();
 
-                if kind == Ready::error() || kind == Ready::hup() {
+                if kind.is_error() || kind.is_hup() {
                     // if this error on connection, then we need to close it
                     self.close_connection(token);
                     continue;
                 }
 
-                if kind == Ready::readable() {
+                if kind.is_readable() {
                     self.readable(token);
                     continue;
                 }
 
-                if kind == Ready::writable() {
+                if kind.is_writable() {
                     self.writable(token);
                     continue;
                 }
@@ -158,7 +158,7 @@ impl TcpReader {
                 // keeping this for event trigger
                 let conn_value_token = conn_value.token.clone();
 
-                match self.poll.register(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
+                match self.poll.reregister(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
                     Ok(_) => {},
                     Err(e) => {
                         warn!("Unable to register connection from reader, closing it -> {}", e);
@@ -269,11 +269,16 @@ impl TcpReader {
 
             match conn.socket.read(&mut self.readable_buffer) {
                 Ok(rsize) => {
-                    let (r_data, need_to_close) = conn.handle_data(&mut self.readable_buffer, rsize);
-                    if !need_to_close {
-                        final_data = r_data;
-                    } else {
+                    // we got EOF or not
+                    if rsize == 0 {
                         close_conn = true;
+                    } else {
+                        let (r_data, keep_connection) = conn.handle_data(&mut self.readable_buffer, rsize);
+                        if keep_connection {
+                            final_data = r_data;
+                        } else {
+                            close_conn = true;
+                        }
                     }
                 }
                 Err(e) => {
@@ -437,7 +442,11 @@ impl TcpReader {
     fn write_by_path(&self, send_path: BigInt, ev: &mut Event) {
         let readers_len = self.reader_channels.len();
         // we will save connection token and reader index
-        let mut conn_tokens: Vec<Vec<Token>> = Vec::with_capacity(readers_len);
+        let mut conn_tokens: Vec<Vec<Token>> = vec![];
+        for _ in 0..readers_len {
+            conn_tokens.push(vec![]);
+        }
+
         let mut path = send_path;
         // locking connections as readable for checking
         // path information from parsed event
@@ -475,13 +484,22 @@ impl TcpReader {
         });
 
         for i in 0..readers_len {
+            if conn_tokens.len() == 0 {
+                break;
+            }
+
+            let tokens = conn_tokens.remove(0);
+            if tokens.len() == 0 {
+                continue;
+            }
+
             // sending async command to write data for this connection
             let _ = self.reader_channels[i].send(TcpReaderCommand {
                 cmd: TcpReaderCMD::WriteDataToConn,
                 conn_value: vec![],
                 conn: vec![],
                 data: vec![send_data.clone()],
-                socket_token: conn_tokens.remove(i),
+                socket_token: tokens,
                 tokens: vec![],
                 event: vec![]
             });

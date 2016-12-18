@@ -91,7 +91,8 @@ impl Node {
                 Ok(s) => s,
                 Err(e) => return Err(e)
             }],
-            token: String::new()
+            token: vec![],
+            event: vec![]
         });
 
         Ok(())
@@ -99,9 +100,26 @@ impl Node {
 
     pub fn accept(&self, token: String) {
         let _ = self.tcp_net_channel.send(TcpNetworkCommand {
-            cmd: TcpNetworkCMD::HandleClientConnection,
+            cmd: TcpNetworkCMD::AcceptPendingConnection,
             socket: vec![],
-            token: token
+            token: vec![token],
+            event: vec![]
+        });
+    }
+
+    pub fn emit(&self, name: &str, path: &str, data: &str) {
+        let _ = self.tcp_net_channel.send(TcpNetworkCommand {
+            cmd: TcpNetworkCMD::EmitEvent,
+            socket: vec![],
+            token: vec![],
+            event: vec![Event{
+                name: String::from(name),
+                from: self.token.clone(),
+                target: String::from(path),
+                data: String::from(data),
+                path: String::from(path),
+                public_data: String::new()
+            }]
         });
     }
 }
