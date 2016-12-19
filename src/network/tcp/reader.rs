@@ -267,28 +267,43 @@ impl TcpReader {
                 None => return
             };
 
-            match conn.socket.read(&mut self.readable_buffer) {
-                Ok(rsize) => {
-                    // we got EOF or not
-                    if rsize == 0 {
-                        close_conn = true;
-                    } else {
-                        let (r_data, keep_connection) = conn.handle_data(&mut self.readable_buffer, rsize);
-                        if keep_connection {
-                            final_data = r_data;
-                        } else {
+            loop {
+                if close_conn {
+                    break
+                }
+
+                match conn.socket.read(&mut self.readable_buffer) {
+                    Ok(rsize) => {
+                        // we got EOF or not
+                        if rsize == 0 {
                             close_conn = true;
+                            break;
+                        } else {
+                            let (r_data, keep_connection) = conn.handle_data(&mut self.readable_buffer, rsize);
+                            if keep_connection {
+                                final_data = r_data;
+                            } else {
+                                close_conn = true;
+                                break;
+                            }
+                        }
+
+                        // if we got data less than our buffer then we got all pending data
+                        // from socket buffer
+                        if rsize < self.readable_buffer.len() {
+                            break
                         }
                     }
-                }
-                Err(e) => {
-                    // if we got WouldBlock, then this is Non Blocking socket
-                    // and data still not available for this, so it's not a connection error
-                    if e.kind() == ErrorKind::WouldBlock {
-                        return;
-                    }
+                    Err(e) => {
+                        // if we got WouldBlock, then this is Non Blocking socket
+                        // and data still not available for this, so it's not a connection error
+                        if e.kind() == ErrorKind::WouldBlock {
+                            return;
+                        }
 
-                    close_conn = true;
+                        close_conn = true;
+                        break;
+                    }
                 }
             }
         }
@@ -320,15 +335,19 @@ impl TcpReader {
 
             match conn.flush_write_queue() {
                 Ok(end_of_q) => {
+                    let mut ready_state = Ready::readable();
+
                     // if we don't have data in our connection Queue
                     // then we need to reregister connection only for reading
-                    if end_of_q {
-                        match self.poll.reregister(&conn.socket, conn.socket_token, Ready::readable(), PollOpt::edge()) {
-                            Ok(_) => {},
-                            Err(e) => {
-                                warn!("Unable to reregister connection for reader poll, from writable functionality -> {}", e);
-                                return;
-                            }
+                    if !end_of_q {
+                        ready_state = Ready::readable() | Ready::writable();
+                    }
+
+                    match self.poll.reregister(&conn.socket, conn.socket_token, ready_state, PollOpt::edge()) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            warn!("Unable to reregister connection for reader poll, from writable functionality -> {}", e);
+                            return;
                         }
                     }
                 }
