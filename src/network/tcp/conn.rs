@@ -258,10 +258,6 @@ impl TcpConn {
             }
 
             if self.pending_data_len == 0 {
-                // cleaning up just in case
-                if self.pending_endian_buf.len() >= 4 {
-                    self.pending_endian_buf.clear();
-                }
                 // calculating how many bytes we need to read to complete 4 bytes
                 let endian_pending_len = 4 - self.pending_endian_buf.len();
                 if still_have < endian_pending_len {
@@ -269,7 +265,7 @@ impl TcpConn {
                     break;
                 }
 
-                self.pending_endian_buf.extend(&buffer[offset..endian_pending_len]);
+                self.pending_endian_buf.extend(&buffer[offset..offset + endian_pending_len]);
                 offset += endian_pending_len;
                 still_have = buffer_len - offset;
 
@@ -286,9 +282,9 @@ impl TcpConn {
                 self.pending_data = vec![0; self.pending_data_len];
             }
 
-            let mut copy_buffer_len = self.pending_data_len;
-            if still_have < self.pending_data_len {
-                copy_buffer_len = still_have;
+            let mut copy_buffer_len = still_have;
+            if (self.pending_data_len - self.pending_data_index) < still_have  {
+                copy_buffer_len = self.pending_data_len - self.pending_data_index;
             }
 
             // reading data to our pending data
@@ -298,7 +294,7 @@ impl TcpConn {
             self.pending_data_index += copy_buffer_len;
 
             // we got all data which we wanted
-            if self.pending_data_len == self.pending_data_len {
+            if self.pending_data_index == self.pending_data_len {
                 // saving our data as a copy and cleanning pending data
                 data_chunks.push(self.pending_data.clone());
                 self.pending_data.clear();
@@ -306,7 +302,7 @@ impl TcpConn {
                 self.pending_data_index = 0;
             }
         }
-        
+
         return (data_chunks, true);
     }
 

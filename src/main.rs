@@ -46,8 +46,10 @@ fn main() {
             for i in 0..300 {
                 big_str.push_str(BIG_DATA);
             }
-
-            node.emit("test_event", "25", big_str.as_str());
+            println!("{:?}", big_str.len());
+            for i in 0..10000 {
+                node.emit("test_event", "25", big_str.as_str());
+            }
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
