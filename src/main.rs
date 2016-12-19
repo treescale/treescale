@@ -42,20 +42,17 @@ fn main() {
 
         n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, node: &mut Node| {
             println!("New Connection -> {}", ev.from);
-            let mut big_str = String::new();
-            for i in 0..300 {
-                big_str.push_str(BIG_DATA);
-            }
-            println!("{:?}", big_str.len());
-            for i in 0..10000 {
-                node.emit("test_event", "25", big_str.as_str());
-            }
+            // let mut big_str = String::new();
+            // for _ in 0..300 {
+            //     big_str.push_str(BIG_DATA);
+            // }
+            // node.emit("test_event", "25", big_str.as_str());
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
-            // println!("Event -> {}", ev.data.len());
+            println!("Event -> {}", ev.data);
 
-            node.emit("test_event", "25", ev.data.as_str());
+            // node.emit("test_event", "25", ev.data.as_str());
         }));
 
         n.on(EVENT_ON_CONNECTION_CLOSE, Box::new(|ev: Arc<Event>, _: &mut Node| {
@@ -64,19 +61,20 @@ fn main() {
 
         n.run();
     } else {
-        let mut n = Node::new("test2", "5", "0.0.0.0:8889");
+        let mut n = Node::new("test2", "0", "0.0.0.0:8889");
         n.on_pending_conn(Box::new(|ev: Arc<Event>, _: &mut Node| {
             println!("Got Pending Connection from -> {}", ev.from);
         }));
 
-        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, _: &mut Node| {
+        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, node: &mut Node| {
             println!("New Connection -> {}", ev.from);
+            node.emit("test_event", "4", "test data");
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
             // println!("Event -> {}", ev.data.len());
 
-            node.emit("test_event", "4", ev.data.as_str());
+
         }));
 
         n.on(EVENT_ON_CONNECTION_CLOSE, Box::new(|ev: Arc<Event>, _: &mut Node| {

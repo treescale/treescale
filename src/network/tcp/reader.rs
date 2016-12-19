@@ -240,7 +240,7 @@ impl TcpReader {
                 let mut need_to_trigger = false;
                 // if event path is dividable to current node value
                 // then we need to trigger event
-                if path.clone() % self.current_value.clone() == self.big_zero {
+                if self.current_value != self.big_zero && path.clone() % self.current_value.clone() == self.big_zero {
                     path = path.clone() / self.current_value.clone();
                     need_to_trigger = true;
                 }
