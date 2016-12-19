@@ -361,16 +361,13 @@ impl TcpNetwork {
             conn.add_conn_value(token, conn_token.clone(), conn_value.clone());
 
             if conn.from_server {
+                let mut ev = Event::default();
+                ev.name = String::from(EVENT_ON_PENDING_CONNECTION);
+                ev.data = Vec::from(conn_value.as_bytes());
+                ev.from = conn_token.clone();
                 let _ = self.event_handler_channel.send(EventHandlerCommand {
                     cmd: EventHandlerCMD::TriggerFromEvent,
-                    event: Arc::new(Event{
-                        name: String::from(EVENT_ON_PENDING_CONNECTION),
-                        from: conn_token.clone(),
-                        target: String::new(),
-                        data: conn_value,
-                        path: String::new(),
-                        public_data: String::new()
-                    })
+                    event: Arc::new(ev)
                 });
 
                 // if we got here then all operations done

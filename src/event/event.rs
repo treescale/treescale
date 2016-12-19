@@ -11,63 +11,71 @@ pub struct Event {
     pub from: String,
     pub target: String,
     pub public_data: String,
-    pub data: String,
+    pub data: Vec<u8>,
 }
 
 impl Event {
-    pub fn from_raw(data: &Vec<u8>) -> Result<Event> {
-        let mut offset = 0 as usize;
-        let mut ev = Event{
+    #[inline(always)]
+    pub fn default() -> Event {
+        Event {
             path: String::new(),
             name: String::new(),
             from: String::new(),
             target: String::new(),
             public_data: String::new(),
-            data: String::new(),
-        };
+            data: vec![],
+        }
+    }
+    pub fn from_raw(data: &Vec<u8>) -> Result<Event> {
+        let mut offset = 0 as usize;
+        let mut ev = Event::default();
 
-        ev.path = match Event::read_field(&data, offset) {
-            Ok((f, off)) => {
+        if data.len() <= 6 * 4 {
+            return Err(Error::new(ErrorKind::InvalidData, "Event data is too short to convert it!!"));
+        }
+
+        ev.path = match Event::read_field(&data, offset, false) {
+            Ok((f, _, off)) => {
                 offset = off;
                 f
             }
             Err(e) => return Err(e)
         };
 
-        ev.name = match Event::read_field(&data, offset) {
-            Ok((f, off)) => {
+        ev.name = match Event::read_field(&data, offset, false) {
+            Ok((f, _, off)) => {
                 offset = off;
                 f
             }
             Err(e) => return Err(e)
         };
 
-        ev.from = match Event::read_field(&data, offset) {
-            Ok((f, off)) => {
+        ev.from = match Event::read_field(&data, offset, false) {
+            Ok((f, _, off)) => {
                 offset = off;
                 f
             }
             Err(e) => return Err(e)
         };
 
-        ev.target = match Event::read_field(&data, offset) {
-            Ok((f, off)) => {
+        ev.target = match Event::read_field(&data, offset, false) {
+            Ok((f, _, off)) => {
                 offset = off;
                 f
             }
             Err(e) => return Err(e)
         };
 
-        ev.public_data = match Event::read_field(&data, offset) {
-            Ok((f, off)) => {
+        ev.public_data = match Event::read_field(&data, offset, false) {
+            Ok((f, _, off)) => {
                 offset = off;
                 f
             }
             Err(e) => return Err(e)
         };
 
-        ev.data = match Event::read_field(&data, offset) {
-            Ok((f, _)) => {
+        ev.data = match Event::read_field(&data, offset, true) {
+            Ok((_, f, _)) => {
                 f
             }
             Err(e) => return Err(e)
@@ -134,7 +142,7 @@ impl Event {
         offset += 4 + public_data_len;
 
         // setting "data" data here
-        match Event::write_field(&mut len_buf, &mut buf, self.data.as_bytes(), event_data_len, offset) {
+        match Event::write_field(&mut len_buf, &mut buf, self.data.as_slice(), event_data_len, offset) {
             Ok(_) => {},
             Err(e) => return Err(e)
         }
@@ -144,7 +152,7 @@ impl Event {
     }
 
     #[inline(always)]
-    fn read_field(data: &Vec<u8>, off: usize) -> Result<(String, usize)> {
+    fn read_field(data: &Vec<u8>, off: usize, get_vec: bool) -> Result<(String, Vec<u8>, usize)> {
         let mut endian_bytes = vec![0; 4];
         let data_len = data.len() as usize;
         let mut offset = off as usize;
@@ -159,8 +167,13 @@ impl Event {
             return Err(Error::new(ErrorKind::InvalidData, "error decoding given data"));
         }
 
-        Ok(match String::from_utf8(Vec::from_iter(data[offset..offset + endian_len].iter().cloned())) {
-            Ok(s) => (s, offset + endian_len),
+        let d = Vec::from_iter(data[offset..offset + endian_len].iter().cloned());
+        if get_vec {
+            return Ok((String::new(), d, offset + endian_len));
+        }
+
+        Ok(match String::from_utf8(d) {
+            Ok(s) => (s, vec![], offset + endian_len),
             Err(_) => return Err(Error::new(ErrorKind::InvalidData, "Unable to convert data to string"))
         })
     }

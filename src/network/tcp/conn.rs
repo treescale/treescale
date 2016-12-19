@@ -277,9 +277,6 @@ impl TcpConn {
                     // notifying to close connection
                     return (vec![], false)
                 }
-
-                // allocating buffer for new data
-                self.pending_data = vec![0; self.pending_data_len];
             }
 
             let mut copy_buffer_len = still_have;
@@ -287,17 +284,16 @@ impl TcpConn {
                 copy_buffer_len = self.pending_data_len - self.pending_data_index;
             }
 
-            // reading data to our pending data
-            self.pending_data[self.pending_data_index..(self.pending_data_index + copy_buffer_len)]
-                    .copy_from_slice(&buffer[offset..(offset + copy_buffer_len)]);
+            // extending pending data
+            self.pending_data.extend(&buffer[offset..(offset + copy_buffer_len)]);
             offset += copy_buffer_len;
             self.pending_data_index += copy_buffer_len;
 
             // we got all data which we wanted
-            if self.pending_data_index == self.pending_data_len {
+            if self.pending_data_len > 0 && self.pending_data_index == self.pending_data_len {
                 // saving our data as a copy and cleanning pending data
-                data_chunks.push(self.pending_data.clone());
-                self.pending_data.clear();
+                data_chunks.push(self.pending_data.to_vec());
+                self.pending_data = vec![];
                 self.pending_data_len = 0;
                 self.pending_data_index = 0;
             }

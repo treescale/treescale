@@ -7,9 +7,6 @@ use event::{Event, EVENT_ON_CONNECTION, EVENT_ON_CONNECTION_CLOSE};
 use node::Node;
 use std::sync::Arc;
 use std::env;
-use std::time::Duration;
-use std::thread;
-
 use log::{LogLevelFilter, LogRecord, LogLevel, LogMetadata};
 
 struct SimpleLogger;
@@ -50,13 +47,13 @@ fn main() {
         n.on(EVENT_ON_CONNECTION, Box::new(move |ev: Arc<Event>, node: &mut Node| {
             println!("New Connection -> {}", ev.from);
 
-            node.emit("test_event", "25", big_str.as_str());
+            // node.emit("test_event", "25", big_str.as_str());
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
             // println!("Event -> {}", ev.data.len());
 
-            node.emit("test_event", "25", ev.data.as_str());
+            // node.emit("test_event", "25", ev.data.as_str());
         }));
 
         n.on(EVENT_ON_CONNECTION_CLOSE, Box::new(|ev: Arc<Event>, _: &mut Node| {
@@ -70,14 +67,14 @@ fn main() {
             println!("Got Pending Connection from -> {}", ev.from);
         }));
 
-        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, node: &mut Node| {
+        n.on(EVENT_ON_CONNECTION, Box::new(|ev: Arc<Event>, _: &mut Node| {
             println!("New Connection -> {}", ev.from);
             // node.emit("test_event", "4", "test data");
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
-            // println!("{:?}", ev.data.len());
-            node.emit("test_event", "4", ev.data.as_str());
+            println!("{:?}", ev.data.len());
+            // node.emit("test_event", "4", ev.data.as_str());
         }));
 
         n.on(EVENT_ON_CONNECTION_CLOSE, Box::new(|ev: Arc<Event>, _: &mut Node| {

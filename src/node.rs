@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 extern crate mio;
+extern crate num_cpus;
 
 use self::mio::channel::Sender;
 use network::tcp::{TcpNetwork, TcpNetworkCommand, TcpNetworkCMD};
@@ -40,7 +41,7 @@ impl Node {
         };
 
         thread::spawn(move || {
-            tcp_net.run(addr_str.as_str(), 3);
+            tcp_net.run(addr_str.as_str(), num_cpus::get());
         });
 
         node
@@ -107,19 +108,19 @@ impl Node {
         });
     }
 
-    pub fn emit(&self, name: &str, path: &str, data: &str) {
+    pub fn emit(&self, name: &str, path: &str, data: Vec<u8>) {
+        let mut ev = Event::default();
+        ev.name = String::from(name);
+        ev.from = self.token.clone();
+        ev.data = data;
+        ev.path = String::from(path);
+        ev.target = String::from(path);
+
         let _ = self.tcp_net_channel.send(TcpNetworkCommand {
             cmd: TcpNetworkCMD::EmitEvent,
             socket: vec![],
             token: vec![],
-            event: vec![Event{
-                name: String::from(name),
-                from: self.token.clone(),
-                target: String::from(path),
-                data: String::from(data),
-                path: String::from(path),
-                public_data: String::new()
-            }]
+            event: vec![ev]
         });
     }
 }

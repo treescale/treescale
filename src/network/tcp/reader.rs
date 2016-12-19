@@ -158,7 +158,7 @@ impl TcpReader {
                 // keeping this for event trigger
                 let conn_value_token = conn_value.token.clone();
 
-                match self.poll.reregister(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
+                match self.poll.reregister(&conn.socket, conn.socket_token, Ready::writable(), PollOpt::edge()) {
                     Ok(_) => {},
                     Err(e) => {
                         warn!("Unable to register connection from reader, closing it -> {}", e);
@@ -182,17 +182,14 @@ impl TcpReader {
                 // inserting connection to the list of current reader
                 self.reader_conns.insert(conn.socket_token, conn);
 
+                let mut ev = Event::default();
+                ev.name = String::from(EVENT_ON_CONNECTION);
+                ev.from = conn_value_token;
+
                 // triggering event about new accepted connection
                 let _ = self.event_handler_channel.send(EventHandlerCommand {
                     cmd: EventHandlerCMD::TriggerFromEvent,
-                    event: Arc::new(Event {
-                        name: String::from(EVENT_ON_CONNECTION),
-                        from: conn_value_token,
-                        data: String::new(),
-                        path: String::new(),
-                        public_data: String::new(),
-                        target: String::new()
-                    })
+                    event: Arc::new(ev)
                 });
             }
 
@@ -340,7 +337,7 @@ impl TcpReader {
                     // if we don't have data in our connection Queue
                     // then we need to reregister connection only for reading
                     if !end_of_q {
-                        ready_state = Ready::readable() | Ready::writable();
+                        ready_state = Ready::writable();
                     }
 
                     match self.poll.reregister(&conn.socket, conn.socket_token, ready_state, PollOpt::edge()) {
@@ -392,14 +389,8 @@ impl TcpReader {
             return;
         }
 
-        let mut ev = Event{
-            path: String::new(),
-            name: String::from(EVENT_ON_CONNECTION_CLOSE),
-            from: String::new(),
-            target: String::new(),
-            public_data: String::new(),
-            data: String::new(),
-        };
+        let mut ev = Event::default();
+        ev.name = String::from(EVENT_ON_CONNECTION_CLOSE);
 
         // if we have a connection index
         // now just locking for write and deleting specific index
@@ -426,23 +417,30 @@ impl TcpReader {
     fn handle_event_data(&mut self, buffer: Vec<u8>) {
         let mut ev = match Event::from_raw(buffer.as_ref()) {
             Ok(e) => e,
-            Err(_) => Event{
-                path: String::new(),
-                name: String::new(),
-                from: String::new(),
-                target: String::new(),
-                public_data: String::new(),
-                data: String::new(),
+            Err(e) => {
+                warn!("Error while trying to convert raw data to event object -> {}", e);
+                Event{
+                    path: String::new(),
+                    name: String::new(),
+                    from: String::new(),
+                    target: String::new(),
+                    public_data: String::new(),
+                    data: vec![],
+                }
             }
         };
 
-        let path = match BigInt::from_str(ev.path.as_str()) {
-            Ok(p) => p,
-            Err(e) => {
-                warn!("Error while trying to convert parsed Event Path to BigInt path -> {}", e);
-                return;
-            }
-        };
+        let mut path = Zero::zero();
+
+        if !ev.path.is_empty() {
+            path = match BigInt::from_str(ev.path.as_str()) {
+                Ok(p) => p,
+                Err(e) => {
+                    warn!("Error while trying to convert parsed Event Path to BigInt path -> {}", e);
+                    return;
+                }
+            };
+        }
 
         // if path is 0
         // we don't need to check path combination
