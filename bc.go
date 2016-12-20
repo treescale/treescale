@@ -21,7 +21,7 @@ func main() {
 
   api_version_buf := make([]byte, 4)
   data_len_buf := make([]byte, 4)
-  token_info := []byte("test_api1|0")
+  token_info := []byte("test_api2|0")
 
   // appending api version and token info
   binary.BigEndian.PutUint32(api_version_buf, uint32(1))
@@ -32,7 +32,7 @@ func main() {
 
   // adding event information
   ev_name := []byte("test_event")
-  ev_from := []byte("test_api1")
+  ev_from := []byte("test_api2")
   ev_data := buffer
   ev_buf_len := 4 + 0 + // path
                 4 + len(ev_name) + // event name and length

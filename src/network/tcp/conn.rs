@@ -42,7 +42,7 @@ pub struct TcpConn {
     // networking data based on chunks
     pending_data_len: usize,
     pending_data_index: usize,
-    pending_data: Vec<u8>,
+    pending_data: Vec<Vec<u8>>,
     // 4 bytes for reading big endian numbers from network
     pending_endian_buf: Vec<u8>,
 
@@ -79,7 +79,7 @@ impl TcpConn {
             socket: sock,
             pending_data_len: 0,
             pending_data_index: 0,
-            pending_data: vec![],
+            pending_data: vec![vec![]],
             pending_endian_buf: vec![],
             writae_queue: LinkedList::new(),
             api_version: 0,
@@ -204,7 +204,7 @@ impl TcpConn {
 
         match self.socket.read(&mut data_buffer) {
             Ok(rsize) => {
-                self.pending_data.extend(&data_buffer[..rsize]);
+                self.pending_data[0].extend(&data_buffer[..rsize]);
                 self.pending_data_index += rsize;
                 if self.pending_data_index < self.pending_data_len {
                     // we need more data to read
@@ -215,8 +215,8 @@ impl TcpConn {
                     return Err(Error::new(ErrorKind::InvalidData, "Wrong network message offset!"));
                 }
 
-                let total_str = String::from_utf8(self.pending_data.clone()).unwrap();
-                self.pending_data.clear();
+                let total_str = String::from_utf8(self.pending_data.pop().unwrap()).unwrap();
+                self.pending_data= vec![vec![]];
                 self.pending_data_len = 0;
                 self.pending_data_index = 0;
 
@@ -277,6 +277,8 @@ impl TcpConn {
                     // notifying to close connection
                     return (vec![], false)
                 }
+
+                self.pending_data[0].reserve(self.pending_data_len);
             }
 
             let mut copy_buffer_len = still_have;
@@ -285,15 +287,15 @@ impl TcpConn {
             }
 
             // extending pending data
-            self.pending_data.extend(&buffer[offset..(offset + copy_buffer_len)]);
+            self.pending_data[0].extend(&buffer[offset..(offset + copy_buffer_len)]);
             offset += copy_buffer_len;
             self.pending_data_index += copy_buffer_len;
 
             // we got all data which we wanted
             if self.pending_data_len > 0 && self.pending_data_index == self.pending_data_len {
                 // saving our data as a copy and cleanning pending data
-                data_chunks.push(self.pending_data.to_vec());
-                self.pending_data = vec![];
+                data_chunks.push(self.pending_data.pop().unwrap());
+                self.pending_data = vec![vec![]];
                 self.pending_data_len = 0;
                 self.pending_data_index = 0;
             }
