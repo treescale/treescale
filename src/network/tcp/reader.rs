@@ -207,7 +207,7 @@ impl TcpReader {
                             conn.add_writable_data(send_data.clone());
 
                             // reregistering connection as writable
-                            match self.poll.reregister(&conn.socket, conn.socket_token, Ready::readable() | Ready::writable(), PollOpt::edge()) {
+                            match self.poll.reregister(&conn.socket, conn.socket_token, Ready::writable(), PollOpt::edge()) {
                                 Ok(_) => {},
                                 Err(e) => {
                                     warn!("Unable to reregister connection as writable for reader poll, from write data command functionality -> {}", e);
@@ -242,7 +242,9 @@ impl TcpReader {
                     need_to_trigger = true;
                 }
 
-                self.write_by_path(path, &mut ev);
+                if path != self.big_zero {
+                    self.write_by_path(path, &mut ev);
+                }
 
                 if need_to_trigger {
                     let _ = self.event_handler_channel.send(EventHandlerCommand {

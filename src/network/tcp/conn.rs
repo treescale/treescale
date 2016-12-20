@@ -11,7 +11,7 @@ use std::io::{Result, Read, Write, Cursor, Error, ErrorKind};
 use self::byteorder::{BigEndian, ReadBytesExt};
 use network::tcp::{TOKEN_VALUE_SEP};
 use std::str::FromStr;
-use std::collections::LinkedList;
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 const MAX_API_VERSION: usize = 500;
@@ -47,7 +47,7 @@ pub struct TcpConn {
     pending_endian_buf: Vec<u8>,
 
     // queue for keeping writeabale data
-    pub writae_queue: LinkedList<WritableData>,
+    pub writae_queue: VecDeque<WritableData>,
 
     pub conn_value: Vec<TcpConnValue>
 }
@@ -81,7 +81,7 @@ impl TcpConn {
             pending_data_index: 0,
             pending_data: vec![vec![]],
             pending_endian_buf: vec![],
-            writae_queue: LinkedList::new(),
+            writae_queue: VecDeque::new(),
             api_version: 0,
             from_server: true,
             conn_value: Vec::new()
@@ -311,34 +311,38 @@ impl TcpConn {
     #[inline(always)]
     pub fn flush_write_queue(&mut self) -> Result<bool> {
         loop {
-            // removing and getting first element
-            let mut data = match self.writae_queue.pop_front() {
-                Some(b) => b,
-                None => break
-            };
+            {
+                // removing and getting first element
+                let mut data = match self.writae_queue.front_mut() {
+                    Some(b) => b,
+                    None => break
+                };
 
-            match self.socket.write(&data.buffer[data.offset..data.buffer.len()]) {
-                Ok(nsize) => {
-                    data.offset += nsize;
+                match self.socket.write(&data.buffer[data.offset..data.buffer.len()]) {
+                    Ok(nsize) => {
+                        data.offset += nsize;
 
-                    // if we still have a pending data in buffer
-                    // telling outside function that we have pending data
-                    if data.offset < data.buffer.len() {
-                        // adding data back to the list
-                        self.writae_queue.push_front(data);
-                        return Ok(false);
+                        // if we still have a pending data in buffer
+                        // telling outside function that we have pending data
+                        if data.offset < data.buffer.len() {
+                            return Ok(false);
+                        }
                     }
-                }
-                Err(e) => {
-                    // if we got WouldBlock, then this is Non Blocking socket
-                    // and data still not available for this, so it's not a connection error
-                    if e.kind() == ErrorKind::WouldBlock {
-                        return Ok(false);
-                    }
+                    Err(e) => {
+                        // if we got WouldBlock, then this is Non Blocking socket
+                        // and data still not available for this, so it's not a connection error
+                        if e.kind() == ErrorKind::WouldBlock {
+                            return Ok(false);
+                        }
 
-                    return Err(e);
+                        return Err(e);
+                    }
                 }
             }
+
+            // if we got here then we have done with 
+            // removing first element from list
+            self.writae_queue.pop_front();
         };
 
         Ok(true)

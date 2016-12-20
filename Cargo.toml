@@ -7,5 +7,5 @@ authors = ["Tigran Bayburtsyan <tigran@bayburtsyan.com>"]
 mio = "0.6"
 num = "0.1"
 byteorder = "0.5"
-num_cpus = "1.1"
 log = "0.3"
+num_cpus = "1.2.0"
