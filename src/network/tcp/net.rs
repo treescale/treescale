@@ -325,6 +325,7 @@ impl TcpNetwork {
                     // if we need more data for getting API version
                     // then wiating until socket would become readable again
                     if !is_done {
+                        self.pending_connections.insert(token, conn);
                         return;
                     }
                 },
@@ -406,7 +407,7 @@ impl TcpNetwork {
             match self.poll.reregister(&conn.socket, token, Ready::readable(), PollOpt::edge()) {
                 Ok(_) => {},
                 Err(e) => {
-                    warn!("Unable to reregister connection as writable, closing connection -> {}", e);
+                    warn!("Unable to reregister connection as readable from network write functionality, closing connection -> {}", e);
                     return;
                 }
             }

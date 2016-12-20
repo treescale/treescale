@@ -97,7 +97,7 @@ impl EventHandler {
                 match self.callbacks.get(&command.event.name) {
                     Some(cbs) => {
                         for i in 0..cbs.len() {
-                            cbs[i](command.event.clone(), node);
+                            cbs[i].as_ref()(command.event.clone(), node);
                         }
                     }
                     None => {}

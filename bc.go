@@ -34,7 +34,7 @@ func main() {
   ev_name := []byte("test_event")
   ev_from := []byte("test_api2")
   ev_data := buffer
-  ev_buf_len := 4 + 2 + // path
+  ev_buf_len := 4 + 0 + // path
                 4 + len(ev_name) + // event name and length
                 4 + len(ev_from) +
                 4 + 0 + // target
@@ -46,9 +46,9 @@ func main() {
   send_buffer2 = append(send_buffer2, data_len_buf...)
 
   // path
-  binary.BigEndian.PutUint32(data_len_buf, uint32(2))
+  binary.BigEndian.PutUint32(data_len_buf, uint32(0))
   send_buffer2 = append(send_buffer2, data_len_buf...)
-  send_buffer2 = append(send_buffer2, []byte("25")...)
+  // send_buffer2 = append(send_buffer2, []byte("25")...)
 
   // name
   binary.BigEndian.PutUint32(data_len_buf, uint32(len(ev_name)))
@@ -73,7 +73,7 @@ func main() {
   send_buffer2 = append(send_buffer2, data_len_buf...)
   send_buffer2 = append(send_buffer2, ev_data...)
 
-  for i := 0; i < 150; i++ {
+  for i := 0; i < 1; i++ {
     go run_conn(send_buffer, send_buffer2)
   }
 
