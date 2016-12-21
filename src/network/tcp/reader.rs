@@ -95,7 +95,7 @@ impl TcpReader {
         }
 
         // making events for handling 5K events at once
-        let mut events: Events = Events::with_capacity(5000);
+        let mut events: Events = Events::with_capacity(50000);
         loop {
             let event_count = self.poll.poll(&mut events, None).unwrap();
             if event_count == 0 {

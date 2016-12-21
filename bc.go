@@ -73,7 +73,7 @@ func main() {
   send_buffer2 = append(send_buffer2, data_len_buf...)
   send_buffer2 = append(send_buffer2, ev_data...)
 
-  for i := 0; i < 1; i++ {
+  for i := 0; i < 100; i++ {
     go run_conn(send_buffer, send_buffer2)
   }
 

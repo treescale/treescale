@@ -44,14 +44,14 @@ fn main() {
             big_str.push_str(BIG_DATA);
         }
 
-        n.on(EVENT_ON_CONNECTION, Box::new(move |ev: Arc<Event>, node: &mut Node| {
+        n.on(EVENT_ON_CONNECTION, Box::new(move |ev: Arc<Event>, _: &mut Node| {
             println!("New Connection -> {}", ev.from);
 
             // node.emit("test_event", "25", big_str.as_str());
         }));
 
-        n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
-            println!("Event -> {}", ev.data.len());
+        n.on("test_event", Box::new(|ev: Arc<Event>, _: &mut Node| {
+             println!("Event -> {}", ev.data.len());
 
             // node.emit("test_event", "25", ev.data.as_str());
         }));
@@ -72,8 +72,8 @@ fn main() {
             // node.emit("test_event", "4", "test data");
         }));
 
-        n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
-            // println!("{:?}", ev.data.len());
+        n.on("test_event", Box::new(|ev: Arc<Event>, _: &mut Node| {
+             println!("{:?}", ev.data.len());
             // node.emit("test_event", "4", ev.data.as_str());
         }));
 
