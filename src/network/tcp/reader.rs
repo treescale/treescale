@@ -306,18 +306,18 @@ impl TcpReader {
             }
         }
 
-        if close_conn {
-            self.close_connection(token);
-            return;
-        }
-
-        // if we got here then we don't need to close connection
+        // in any case need to handle data if we received something
         // so parsing data which came from socket
         loop {
             self.handle_event_data(match final_data.pop() {
                 Some(d) => d,
                 None => break
             })
+        }
+
+        if close_conn {
+            self.close_connection(token);
+            return;
         }
     }
 
