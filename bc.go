@@ -109,6 +109,6 @@ func run_conn(send_buffer, send_buffer2 []byte) {
 
   for {
     conn.Write(send_buffer2)
-    time.Sleep(time.Millisecond * 100)
+    time.Sleep(time.Millisecond * 10)
   }
 }

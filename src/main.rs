@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::env;
 use log::{LogLevelFilter, LogRecord, LogLevel, LogMetadata};
 
+
 struct SimpleLogger;
 
 impl log::Log for SimpleLogger {
@@ -51,7 +52,7 @@ fn main() {
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, _: &mut Node| {
-             println!("Event -> {}", ev.data.len());
+//             println!("Event -> {}", ev.data.len());
 
             // node.emit("test_event", "25", ev.data.as_str());
         }));

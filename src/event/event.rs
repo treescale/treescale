@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 extern crate byteorder;
 
-use std::io::{Result, Cursor, Error, ErrorKind};
-use self::byteorder::{BigEndian, ReadBytesExt, ByteOrder};
-use std::iter::FromIterator;
+use std::io::{Result, Error, ErrorKind};
+use self::byteorder::{BigEndian, ByteOrder};
 
 pub struct Event {
     pub path: String,
@@ -26,15 +25,19 @@ impl Event {
             data: vec![],
         }
     }
+
+    #[inline(always)]
     pub fn from_raw(data: &Vec<u8>) -> Result<Event> {
         let mut offset = 0 as usize;
         let mut ev = Event::default();
+        let mut endian_bytes = vec![0; 4];
+        let data_len = data.len();
 
         if data.len() <= 6 * 4 {
             return Err(Error::new(ErrorKind::InvalidData, "Event data is too short to convert it!!"));
         }
 
-        ev.path = match Event::read_field(&data, offset, false) {
+        ev.path = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
             Ok((f, _, off)) => {
                 offset = off;
                 f
@@ -42,7 +45,7 @@ impl Event {
             Err(e) => return Err(e)
         };
 
-        ev.name = match Event::read_field(&data, offset, false) {
+        ev.name = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
             Ok((f, _, off)) => {
                 offset = off;
                 f
@@ -50,7 +53,7 @@ impl Event {
             Err(e) => return Err(e)
         };
 
-        ev.from = match Event::read_field(&data, offset, false) {
+        ev.from = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
             Ok((f, _, off)) => {
                 offset = off;
                 f
@@ -58,7 +61,7 @@ impl Event {
             Err(e) => return Err(e)
         };
 
-        ev.target = match Event::read_field(&data, offset, false) {
+        ev.target = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
             Ok((f, _, off)) => {
                 offset = off;
                 f
@@ -66,7 +69,7 @@ impl Event {
             Err(e) => return Err(e)
         };
 
-        ev.public_data = match Event::read_field(&data, offset, false) {
+        ev.public_data = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
             Ok((f, _, off)) => {
                 offset = off;
                 f
@@ -74,7 +77,7 @@ impl Event {
             Err(e) => return Err(e)
         };
 
-        ev.data = match Event::read_field(&data, offset, true) {
+        ev.data = match Event::read_field(&data, &mut endian_bytes, data_len, offset, true) {
             Ok((_, f, _)) => {
                 f
             }
@@ -152,22 +155,19 @@ impl Event {
     }
 
     #[inline(always)]
-    fn read_field(data: &Vec<u8>, off: usize, get_vec: bool) -> Result<(String, Vec<u8>, usize)> {
-        let mut endian_bytes = vec![0; 4];
-        let data_len = data.len() as usize;
+    fn read_field(data: &Vec<u8>, endian_bytes: &mut Vec<u8>, data_len: usize, off: usize, get_vec: bool) -> Result<(String, Vec<u8>, usize)> {
         let mut offset = off as usize;
         for i in 0..4 {
             endian_bytes[i] = data[offset + i]
         }
 
         offset += 4;
-        let mut rdr = Cursor::new(endian_bytes);
-        let endian_len = rdr.read_u32::<BigEndian>().unwrap() as usize;
+        let endian_len = BigEndian::read_u32(endian_bytes.as_slice()) as usize;
         if endian_len > (data_len - offset) {
             return Err(Error::new(ErrorKind::InvalidData, "error decoding given data"));
         }
 
-        let d = Vec::from_iter(data[offset..offset + endian_len].iter().cloned());
+        let d = Vec::from(&data[offset..offset + endian_len]);
         if get_vec {
             return Ok((String::new(), d, offset + endian_len));
         }

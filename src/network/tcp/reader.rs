@@ -95,7 +95,7 @@ impl TcpReader {
         }
 
         // making events for handling 5K events at once
-        let mut events: Events = Events::with_capacity(50000);
+        let mut events: Events = Events::with_capacity(5000);
         loop {
             let event_count = self.poll.poll(&mut events, None).unwrap();
             if event_count == 0 {
@@ -416,7 +416,7 @@ impl TcpReader {
 
     #[inline(always)]
     fn handle_event_data(&mut self, buffer: Vec<u8>) {
-        let mut ev = match Event::from_raw(buffer.as_ref()) {
+        let mut ev = match Event::from_raw(&buffer) {
             Ok(e) => e,
             Err(e) => {
                 warn!("Error while trying to convert raw data to event object -> {}", e);
@@ -431,7 +431,7 @@ impl TcpReader {
             }
         };
 
-        let mut path = Zero::zero();
+        let mut path = self.big_zero.clone();
 
         if !ev.path.is_empty() {
             path = match BigInt::from_str(ev.path.as_str()) {
