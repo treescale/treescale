@@ -51,7 +51,7 @@ fn main() {
         }));
 
         n.on("test_event", Box::new(|ev: Arc<Event>, node: &mut Node| {
-            // println!("Event -> {}", ev.data.len());
+            println!("Event -> {}", ev.data.len());
 
             // node.emit("test_event", "25", ev.data.as_str());
         }));

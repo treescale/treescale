@@ -34,6 +34,7 @@ pub struct WritableData {
 
 pub struct TcpConn {
     pub socket: TcpStream,
+    pub socket_r: TcpStream,
     pub socket_token: Token,
     pub api_version: usize,
     pub from_server: bool,
@@ -76,6 +77,7 @@ impl TcpConn {
             // so we don't want to make same token for multiple handles
             socket_token: Token((sock.as_raw_fd() as usize) + 2),
 
+            socket_r: sock.try_clone().unwrap(),
             socket: sock,
             pending_data_len: 0,
             pending_data_index: 0,
@@ -340,7 +342,7 @@ impl TcpConn {
                 }
             }
 
-            // if we got here then we have done with 
+            // if we got here then we have done with
             // removing first element from list
             self.writae_queue.pop_front();
         };
