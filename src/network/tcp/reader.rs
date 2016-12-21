@@ -6,13 +6,11 @@ use event::{EventHandlerCommand, Event, EventHandlerCMD, EVENT_ON_CONNECTION_CLO
 use std::sync::{Arc, RwLock};
 use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
-use self::mio::tcp::TcpStream;
 use self::num::{BigInt, Zero};
 use std::process;
 use std::collections::BTreeMap;
 use std::io::{ErrorKind, Read};
 use std::str::FromStr;
-use std::os::unix::io::{FromRawFd, AsRawFd};
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
 const READER_BUFFER_SIZE: usize = 65000;
@@ -147,7 +145,7 @@ impl TcpReader {
     fn notify(&mut self, command: &mut TcpReaderCommand) {
         match command.cmd {
             TcpReaderCMD::HandleConnection => {
-                let mut conn = match command.conn.pop() {
+                let conn = match command.conn.pop() {
                     Some(c) => c,
                     None => return
                 };
