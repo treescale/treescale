@@ -47,8 +47,8 @@ pub struct TcpConn {
     // 4 bytes for reading big endian numbers from network
     pending_endian_buf: Vec<u8>,
 
-    // queue for keeping writeabale data
-    pub writae_queue: VecDeque<WritableData>,
+    // queue for keeping writable data
+    pub write_queue: VecDeque<WritableData>,
 
     pub conn_value: Vec<TcpConnValue>
 }
@@ -83,7 +83,7 @@ impl TcpConn {
             pending_data_index: 0,
             pending_data: vec![vec![]],
             pending_endian_buf: vec![],
-            writae_queue: VecDeque::new(),
+            write_queue: VecDeque::new(),
             api_version: 0,
             from_server: true,
             conn_value: Vec::new()
@@ -105,7 +105,7 @@ impl TcpConn {
 
     #[inline(always)]
     pub fn add_writable_data(&mut self, buffer: Arc<Vec<u8>>) {
-        self.writae_queue.push_back(WritableData {
+        self.write_queue.push_back(WritableData {
             offset: 0,
             buffer: buffer
         })
@@ -280,7 +280,7 @@ impl TcpConn {
                     return (vec![], false)
                 }
 
-                self.pending_data[0].reserve(self.pending_data_len);
+                self.pending_data[0].reserve_exact(self.pending_data_len);
             }
 
             let mut copy_buffer_len = still_have;
@@ -296,7 +296,7 @@ impl TcpConn {
 
             // we got all data which we wanted
             if self.pending_data_len > 0 && self.pending_data_index == self.pending_data_len {
-                // saving our data as a copy and cleanning pending data
+                // saving our data as a copy and cleaning pending data
                 data_chunks.push(self.pending_data.pop().unwrap());
                 self.pending_data = vec![vec![]];
                 self.pending_data_len = 0;
@@ -316,7 +316,7 @@ impl TcpConn {
         loop {
             {
                 // removing and getting first element
-                let mut data = match self.writae_queue.front_mut() {
+                let mut data = match self.write_queue.front_mut() {
                     Some(b) => b,
                     None => break
                 };
@@ -345,7 +345,7 @@ impl TcpConn {
 
             // if we got here then we have done with
             // removing first element from list
-            self.writae_queue.pop_front();
+            self.write_queue.pop_front();
         };
 
         Ok(true)
