@@ -4,12 +4,13 @@ extern crate num;
 extern crate log;
 extern crate byteorder;
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 use std::collections::BTreeMap;
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
 use self::mio::tcp::{TcpListener, TcpStream};
 use self::mio::channel::{Sender, Receiver, channel};
-use network::tcp::{TOKEN_VALUE_SEP, TcpConnValue, TcpConn, TcpReaderCommand, TcpReaderCMD, TcpReader};
+use network::tcp::{TOKEN_VALUE_SEP, TcpConn, TcpReaderCommand, TcpReaderCMD, TcpReader};
+use network::{Connections};
 use self::num::{BigInt};
 use std::str::FromStr;
 use std::process;
@@ -38,7 +39,7 @@ pub struct TcpNetworkCommand {
 
 pub struct TcpNetwork {
     // Base connections which are available and accepted
-    connections: Arc<RwLock<Vec<TcpConnValue>>>,
+    connections: Connections,
 
     // Socket based connections which are accepted from TCP server
     // but not accepted from application
@@ -61,7 +62,7 @@ pub struct TcpNetwork {
 }
 
 impl TcpNetwork {
-    pub fn new(token: String, value: String, event_chan: Sender<EventHandlerCommand>) -> TcpNetwork {
+    pub fn new(conns: Connections, token: String, value: String, event_chan: Sender<EventHandlerCommand>) -> TcpNetwork {
         let v = match BigInt::from_str(value.as_str()) {
             Ok(vv) => vv,
             Err(e) => {
@@ -73,7 +74,7 @@ impl TcpNetwork {
         let (s, r) = channel::<TcpNetworkCommand>();
 
         TcpNetwork {
-            connections: Arc::new(RwLock::new(Vec::new())),
+            connections: conns,
             pending_connections: BTreeMap::new(),
             current_token: token,
             current_value: v.clone(),

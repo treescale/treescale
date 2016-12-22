@@ -1,15 +1,14 @@
 #![allow(dead_code)]
-extern crate num;
 extern crate mio;
 extern crate byteorder;
 
-use self::num::{BigInt, Zero};
 use self::mio::{Token};
 use self::mio::tcp::TcpStream;
 use std::os::unix::io::AsRawFd;
 use std::io::{Result, Read, Write, Cursor, Error, ErrorKind};
 use self::byteorder::{BigEndian, ReadBytesExt};
 use network::tcp::{TOKEN_VALUE_SEP};
+use network::Connection;
 use std::str::FromStr;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -17,15 +16,6 @@ use std::sync::Arc;
 const MAX_API_VERSION: usize = 500;
 // Maximum length for each message is 30mb
 static MAX_NETWORK_MESSAGE_LEN: usize = 30000000;
-
-pub struct TcpConnValue {
-    pub token: String,
-    pub value: BigInt,
-    pub api_version: usize,
-    pub from_server: bool,
-    pub socket_token: Token,
-    pub reader_index: usize
-}
 
 pub struct WritableData {
     buffer: Arc<Vec<u8>>,
@@ -50,23 +40,7 @@ pub struct TcpConn {
     // queue for keeping writable data
     pub write_queue: VecDeque<WritableData>,
 
-    pub conn_value: Vec<TcpConnValue>
-}
-
-impl TcpConnValue {
-    pub fn new(socket_token: Token, token: String, value: String) -> TcpConnValue {
-        TcpConnValue {
-            token: token,
-            value: match BigInt::from_str(value.as_str()) {
-                Ok(v) => v,
-                Err(_) => Zero::zero()
-            },
-            api_version: 0,
-            from_server: true,
-            socket_token: socket_token,
-            reader_index: 0
-        }
-    }
+    pub conn_value: Vec<Connection>
 }
 
 impl TcpConn {
@@ -92,14 +66,14 @@ impl TcpConn {
 
     #[inline(always)]
     pub fn add_conn_value(&mut self, socket_token: Token, token: String, value: String) {
-        let mut tv = TcpConnValue::new(socket_token, token, value);
+        let mut tv = Connection::new(socket_token, token, value);
         tv.api_version = self.api_version;
         tv.from_server = self.from_server;
         self.conn_value.push(tv);
     }
 
     #[inline(always)]
-    pub fn pop_conn_value(&mut self) -> Option<TcpConnValue> {
+    pub fn pop_conn_value(&mut self) -> Option<Connection> {
         self.conn_value.pop()
     }
 

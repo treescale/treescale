@@ -4,6 +4,7 @@ extern crate num_cpus;
 
 use self::mio::channel::Sender;
 use network::tcp::{TcpNetwork, TcpNetworkCommand, TcpNetworkCMD};
+use network::{Connections, ConnsImpl};
 use event::{Event, EventHandler, EVENT_ON_PENDING_CONNECTION, EVENT_ON_CONNECTION_CLOSE};
 use std::thread;
 use std::sync::Arc;
@@ -30,7 +31,7 @@ impl Node {
     // making new node and starting networking
     pub fn new(token: &str, value: &str, address: &str) -> Node {
         let ev = EventHandler::new();
-        let mut tcp_net = TcpNetwork::new(String::from(token), String::from(value), ev.channel());
+        let mut tcp_net = TcpNetwork::new(Connections::create(), String::from(token), String::from(value), ev.channel());
         let addr_str = String::from(address);
         let node = Node {
             event_handler: vec![ev],

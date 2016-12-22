@@ -1,7 +1,8 @@
 extern crate mio;
 extern crate num;
 
-use network::tcp::{TcpConnValue, TcpConn};
+use network::tcp::TcpConn;
+use network::{Connection, Connections};
 use event::{EventHandlerCommand, Event, EventHandlerCMD, EVENT_ON_CONNECTION_CLOSE, EVENT_ON_CONNECTION};
 use std::sync::{Arc, RwLock};
 use self::mio::channel::{Sender, Receiver, channel};
@@ -23,7 +24,7 @@ pub enum TcpReaderCMD {
 
 pub struct TcpReaderCommand {
     pub cmd: TcpReaderCMD,
-    pub conn_value: Vec<TcpConnValue>,
+    pub conn_value: Vec<Connection>,
     pub conn: Vec<TcpConn>,
     pub data: Vec<Arc<Vec<u8>>>,
     pub socket_token: Vec<Token>,
@@ -32,7 +33,7 @@ pub struct TcpReaderCommand {
 }
 
 pub struct TcpReader {
-    connections: Arc<RwLock<Vec<TcpConnValue>>>,
+    connections: Arc<RwLock<Vec<Connection>>>,
     reader_conns: BTreeMap<Token, TcpConn>,
 
     // prime value for current node
@@ -58,7 +59,7 @@ pub struct TcpReader {
 }
 
 impl TcpReader {
-    pub fn new(connections: Arc<RwLock<Vec<TcpConnValue>>>, event_handler: Sender<EventHandlerCommand>, value: BigInt) -> TcpReader {
+    pub fn new(connections: Connections, event_handler: Sender<EventHandlerCommand>, value: BigInt) -> TcpReader {
         let (s, r) = channel::<TcpReaderCommand>();
         TcpReader {
             connections: connections,
@@ -156,7 +157,7 @@ impl TcpReader {
                 };
 
                 // keeping this for event trigger
-                conn_value.reader_index = self.reader_index;
+                conn_value.writer_index = self.reader_index;
                 let conn_value_token = conn_value.token.clone();
                 match self.poll.register(&conn.socket_r, conn.socket_token, Ready::writable(), PollOpt::edge()) {
                     Ok(_) => {},
@@ -468,7 +469,7 @@ impl TcpReader {
                 // and saving connection token for later writing to that connection
                 if path.clone() % c.value.clone() == self.big_zero {
                     path = path.clone() / c.value.clone();
-                    conn_tokens[c.reader_index].push(c.socket_token);
+                    conn_tokens[c.writer_index].push(c.socket_token);
                 }
             }
         }
