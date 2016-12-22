@@ -315,7 +315,7 @@ impl TcpConn {
     pub fn flush_write_queue(&mut self) -> Result<bool> {
         loop {
             {
-                // removing and getting first element
+                // getting first element
                 let mut data = match self.write_queue.front_mut() {
                     Some(b) => b,
                     None => break
