@@ -289,7 +289,7 @@ impl TcpConn {
             }
 
             // extending pending data
-            self.pending_data[0].extend(&buffer[offset..(offset + copy_buffer_len)]);
+            self.pending_data[0].extend_from_slice(&buffer[offset..(offset + copy_buffer_len)]);
 
             offset += copy_buffer_len;
             self.pending_data_index += copy_buffer_len;

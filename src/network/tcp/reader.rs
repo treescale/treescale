@@ -150,12 +150,13 @@ impl TcpReader {
                     None => return
                 };
 
-                let conn_value = match command.conn_value.pop() {
+                let mut conn_value = match command.conn_value.pop() {
                     Some(c) => c,
                     None => return
                 };
 
                 // keeping this for event trigger
+                conn_value.reader_index = self.reader_index;
                 let conn_value_token = conn_value.token.clone();
                 match self.poll.register(&conn.socket_r, conn.socket_token, Ready::writable(), PollOpt::edge()) {
                     Ok(_) => {},
@@ -365,30 +366,6 @@ impl TcpReader {
             None => return
         };
 
-        let mut conn_index: i32 = -1;
-        // trying to find connection based on token from conn
-        {
-            let conns_v = match self.connections.read() {
-                Ok(c) => c,
-                Err(e) => {
-                    warn!("Unable to set readable lock for global connections list -> {}", e);
-                    return;
-                }
-            };
-
-            for i in 0..conns_v.len() {
-                if conns_v[i].socket_token == conn.socket_token {
-                    conn_index = i as i32;
-                    break;
-                }
-            }
-        }
-
-        // we could't find connection index
-        // so we need just to return
-        if conn_index < 0 {
-            return;
-        }
 
         let mut ev = Event::default();
         ev.name = String::from(EVENT_ON_CONNECTION_CLOSE);
@@ -405,7 +382,12 @@ impl TcpReader {
             };
 
             // deleting connection here
-            ev.from = conns_v.remove(conn_index as usize).token;
+            for i in 0..conns_v.len() {
+                if conns_v[i].socket_token == conn.socket_token {
+                    ev.from = conns_v.remove(i).token;
+                    break;
+                }
+            }
         }
 
         let _ = self.event_handler_channel.send(EventHandlerCommand {
