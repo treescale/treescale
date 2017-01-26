@@ -6,11 +6,16 @@ use self::num::{BigInt, Zero};
 use std::sync::{Arc, RwLock};
 use std::str::FromStr;
 
+pub enum ConnectionType {
+    TCP
+}
+
 pub struct Connection {
     pub token: String,
     pub value: BigInt,
     pub api_version: usize,
     pub from_server: bool,
+    pub conn_type: ConnectionType,
     pub socket_token: Token,
     pub writer_index: usize
 }
@@ -18,7 +23,7 @@ pub struct Connection {
 pub type Connections = Arc<RwLock<Vec<Connection>>>;
 
 impl Connection {
-    pub fn new(socket_token: Token, token: String, value: String) -> Connection {
+    pub fn new(socket_token: Token, token: String, value: String, conn_type: ConnectionType) -> Connection {
         Connection {
             token: token,
             value: match BigInt::from_str(value.as_str()) {
@@ -29,6 +34,7 @@ impl Connection {
             from_server: true,
             socket_token: socket_token,
             writer_index: 0,
+            conn_type: conn_type
         }
     }
 }

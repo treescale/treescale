@@ -8,12 +8,12 @@ use std::os::unix::io::AsRawFd;
 use std::io::{Result, Read, Write, Cursor, Error, ErrorKind};
 use self::byteorder::{BigEndian, ReadBytesExt};
 use network::tcp::{TOKEN_VALUE_SEP};
-use network::Connection;
+use network::{Connection, ConnectionType};
 use std::str::FromStr;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-const MAX_API_VERSION: usize = 500;
+const MAX_API_VERSION: usize = 256;
 // Maximum length for each message is 30mb
 static MAX_NETWORK_MESSAGE_LEN: usize = 30000000;
 
@@ -66,7 +66,7 @@ impl TcpConn {
 
     #[inline(always)]
     pub fn add_conn_value(&mut self, socket_token: Token, token: String, value: String) {
-        let mut tv = Connection::new(socket_token, token, value);
+        let mut tv = Connection::new(socket_token, token, value, ConnectionType::TCP);
         tv.api_version = self.api_version;
         tv.from_server = self.from_server;
         self.conn_value.push(tv);
@@ -89,26 +89,17 @@ impl TcpConn {
     // this will help getting API version first to define how communicate with this connection
     #[inline(always)]
     pub fn read_api_version(&mut self) -> Result<bool> {
-        // if we have already data defined bigger than 4 bytes
-        // then we need to clean up
-        if self.pending_endian_buf.len() >= 4 {
-            self.pending_endian_buf.clear();
-        }
-
-        let pending_data_len = 4 - self.pending_endian_buf.len();
-        let mut version_buf = vec![0; pending_data_len];
+        let mut version_buf = vec![0; 1];
 
         match self.socket.read(&mut version_buf) {
             Ok(length) => {
-                self.pending_endian_buf.extend(&version_buf[..length]);
-                if self.pending_endian_buf.len() < 4 {
-                    // not ready yet for converting Big Endian bytes to API version
-                    return Ok(false);
+                // we got EOF
+                if length == 0 {
+                    return Err(Error::new(ErrorKind::InvalidData, "Connection closed during API version handshake"));
                 }
 
-                let mut rdr = Cursor::new(&self.pending_endian_buf);
-                self.api_version = rdr.read_u32::<BigEndian>().unwrap() as usize;
-                if self.api_version >= MAX_API_VERSION {
+                self.api_version = version_buf[0] as usize;
+                if self.api_version <= 0 || self.api_version >= MAX_API_VERSION {
                     return Err(Error::new(ErrorKind::InvalidData, "Wrong API version provided"));
                 }
             }
@@ -123,8 +114,6 @@ impl TcpConn {
             }
         }
 
-        // if we got here then we are done with API version reading
-        self.pending_endian_buf.clear();
         Ok(true)
     }
 
@@ -148,6 +137,10 @@ impl TcpConn {
             let mut buffer_len_buf = vec![0; pending_data_len];
             match self.socket.read(&mut buffer_len_buf) {
                 Ok(length) => {
+                    if length == 0 {
+                        return Err(Error::new(ErrorKind::InvalidData, "Connection closed during Token/Value handshake"));
+                    }
+
                     self.pending_endian_buf.extend(&buffer_len_buf[..length]);
                     if self.pending_endian_buf.len() < 4 {
                         // not ready yet for converting Big Endian bytes to API version
@@ -157,7 +150,7 @@ impl TcpConn {
                     let mut rdr = Cursor::new(&self.pending_endian_buf);
                     self.pending_data_len = rdr.read_u32::<BigEndian>().unwrap() as usize;
                     if self.pending_data_len >= MAX_NETWORK_MESSAGE_LEN {
-                        return Err(Error::new(ErrorKind::InvalidData, "Messager Length is larger than expected!"));
+                        return Err(Error::new(ErrorKind::InvalidData, "Message Length is larger than expected!"));
                     }
                 }
                 Err(e) => {
@@ -237,11 +230,11 @@ impl TcpConn {
                 // calculating how many bytes we need to read to complete 4 bytes
                 let endian_pending_len = 4 - self.pending_endian_buf.len();
                 if still_have < endian_pending_len {
-                    self.pending_endian_buf.extend(&buffer[offset..offset + still_have]);
+                    self.pending_endian_buf.extend_from_slice(&buffer[offset..offset + still_have]);
                     break;
                 }
 
-                self.pending_endian_buf.extend(&buffer[offset..offset + endian_pending_len]);
+                self.pending_endian_buf.extend_from_slice(&buffer[offset..offset + endian_pending_len]);
                 offset += endian_pending_len;
                 still_have = buffer_len - offset;
 
