@@ -3,11 +3,14 @@ extern crate mio;
 
 use self::mio::channel::{channel, Sender, Receiver};
 use network::Connection;
+use std::collections::BTreeMap;
 
 /// Base structure for handling all Networking actions for this project
 pub struct Network {
-    // List of available connections
-    connections: Vec<Connection>,
+    // BTreeMap for keeping
+    // key -> connection unique prime value
+    // value -> Network connection object
+    connections: BTreeMap<u64, Connection>,
 
     // Sender and Receiver for handling commands for Networking
     sender_channel: Sender<NetworkCommand>,

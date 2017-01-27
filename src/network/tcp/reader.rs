@@ -25,3 +25,25 @@ pub enum TcpReaderCMD {
 pub struct TcpReaderCommand {
 
 }
+
+
+impl TcpReader {
+    pub fn new(tcp_net: Sender<TcpNetworkCommand>, net: Sender<NetworkCommand>) -> TcpReader {
+        let (s, r) = channel::<TcpReaderCommand>();
+        TcpReader {
+            tcp_net_channel: tcp_net,
+            network_channel: net,
+            sender_channel: s,
+            receiver_channel: r
+        }
+    }
+
+    #[inline(always)]
+    pub fn channel(&self) -> Sender<TcpReaderCommand> {
+        self.sender_channel.clone()
+    }
+
+    pub fn start(&mut self) {
+
+    }
+}

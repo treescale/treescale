@@ -3,6 +3,7 @@ extern crate mio;
 
 use self::mio::Token;
 use self::mio::channel::{Sender};
+use self::mio::tcp::TcpStream;
 use network::tcp::TcpWriterCommand;
 
 pub enum ConnectionType {
@@ -17,6 +18,8 @@ pub struct Connection {
     pub conn_type: ConnectionType,
     pub from_server: bool,
 
-    // writer command for TCP connection
-    tcp_writer_chan: Sender<TcpWriterCommand>
+    // writer command for TCP connection or None if this is not a TCP connection
+    tcp_writer_chan: Option<Sender<TcpWriterCommand>>,
+    // keeping TCP socket here or None if this is not a TCP connection
+    tcp_socket: Option<TcpStream>
 }

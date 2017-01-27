@@ -25,3 +25,24 @@ pub enum TcpWriterCMD {
 pub struct TcpWriterCommand {
 
 }
+
+impl TcpWriter {
+    pub fn new(tcp_net: Sender<TcpNetworkCommand>, net: Sender<NetworkCommand>) -> TcpWriter {
+        let (s, r) = channel::<TcpWriterCommand>();
+        TcpWriter {
+            tcp_net_channel: tcp_net,
+            network_channel: net,
+            sender_channel: s,
+            receiver_channel: r
+        }
+    }
+
+    #[inline(always)]
+    pub fn channel(&self) -> Sender<TcpWriterCommand> {
+        self.sender_channel.clone()
+    }
+
+    pub fn start(&mut self) {
+
+    }
+}
