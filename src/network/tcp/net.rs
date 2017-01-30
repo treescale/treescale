@@ -1,16 +1,18 @@
 #![allow(dead_code)]
 extern crate mio;
+extern crate slab;
 
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use self::mio::tcp::{TcpListener};
 use network::{NetworkCommand};
-use network::tcp::{TcpReaderCommand, TcpReader};
-use network::tcp::{TcpWriterCommand, TcpWriter};
+use network::tcp::{TcpReaderCommand, TcpReaderCMD, TcpReader, TcpWriterCommand, TcpWriter, TcpReaderConn};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread;
 use std::process;
+
+type Slab<T> = slab::Slab<T, Token>;
 
 const TCP_SERVER_TOKEN: Token = Token(0);
 const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
@@ -31,7 +33,14 @@ pub struct TcpNetwork {
     writer_channels: Vec<Sender<TcpWriterCommand>>,
 
     // keeping POLL service handle
-    poll: Poll
+    poll: Poll,
+
+    // index for making Round Rubin over TCP Readers
+    readers_index: usize,
+
+    // List of connections which still didn't sent their base information
+    // API version and unique Prime value
+    pending_connections: Slab<TcpReaderConn>
 }
 
 /// Enumeration for commands available for TcpNetworking
@@ -54,7 +63,9 @@ impl TcpNetwork {
             receiver_channel: r,
             reader_channels: vec![],
             writer_channels: vec![],
-            poll: Poll::new().expect("Unable to create TCP network POLL service")
+            poll: Poll::new().expect("Unable to create TCP network POLL service"),
+            readers_index: 0,
+            pending_connections: Slab::with_capacity(1024)
         }
     }
 
@@ -164,18 +175,48 @@ impl TcpNetwork {
     }
 
     #[inline(always)]
+    fn get_reader(&mut self) -> Sender<TcpReaderCommand> {
+        if self.readers_index >= self.reader_channels.len() {
+            self.readers_index = 0;
+        }
+
+        self.readers_index += 1;
+        self.reader_channels[self.readers_index - 1].clone()
+    }
+
+    #[inline(always)]
     fn notify(&mut self, command: &mut TcpNetworkCommand) {
 
     }
 
     #[inline(always)]
     fn acceptable(&mut self, server_socket: &TcpListener) {
+        loop {
+            let sock = match server_socket.accept() {
+                Ok((s, _)) => s,
+                Err(_) => break
+            };
 
+            if self.pending_connections.vacant_entry().is_none() {
+                let conns_len = self.pending_connections.len();
+                self.pending_connections.reserve_exact(conns_len);
+            }
+
+            let entry = self.pending_connections.vacant_entry().unwrap();
+            let conn = TcpReaderConn::new(sock, entry.index());
+            // if we are unable to register connection to this poll service
+            // then just moving to the next connection, by just closing this one
+            if !conn.register(&self.poll) {
+                continue;
+            }
+
+            entry.insert(conn);
+        }
     }
 
     #[inline(always)]
     fn readable(&mut self, token: Token) {
-
+        
     }
 
     #[inline(always)]

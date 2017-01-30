@@ -2,6 +2,7 @@
 extern crate mio;
 
 use self::mio::channel::{channel, Sender, Receiver};
+use self::mio::tcp::TcpStream;
 use network::tcp::{TcpNetworkCommand};
 use network::{NetworkCommand};
 
@@ -19,13 +20,13 @@ pub struct TcpReader {
 }
 
 pub enum TcpReaderCMD {
-
+    HandleNewConnection,
 }
 
 pub struct TcpReaderCommand {
-
+    pub cmd: TcpReaderCMD,
+    pub socket: Option<TcpStream>
 }
-
 
 impl TcpReader {
     pub fn new(tcp_net: Sender<TcpNetworkCommand>, net: Sender<NetworkCommand>) -> TcpReader {
