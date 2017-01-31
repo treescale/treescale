@@ -6,6 +6,7 @@ use self::mio::{Token, Poll, Ready, PollOpt};
 use std::io::ErrorKind;
 use std::io::{Read, Write};
 use std::mem;
+use std::sync::Arc;
 
 /// Structure for handling TCP connection functionality
 pub struct TcpReaderConn {
@@ -40,7 +41,7 @@ pub struct TcpWriterConn {
     pub value: u64,
 
     // values for keeping write queue
-    write_queue: Vec<Vec<u8>>,
+    write_queue: Vec<Arc<Vec<u8>>>,
     write_queue_element_index: usize,
 }
 
@@ -271,11 +272,12 @@ impl TcpWriterConn {
     /// if it returns 'false' it means there is still data to be written
     /// if it returns 'true' then it have written all available data
     /// so that we can deregister connection as writable and wait for the next data
+    #[inline(always)]
     pub fn flush_write_queue(&mut self) -> Option<bool> {
         while self.write_queue.len() > 0 {
             {
                 let ref mut data = self.write_queue[0];
-                let write_len = match self.socket.write(&mut data[self.write_queue_element_index..]) {
+                let write_len = match self.socket.write(&data[self.write_queue_element_index..]) {
                     Ok(n) => n,
                     Err(e) => {
                         // if we got WouldBlock, then this is Non Blocking socket
@@ -301,5 +303,13 @@ impl TcpWriterConn {
         }
 
         Some(true)
+    }
+
+    /// Base function for writing data to this connection socket
+    /// This will first try to write data directly to socket
+    /// Then if it's not successfull it will add data to queue for later write process
+    #[inline(always)]
+    pub fn write(&mut self, data: Arc<Vec<u8>>) {
+        self.write_queue.push(data);
     }
 }
