@@ -5,6 +5,7 @@ use self::mio::tcp::TcpStream;
 use self::mio::{Token, Poll, Ready, PollOpt};
 use std::io::ErrorKind;
 use std::io::Read;
+use std::mem;
 
 /// Structure for handling TCP connection functionality
 pub struct TcpReaderConn {
@@ -59,7 +60,7 @@ impl TcpReaderConn {
 
     #[inline(always)]
     fn read_big_endian(&mut self) -> (bool, Option<u32>) {
-        let read_len = match self.socket.read(&mut self.endian_bytes) {
+        let read_len = match self.socket.read(&mut self.endian_bytes[self.endian_bytes_index..]) {
             Ok(n) => n,
             Err(e) => {
                 // if we got WouldBlock, then this is Non Blocking socket
@@ -72,11 +73,21 @@ impl TcpReaderConn {
             }
         };
 
-        if read_len < 4 {
-            
+        self.endian_bytes_index += read_len;
+        // if we still have some data to read
+        if self.endian_bytes_index < self.endian_bytes_index {
+            return (false, Some(0));
         }
 
-        (false, None)
+        // if we got here then just setting BigEndian bytes and returning parsed number
+        (true, Some(unsafe {
+            let a = [self.endian_bytes[0]
+                      , self.endian_bytes[1]
+                      , self.endian_bytes[2]
+                      , self.endian_bytes[3]];
+            let endian_num = mem::transmute::<[u8; 4], u32>(a);
+            u32::from_be(endian_num)
+        }))
     }
 
     /// Registering TCP connection to given POLL event loop
