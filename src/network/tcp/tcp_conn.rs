@@ -30,6 +30,8 @@ pub struct TcpReaderConn {
 }
 
 pub struct TcpWriterConn {
+    // api version for this connection
+    pub api_version: u32,
     // TCP stream socket handle
     socket: TcpStream,
     // token for event loop
@@ -224,4 +226,34 @@ impl TcpReaderConn {
         self.pending_index = 0;
         (true, Some(self.pending_data.remove(0)))
     }
+
+    /// Making writer socket out of existing information from TcpReaderConn
+    /// This connection later would be shared between one of the TcpWriters
+    #[inline(always)]
+    pub fn make_writer(&self) -> Option<TcpWriterConn> {
+        if self.api_version == 0 || self.value == 0 {
+            return None;
+        }
+
+        match self.socket.try_clone() {
+            Ok(s) => {
+                Some(TcpWriterConn{
+                    api_version: self.api_version,
+                    value: self.value,
+                    socket: s,
+                    socket_token: self.socket_token,
+                    write_queue: vec![],
+                    write_queue_element_index: 0
+                })
+            },
+            Err(e) => {
+                warn!("Unable to clone socket for making writer service ! -> {}", e);
+                None
+            }
+        }
+    }
+}
+
+impl TcpWriterConn {
+
 }

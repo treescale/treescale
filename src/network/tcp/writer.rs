@@ -2,7 +2,7 @@
 extern crate mio;
 
 use self::mio::channel::{channel, Sender, Receiver};
-use network::tcp::{TcpNetworkCommand};
+use network::tcp::{TcpNetworkCommand, TcpWriterConn};
 use network::{NetworkCommand};
 
 
@@ -19,11 +19,12 @@ pub struct TcpWriter {
 }
 
 pub enum TcpWriterCMD {
-
+    HandleNewConnection,
 }
 
 pub struct TcpWriterCommand {
-
+    pub cmd: TcpWriterCMD,
+    pub conn: Option<TcpWriterConn>
 }
 
 impl TcpWriter {

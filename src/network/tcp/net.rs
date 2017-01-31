@@ -6,7 +6,7 @@ use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use self::mio::tcp::{TcpListener};
 use network::{NetworkCommand};
-use network::tcp::{TcpReaderCommand, TcpReaderCMD, TcpReader, TcpWriterCommand, TcpWriter, TcpReaderConn};
+use network::tcp::{TcpReaderCommand, TcpReaderCMD, TcpReader, TcpWriterCommand, TcpWriter, TcpWriterCMD, TcpReaderConn};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread;
@@ -159,8 +159,6 @@ impl TcpNetwork {
                     } else {
                         self.readable(token);
                     }
-                } else if kind.is_writable() {
-                    self.writable(token);
                 } else if kind.is_error() || kind.is_hup() {
                     if token == TCP_SERVER_TOKEN {
                         warn!("Got Error for TCP server, exiting Application");
@@ -175,18 +173,21 @@ impl TcpNetwork {
     }
 
     #[inline(always)]
-    fn get_reader(&mut self) -> Sender<TcpReaderCommand> {
+    fn get_reader_writer(&mut self) -> (Sender<TcpReaderCommand>, Sender<TcpWriterCommand>) {
         if self.readers_index >= self.reader_channels.len() {
             self.readers_index = 0;
         }
 
         self.readers_index += 1;
-        self.reader_channels[self.readers_index - 1].clone()
+        (self.reader_channels[self.readers_index - 1].clone(),
+        self.writer_channels[self.readers_index - 1].clone())
     }
 
     #[inline(always)]
     fn notify(&mut self, command: &mut TcpNetworkCommand) {
-
+        match command {
+            _ => return
+        }
     }
 
     #[inline(always)]
@@ -216,16 +217,92 @@ impl TcpNetwork {
 
     #[inline(always)]
     fn readable(&mut self, token: Token) {
-        
-    }
+        if !self.pending_connections.contains(token) {
+            return;
+        }
 
-    #[inline(always)]
-    fn writable(&mut self, token: Token) {
+        let read_res = {
+            let ref mut conn = self.pending_connections[token];
+            if conn.api_version > 0 {
+                Some(true)
+            } else {
+                conn.read_api_version()
+            }
+        };
 
+        if read_res.is_none() {
+            self.close_connection(token);
+            return;
+        }
+
+        if !read_res.unwrap() {
+            return;
+        }
+
+        let read_res = {
+            let ref mut conn = self.pending_connections[token];
+            if conn.api_version > 0 {
+                Some(true)
+            } else {
+                conn.read_prime_value()
+            }
+        };
+
+        if read_res.is_none() {
+            self.close_connection(token);
+            return;
+        }
+
+        if !read_res.unwrap() {
+            return;
+        }
+
+        // if we got here then now we have API version and Prime value from connection
+        // so now we can make TcpWriter from it and transfer both to Reader and Writer services
+        self.transfer_connection(token);
     }
 
     #[inline(always)]
     fn close_connection(&mut self, token: Token) {
+        if !self.pending_connections.contains(token) {
+            return;
+        }
 
+        let conn = self.pending_connections.remove(token).unwrap();
+        let _ = self.poll.deregister(&conn.socket);
+        // clearing connection memory
+        // which will actionally close other socket things
+        drop(conn);
+    }
+
+    #[inline(always)]
+    fn transfer_connection(&mut self, token: Token) {
+        if !self.pending_connections.contains(token) {
+            return;
+        }
+
+        let conn = self.pending_connections.remove(token).unwrap();
+        match self.poll.deregister(&conn.socket) {
+            Ok(_) => {
+                let writer_conn = conn.make_writer();
+                if writer_conn.is_none() {
+                    return;
+                }
+
+                let (reader, writer) = self.get_reader_writer();
+                let _ = reader.send(TcpReaderCommand{
+                    cmd: TcpReaderCMD::HandleNewConnection,
+                    conn: Some(conn)
+                });
+
+                let _ = writer.send(TcpWriterCommand {
+                    cmd: TcpWriterCMD::HandleNewConnection,
+                    conn: Some(writer_conn.unwrap())
+                });
+            },
+            Err(e) => {
+                warn!("Unable to deregister connection from TcpNetwork POLL service -> {}", e);
+            }
+        }
     }
 }
