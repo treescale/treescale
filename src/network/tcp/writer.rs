@@ -24,7 +24,7 @@ pub enum TcpWriterCMD {
 
 pub struct TcpWriterCommand {
     pub cmd: TcpWriterCMD,
-    pub conn: Option<TcpWriterConn>
+    pub conn: Vec<TcpWriterConn>
 }
 
 impl TcpWriter {

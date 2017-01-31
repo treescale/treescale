@@ -11,11 +11,12 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread;
 use std::process;
+use std::u32::MAX as u32MAX;
 
 type Slab<T> = slab::Slab<T, Token>;
 
-const TCP_SERVER_TOKEN: Token = Token(0);
-const RECEIVER_CHANNEL_TOKEN: Token = Token(1);
+const TCP_SERVER_TOKEN: Token = Token(u32MAX as usize);
+const RECEIVER_CHANNEL_TOKEN: Token = Token((u32MAX - 1) as usize);
 
 /// Structure for handling TCP networking functionality
 pub struct TcpNetwork {
@@ -292,12 +293,12 @@ impl TcpNetwork {
                 let (reader, writer) = self.get_reader_writer();
                 let _ = reader.send(TcpReaderCommand{
                     cmd: TcpReaderCMD::HandleNewConnection,
-                    conn: Some(conn)
+                    conn: vec![conn]
                 });
 
                 let _ = writer.send(TcpWriterCommand {
                     cmd: TcpWriterCMD::HandleNewConnection,
-                    conn: Some(writer_conn.unwrap())
+                    conn: vec![writer_conn.unwrap()]
                 });
             },
             Err(e) => {
