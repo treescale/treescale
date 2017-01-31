@@ -4,7 +4,7 @@ extern crate mio;
 use self::mio::tcp::TcpStream;
 use self::mio::{Token, Poll, Ready, PollOpt};
 use std::io::ErrorKind;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::mem;
 
 /// Structure for handling TCP connection functionality
@@ -33,11 +33,11 @@ pub struct TcpWriterConn {
     // api version for this connection
     pub api_version: u32,
     // TCP stream socket handle
-    socket: TcpStream,
+    pub socket: TcpStream,
     // token for event loop
-    socket_token: Token,
+    pub socket_token: Token,
     // unique prime value
-    value: u64,
+    pub value: u64,
 
     // values for keeping write queue
     write_queue: Vec<Vec<u8>>,
@@ -255,5 +255,51 @@ impl TcpReaderConn {
 }
 
 impl TcpWriterConn {
+    /// Registering TCP connection to given POLL event loop
+    #[inline(always)]
+    pub fn register(&self, poll: &Poll) -> bool {
+        match poll.register(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
+            Ok(_) => true,
+            Err(e) => {
+                warn!("Unable to register connection to Poll service as writable ! -> {}", e);
+                false
+            }
+        }
+    }
 
+    /// This function will try to write data to socket
+    /// if it returns 'false' it means there is still data to be written
+    /// if it returns 'true' then it have written all available data
+    /// so that we can deregister connection as writable and wait for the next data
+    pub fn flush_write_queue(&mut self) -> Option<bool> {
+        while self.write_queue.len() > 0 {
+            {
+                let ref mut data = self.write_queue[0];
+                let write_len = match self.socket.write(&mut data[self.write_queue_element_index..]) {
+                    Ok(n) => n,
+                    Err(e) => {
+                        // if we got WouldBlock, then this is Non Blocking socket
+                        // and data still not available for this, so it's not a connection error
+                        if e.kind() == ErrorKind::WouldBlock {
+                            return Some(false);
+                        }
+
+                        return None;
+                    }
+                };
+                self.write_queue_element_index += write_len;
+                if self.write_queue_element_index < data.len() {
+                    return Some(false);
+                }
+            }
+
+            // if we got here then
+            // self.write_queue_element_index == data.len()
+            // so this data is written, removing it from Queue
+            // and moving to the next data
+            self.write_queue.remove(0);
+        }
+
+        Some(true)
+    }
 }
