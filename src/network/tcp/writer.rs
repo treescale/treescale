@@ -8,6 +8,7 @@ use network::tcp::{TcpNetworkCommand, TcpWriterConn};
 use network::{NetworkCommand};
 use std::process;
 use std::u32::MAX as u32MAX;
+use std::sync::Arc;
 
 type Slab<T> = slab::Slab<T, Token>;
 const RECEIVER_CHANNEL_TOKEN: Token = Token(u32MAX as usize);
@@ -32,11 +33,14 @@ pub struct TcpWriter {
 
 pub enum TcpWriterCMD {
     HandleNewConnection,
+    WriteData,
 }
 
 pub struct TcpWriterCommand {
     pub cmd: TcpWriterCMD,
-    pub conn: Vec<TcpWriterConn>
+    pub conn: Vec<TcpWriterConn>,
+    pub token: Vec<Token>,
+    pub data: Vec<Arc<Vec<u8>>>
 }
 
 impl TcpWriter {
@@ -127,6 +131,22 @@ impl TcpWriter {
                 }
 
                 entry.insert(conn);
+            }
+
+            TcpWriterCMD::WriteData => {
+                if command.token.len() != 1 {
+                    return;
+                }
+
+                let token = command.token.remove(0);
+                if !self.connections.contains(token) {
+                    return;
+                }
+
+                let ref mut conn = self.connections[token];
+                conn.write_queue.append(&mut command.data);
+                // making connection writable
+                conn.register(&self.poll);
             }
         }
     }

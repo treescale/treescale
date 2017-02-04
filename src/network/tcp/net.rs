@@ -298,7 +298,9 @@ impl TcpNetwork {
 
                 let _ = writer.send(TcpWriterCommand {
                     cmd: TcpWriterCMD::HandleNewConnection,
-                    conn: vec![writer_conn.unwrap()]
+                    conn: vec![writer_conn.unwrap()],
+                    token: vec![],
+                    data: vec![]
                 });
             },
             Err(e) => {

@@ -41,7 +41,7 @@ pub struct TcpWriterConn {
     pub value: u64,
 
     // values for keeping write queue
-    write_queue: Vec<Arc<Vec<u8>>>,
+    pub write_queue: Vec<Arc<Vec<u8>>>,
     write_queue_element_index: usize,
 }
 
@@ -303,13 +303,5 @@ impl TcpWriterConn {
         }
 
         Some(true)
-    }
-
-    /// Base function for writing data to this connection socket
-    /// This will first try to write data directly to socket
-    /// Then if it's not successfull it will add data to queue for later write process
-    #[inline(always)]
-    pub fn write(&mut self, data: Arc<Vec<u8>>) {
-        self.write_queue.push(data);
     }
 }
