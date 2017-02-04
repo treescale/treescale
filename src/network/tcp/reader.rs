@@ -5,9 +5,10 @@ extern crate slab;
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use network::tcp::{TcpNetworkCommand, TcpReaderConn};
-use network::{NetworkCommand};
+use network::{NetworkCommand, NetworkCMD};
 use std::process;
 use std::u32::MAX as u32MAX;
+use std::sync::Arc;
 
 type Slab<T> = slab::Slab<T, Token>;
 const RECEIVER_CHANNEL_TOKEN: Token = Token(u32MAX as usize);
@@ -156,6 +157,20 @@ impl TcpReader {
                     break;
                 }
 
+                // Extracting data and packaging to ARC
+                let data = Arc::new(data_opt.unwrap());
+                // parsing only Event Path from DATA
+                // we will send this path information to Networking
+                // for sending this data based on that path
+                let path = self.parse_path(data);
+
+                let _ = self.network_channel.send(NetworkCommand{
+                    cmd: NetworkCMD::HandleData,
+                    connection: vec![],
+                    data: vec![data],
+                    // path: vec![path]
+                });
+
                 // TODO: Handle data here !!
                 // data_opt.unwrap()
             }
@@ -176,5 +191,10 @@ impl TcpReader {
         // clearing connection memory
         // which will actionally close other socket things
         drop(conn);
+    }
+
+    #[inline(always)]
+    fn parse_path(&self, data: Arc<Vec<u8>>) -> bool {
+        true
     }
 }

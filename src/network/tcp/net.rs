@@ -5,7 +5,7 @@ extern crate slab;
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use self::mio::tcp::{TcpListener};
-use network::{NetworkCommand};
+use network::{NetworkCommand, Connection, NetworkCMD};
 use network::tcp::{TcpReaderCommand, TcpReaderCMD, TcpReader, TcpWriterCommand, TcpWriter, TcpWriterCMD, TcpReaderConn};
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -291,6 +291,14 @@ impl TcpNetwork {
                 }
 
                 let (reader, writer) = self.get_reader_writer();
+
+                // Making base Connection object to notify base Networking about new connection
+                let _ = self.network_channel.send(NetworkCommand {
+                    cmd: NetworkCMD::HandleNewConnection,
+                    connection: vec![Connection::from_tcp(&conn, writer.clone(), true)],
+                    data: vec![]
+                });
+
                 let _ = reader.send(TcpReaderCommand{
                     cmd: TcpReaderCMD::HandleNewConnection,
                     conn: vec![conn]
