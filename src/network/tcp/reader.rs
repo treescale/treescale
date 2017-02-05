@@ -162,7 +162,7 @@ impl TcpReader {
                 // parsing only Event Path from DATA
                 // we will send this path information to Networking
                 // for sending this data based on that path
-                let path = self.parse_path(data);
+                let path = TcpReader::parse_path(&data);
 
                 let _ = self.network_channel.send(NetworkCommand{
                     cmd: NetworkCMD::HandleData,
@@ -194,7 +194,7 @@ impl TcpReader {
     }
 
     #[inline(always)]
-    fn parse_path(&self, data: Arc<Vec<u8>>) -> bool {
+    fn parse_path(data: &Arc<Vec<u8>>) -> bool {
         true
     }
 }

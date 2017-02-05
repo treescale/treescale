@@ -118,6 +118,9 @@ impl Network {
                 let conn = command.connection.remove(0);
                 self.connections.insert(conn.value, conn);
             }
+            NetworkCMD::HandleData => {
+                
+            }
         }
     }
 }

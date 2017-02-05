@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate log;
 mod network;
+mod node;
 
 use log::{LogLevelFilter, LogRecord, LogLevel, LogMetadata};
 
