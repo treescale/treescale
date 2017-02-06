@@ -9,8 +9,6 @@ use std::collections::BTreeMap;
 use network::tcp::TcpNetwork;
 use std::thread;
 use std::process;
-use std::sync::Arc;
-use std::cell::RefCell;
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token(0);
 

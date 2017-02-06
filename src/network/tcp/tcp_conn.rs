@@ -5,8 +5,8 @@ use self::mio::tcp::TcpStream;
 use self::mio::{Token, Poll, Ready, PollOpt};
 use std::io::ErrorKind;
 use std::io::{Read, Write};
-use std::mem;
 use std::sync::Arc;
+use helpers::{parse_number, parse_number64};
 
 /// Structure for handling TCP connection functionality
 pub struct TcpReaderConn {
@@ -89,15 +89,7 @@ impl TcpReaderConn {
 
         // if we got here then just setting BigEndian bytes and returning parsed number
         self.endian_bytes_index = 0;
-        (true, Some(unsafe {
-            let a = [self.endian_bytes[0]
-                      , self.endian_bytes[1]
-                      , self.endian_bytes[2]
-                      , self.endian_bytes[3]];
-            let endian_num = mem::transmute::<[u8; 4], u32>(a);
-            self.endian_bytes = vec![0; 4];
-            u32::from_be(endian_num)
-        }))
+        (true, Some(parse_number(self.endian_bytes.as_slice())))
     }
 
     /// Registering TCP connection to given POLL event loop
@@ -167,11 +159,7 @@ impl TcpReaderConn {
         }
 
         // if we got here then we have all data
-        self.value = unsafe {
-            let data = self.pending_data.remove(0);
-            let a: [u8; 8] = [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]];
-            u64::from_be(mem::transmute::<[u8; 8], u64>(a))
-        };
+        self.value = parse_number64(self.pending_data.remove(0).as_slice());
 
         self.pending_length = 0;
         self.pending_index = 0;

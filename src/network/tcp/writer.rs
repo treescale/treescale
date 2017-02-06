@@ -6,7 +6,7 @@ use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use network::tcp::{TcpNetworkCommand, TcpWriterConn};
 use network::{NetworkCommand};
-use node::{NodeCommand, NodeCMD};
+use node::{NodeCommand};
 use std::process;
 use std::u32::MAX as u32MAX;
 use std::sync::Arc;

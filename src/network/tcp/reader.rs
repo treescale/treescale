@@ -5,11 +5,10 @@ extern crate slab;
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use network::tcp::{TcpNetworkCommand, TcpReaderConn};
-use network::{NetworkCommand, NetworkCMD};
+use network::{NetworkCommand};
 use node::{NodeCommand, Event, NodeCMD};
 use std::process;
 use std::u32::MAX as u32MAX;
-use std::sync::Arc;
 
 type Slab<T> = slab::Slab<T, Token>;
 const RECEIVER_CHANNEL_TOKEN: Token = Token(u32MAX as usize);
@@ -194,10 +193,5 @@ impl TcpReader {
         // clearing connection memory
         // which will actionally close other socket things
         drop(conn);
-    }
-
-    #[inline(always)]
-    fn parse_path(data: &Arc<Vec<u8>>) -> bool {
-        true
     }
 }
