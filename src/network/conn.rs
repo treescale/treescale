@@ -23,6 +23,7 @@ pub struct Connection {
 }
 
 impl Connection {
+    #[inline(always)]
     pub fn from_tcp(tcp_conn: &TcpReaderConn, writer: Sender<TcpWriterCommand>, from_server: bool) -> Connection {
         Connection {
             value: tcp_conn.value,
@@ -34,6 +35,7 @@ impl Connection {
         }
     }
 
+    #[inline(always)]
     pub fn write(&self, data: Arc<Vec<u8>>) {
         if self.tcp_writer_chan.len() == 0 {
             return;

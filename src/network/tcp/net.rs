@@ -245,7 +245,7 @@ impl TcpNetwork {
 
         let read_res = {
             let ref mut conn = self.pending_connections[token];
-            if conn.api_version > 0 {
+            if conn.value > 0 {
                 Some(true)
             } else {
                 conn.read_prime_value()

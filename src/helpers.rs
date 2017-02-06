@@ -3,6 +3,19 @@ use std::mem;
 use std::u32::MAX as u32MAX;
 use std::u64::MAX as u64MAX;
 
+#[inline(always)]
+pub fn is_prime(number: u64) -> bool {
+    if number != 2 {
+        for i in 2..number/2 {
+            if number % i == 0 {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
 /// Parse BigEndian Number from given bytes
 /// NOTE: we will get only first 4 bytes from buffer
 #[inline(always)]

@@ -5,6 +5,7 @@ mod node;
 mod helpers;
 
 use log::{LogLevelFilter, LogRecord, LogLevel, LogMetadata};
+use node::{Node, Event, NodeConfig};
 
 struct SimpleLogger;
 
@@ -25,6 +26,19 @@ fn main() {
         max_log_level.set(LogLevelFilter::Info);
         Box::new(SimpleLogger)
     });
+
+    let mut node = Node::new();
+    let conf = NodeConfig {
+        tcp_address: String::from("0.0.0.0:8888"),
+        concurrency: 2
+    };
+
+    node.on("test", Box::new(|event: &Event, _:&mut Node| -> bool {
+        println!("{:?}", event.data);
+        true
+    }));
+
+    node.start(conf);
 
     print!("{:?}", "New Implementation");
 }

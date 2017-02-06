@@ -6,7 +6,7 @@ use self::mio::{Token, Poll, Ready, PollOpt};
 use std::io::ErrorKind;
 use std::io::{Read, Write};
 use std::sync::Arc;
-use helpers::{parse_number, parse_number64};
+use helpers::{parse_number, parse_number64, is_prime};
 
 /// Structure for handling TCP connection functionality
 pub struct TcpReaderConn {
@@ -120,6 +120,11 @@ impl TcpReaderConn {
 
         self.api_version = version.unwrap();
 
+        // Our API version cant be more than 500
+        if self.api_version > 500 {
+            return None;
+        }
+
         Some(true)
     }
 
@@ -163,6 +168,11 @@ impl TcpReaderConn {
 
         self.pending_length = 0;
         self.pending_index = 0;
+        // if we got non prime value, this is wrong API
+        if !is_prime(self.value) {
+            return None;
+        }
+
         Some(true)
     }
 

@@ -10,14 +10,18 @@ use std::thread;
 use std::process;
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token(0);
+pub type EventCallback = Box<Fn(&Event, &mut Node) -> bool>;
 
 pub struct Node {
     // Events BTreeMap for keeping events and their callbacks
-    callbacks: BTreeMap<String, Vec<Box<Fn(&Event, &mut Node) -> bool>>>,
+    callbacks: BTreeMap<String, Vec<EventCallback>>,
 
     // Sender and Receiver for handling commands for Node Service
     sender_channel: Sender<NodeCommand>,
     receiver_channel: Receiver<NodeCommand>,
+
+    // channel for networking
+    net_chan: Vec<Sender<NetworkCommand>>,
 
     // poll handler for base Node Service
     poll: Poll
@@ -33,8 +37,8 @@ pub struct NodeCommand {
 }
 
 pub struct NodeConfig {
-    tcp_address: String,
-    concurrency: usize
+    pub tcp_address: String,
+    pub concurrency: usize
 }
 
 impl Node {
@@ -44,7 +48,8 @@ impl Node {
             callbacks: BTreeMap::new(),
             sender_channel: s,
             receiver_channel: r,
-            poll: Poll::new().expect("Unable to create Poll service for Base Node service")
+            poll: Poll::new().expect("Unable to create Poll service for Base Node service"),
+            net_chan: vec![]
         }
     }
 
@@ -57,7 +62,7 @@ impl Node {
         // starting networking and keeping channel
         // for later communication
         let mut network = Network::new(conf.tcp_address.as_str(), self.channel());
-        let network_channel = network.channel();
+        self.net_chan = vec![network.channel()];
         thread::spawn(move || {
             network.start(conf.concurrency);
         });
@@ -85,7 +90,7 @@ impl Node {
                         match self.receiver_channel.try_recv() {
                             Ok(cmd) => {
                                 let mut c = cmd;
-                                self.notify(&mut c, &network_channel);
+                                self.notify(&mut c);
                             }
                             // if we got error, then data is unavailable
                             // and breaking receive loop
@@ -99,7 +104,7 @@ impl Node {
     }
 
     #[inline(always)]
-    fn notify(&mut self, command: &mut NodeCommand, net_chan: &Sender<NetworkCommand>) {
+    fn notify(&mut self, command: &mut NodeCommand) {
         match command.cmd {
             NodeCMD::HandleDataEvent => {
                 if command.event.len() == 0 {
@@ -108,18 +113,14 @@ impl Node {
 
                 let event = command.event.remove(0);
                 if self.trigger(&event) {
-                    let _ = net_chan.send(NetworkCommand{
-                        cmd: NetworkCMD::HandleEventData,
-                        connection: vec![],
-                        event: vec![event]
-                    });
+                    self.emit(event);
                 }
             }
         }
     }
 
     #[inline(always)]
-    fn trigger(&mut self, event: &Event) -> bool {
+    pub fn trigger(&mut self, event: &Event) -> bool {
         let mut ret_val = true;
         let cbs = match self.callbacks.remove(&event.name) {
             Some(c) => c,
@@ -135,5 +136,39 @@ impl Node {
 
         self.callbacks.insert(event.name.clone(), cbs);
         ret_val
+    }
+
+    #[inline(always)]
+    pub fn on(&mut self, name: &str, callback: EventCallback) {
+        let name_str = String::from(name);
+        match self.callbacks.get_mut(&name_str) {
+            Some(cbs) => {
+                cbs.push(callback);
+                return;
+            }
+            None => {}
+        };
+
+        self.callbacks.insert(name_str.clone(), vec![callback]);
+    }
+
+    #[inline(always)]
+    pub fn remove(&mut self, name: &str) {
+        let name_str = String::from(name);
+        // just removing without checking
+        self.callbacks.remove(&name_str);
+    }
+
+    #[inline(always)]
+    pub fn emit(&self, event: Event) {
+        if self.net_chan.len() == 0 {
+            return;
+        }
+
+        let _ = self.net_chan[0].send(NetworkCommand{
+            cmd: NetworkCMD::HandleEventData,
+            connection: vec![],
+            event: vec![event]
+        });
     }
 }
