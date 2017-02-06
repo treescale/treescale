@@ -311,7 +311,7 @@ impl TcpNetwork {
                     cmd: TcpWriterCMD::HandleNewConnection,
                     conn: vec![writer_conn.unwrap()],
                     token: vec![],
-                    data: vec![]
+                    data: vec![],
                 });
             },
             Err(e) => {

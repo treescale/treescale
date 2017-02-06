@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use network::tcp::TcpNetwork;
 use std::thread;
 use std::process;
+use std::sync::Arc;
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token(0);
 
@@ -123,7 +124,33 @@ impl Network {
                 self.connections.insert(conn.value, conn);
             }
             NetworkCMD::HandleEventData => {
+                if command.event.len() == 0 {
+                    return;
+                }
 
+                let mut event = command.event.remove(0);
+                let mut conns_to_send: Vec<&Connection> = Vec::new();
+                for (value, conn) in &self.connections {
+                    if event.path.div(*value) {
+                        conns_to_send.push(conn);
+                    }
+                }
+
+                let event_data = Arc::new(
+                    match event.to_raw() {
+                        Ok(d) => d,
+                        Err(e) => {
+                            warn!("Unable to convert event to bytes during write process -> {}", e);
+                            return;
+                        }
+                    }
+                );
+
+                // we don't need event anymore
+                drop(event);
+                while !conns_to_send.is_empty() {
+                    conns_to_send.remove(0).write(event_data.clone());
+                }
             }
         }
     }
