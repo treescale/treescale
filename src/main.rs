@@ -2,6 +2,7 @@
 extern crate log;
 mod network;
 mod node;
+mod helpers;
 
 use log::{LogLevelFilter, LogRecord, LogLevel, LogMetadata};
 

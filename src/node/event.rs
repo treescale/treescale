@@ -1,60 +1,23 @@
 #![allow(dead_code)]
 use std::io::{Result, Error, ErrorKind};
-use std::mem;
-use std::u32::MAX as u32MAX;
+use helpers::{parse_number, encode_number, parse_number64, encode_number64, Path};
 
 pub struct Event {
-    pub path: String,
+    pub path: Path,
     pub name: String,
-    pub from: String,
+    pub from: u64,
     pub target: String,
     pub public_data: String,
     pub data: Vec<u8>,
-}
-
-/// Parse BigEndian Number from given bytes
-/// NOTE: we will get only first 4 bytes from buffer
-#[inline(always)]
-fn parse_number(buffer: &[u8]) -> u32 {
-    if buffer.len() < 4 {
-        return u32MAX;
-    }
-
-    return unsafe {
-        let a = [
-            buffer[0], buffer[1],
-            buffer[2], buffer[3],
-        ];
-        u32::from_be(mem::transmute::<[u8; 4], u32>(a))
-    };
-}
-
-/// Converting given number to BigEndian Bytes
-#[inline(always)]
-fn encode_number(buffer:&mut [u8], number: u32) -> bool {
-    if buffer.len() < 4 {
-        return false;
-    }
-
-    let endian_bytes = unsafe {
-        mem::transmute::<u32, [u8; 4]>(number.to_be())
-    };
-
-    buffer[0] = endian_bytes[0];
-    buffer[1] = endian_bytes[1];
-    buffer[2] = endian_bytes[2];
-    buffer[3] = endian_bytes[3];
-
-    return true;
 }
 
 impl Event {
     #[inline(always)]
     pub fn default() -> Event {
         Event {
-            path: String::new(),
+            path: Path::new(),
             name: String::new(),
-            from: String::new(),
+            from: 0,
             target: String::new(),
             public_data: String::new(),
             data: vec![],
@@ -72,10 +35,13 @@ impl Event {
             return Err(Error::new(ErrorKind::InvalidData, "Event data is too short to convert it!!"));
         }
 
-        ev.path = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
-            Ok((f, _, off)) => {
+        ev.path = match Event::read_field(&data, &mut endian_bytes, data_len, offset, true) {
+            Ok((_, path_buffer, off)) => {
                 offset = off;
-                f
+                match Path::from_bytes(path_buffer.as_slice()) {
+                    Some(p) => p,
+                    None => Path::new()
+                }
             }
             Err(e) => return Err(e)
         };
@@ -88,10 +54,10 @@ impl Event {
             Err(e) => return Err(e)
         };
 
-        ev.from = match Event::read_field(&data, &mut endian_bytes, data_len, offset, false) {
-            Ok((f, _, off)) => {
+        ev.from = match Event::read_field(&data, &mut endian_bytes, data_len, offset, true) {
+            Ok((_, from_buffer, off)) => {
                 offset = off;
-                f
+                parse_number64(from_buffer.as_slice())
             }
             Err(e) => return Err(e)
         };
@@ -124,7 +90,7 @@ impl Event {
 
     pub fn to_raw(&self) -> Result<Vec<u8>> {
         let (path_len, name_len, from_len, target_len, public_data_len, event_data_len)
-                    = (self.path.len(), self.name.len(), self.from.len(), self.target.len(), self.public_data.len(), self.data.len());
+                    = (self.path.len(), self.name.len(), 8 /* from length */, self.target.len(), self.public_data.len(), self.data.len());
 
         // calculating total data length
         let data_len = 4
@@ -145,7 +111,12 @@ impl Event {
         offset += 4;
 
         // setting path data here
-        match Event::write_field(&mut len_buf, &mut buf, self.path.as_bytes(), path_len, offset) {
+        let path_bytes = match self.path.to_bytes() {
+            Some(b) => b,
+            None => return Err(Error::new(ErrorKind::InvalidData, "Unable to convert path to bytes"))
+        };
+
+        match Event::write_field(&mut len_buf, &mut buf, path_bytes.as_slice(), path_len, offset) {
             Ok(_) => {},
             Err(e) => return Err(e)
         }
@@ -159,7 +130,9 @@ impl Event {
         offset += 4 + name_len;
 
         // setting "from" data here
-        match Event::write_field(&mut len_buf, &mut buf, self.from.as_bytes(), from_len, offset) {
+        let mut from_buf = vec![0u8; 8];
+        encode_number64(&mut from_buf, self.from);
+        match Event::write_field(&mut len_buf, &mut buf, from_buf.as_slice(), from_len, offset) {
             Ok(_) => {},
             Err(e) => return Err(e)
         }
