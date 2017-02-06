@@ -6,6 +6,7 @@ use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use network::tcp::{TcpNetworkCommand, TcpReaderConn};
 use network::{NetworkCommand, NetworkCMD};
+use node::{NodeCommand, Event, NodeCMD};
 use std::process;
 use std::u32::MAX as u32MAX;
 use std::sync::Arc;
@@ -20,6 +21,7 @@ pub struct TcpReader {
 
     // Channel to base Networking for passing commands to it
     pub network_channel: Sender<NetworkCommand>,
+    node_channel: Sender<NodeCommand>,
 
     // Sender and Receiver for handling commands for TcpReader
     sender_channel: Sender<TcpReaderCommand>,
@@ -42,7 +44,8 @@ pub struct TcpReaderCommand {
 }
 
 impl TcpReader {
-    pub fn new(tcp_net: Sender<TcpNetworkCommand>, net: Sender<NetworkCommand>) -> TcpReader {
+    pub fn new(tcp_net: Sender<TcpNetworkCommand>
+        , net: Sender<NetworkCommand>, node_chan: Sender<NodeCommand>) -> TcpReader {
         let (s, r) = channel::<TcpReaderCommand>();
         TcpReader {
             tcp_net_channel: tcp_net,
@@ -50,7 +53,8 @@ impl TcpReader {
             sender_channel: s,
             receiver_channel: r,
             poll: Poll::new().expect("Unable to create Poll Service for TcpReader"),
-            connections: Slab::with_capacity(1024)
+            connections: Slab::with_capacity(1024),
+            node_channel: node_chan
         }
     }
 
@@ -157,22 +161,21 @@ impl TcpReader {
                     break;
                 }
 
-                // Extracting data and packaging to ARC
-                let data = Arc::new(data_opt.unwrap());
-                // parsing only Event Path from DATA
-                // we will send this path information to Networking
-                // for sending this data based on that path
-                let path = TcpReader::parse_path(&data);
+                // parsing event from given data
+                let event = match Event::from_raw(&data_opt.unwrap()) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        warn!("Unable to convert recived data to event! -> {}", e);
+                        return;
+                    }
+                };
 
-                let _ = self.network_channel.send(NetworkCommand{
-                    cmd: NetworkCMD::HandleData,
-                    connection: vec![],
-                    data: vec![data],
-                    // path: vec![path]
+                // sending event to Node service to process over handlers
+                // then send over networking if we need to send it
+                let _ = self.node_channel.send(NodeCommand{
+                    cmd: NodeCMD::HandleDataEvent,
+                    event: vec![event],
                 });
-
-                // TODO: Handle data here !!
-                // data_opt.unwrap()
             }
         }
 

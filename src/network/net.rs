@@ -4,11 +4,13 @@ extern crate mio;
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, Token, PollOpt, Events};
 use network::Connection;
+use node::{NodeCommand, Event};
 use std::collections::BTreeMap;
 use network::tcp::TcpNetwork;
 use std::thread;
 use std::process;
 use std::sync::Arc;
+use std::cell::RefCell;
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token(0);
 
@@ -23,6 +25,9 @@ pub struct Network {
     sender_channel: Sender<NetworkCommand>,
     receiver_channel: Receiver<NetworkCommand>,
 
+    // channel for base Node service
+    node_channel: Sender<NodeCommand>,
+
     // address for binding TCP server
     tcp_address: String,
 
@@ -33,25 +38,26 @@ pub struct Network {
 /// Enumeration for commands available for Networking
 pub enum NetworkCMD {
     HandleNewConnection,
-    HandleData,
+    HandleEventData,
 }
 
 /// Base structure for transferring command over loops to Networking
 pub struct NetworkCommand {
     pub cmd: NetworkCMD,
     pub connection: Vec<Connection>,
-    pub data: Vec<Arc<Vec<u8>>>
+    pub event: Vec<Event>
 }
 
 impl Network {
-    pub fn new(tcp_address: &str) -> Network {
+    pub fn new(tcp_address: &str, node_chan: Sender<NodeCommand>) -> Network {
         let (s, r) = channel::<NetworkCommand>();
         Network {
             connections: BTreeMap::new(),
             sender_channel: s,
             receiver_channel: r,
             tcp_address: String::from(tcp_address),
-            poll: Poll::new().expect("Unable to make POLL service for base networking !")
+            poll: Poll::new().expect("Unable to make POLL service for base networking !"),
+            node_channel: node_chan
         }
     }
 
@@ -64,7 +70,7 @@ impl Network {
     /// this will start also TCP networking and his own POLL service
     pub fn start(&mut self, concurrency: usize) {
         // starting TCP networking
-        let mut tcp_net = TcpNetwork::new(self.channel());
+        let mut tcp_net = TcpNetwork::new(self.channel(), self.node_channel.clone());
         let c = concurrency;
         let addr = self.tcp_address.clone();
         thread::spawn(move ||{
@@ -118,8 +124,8 @@ impl Network {
                 let conn = command.connection.remove(0);
                 self.connections.insert(conn.value, conn);
             }
-            NetworkCMD::HandleData => {
-                
+            NetworkCMD::HandleEventData => {
+
             }
         }
     }

@@ -7,6 +7,7 @@ use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use self::mio::tcp::{TcpListener};
 use network::{NetworkCommand, Connection, NetworkCMD};
 use network::tcp::{TcpReaderCommand, TcpReaderCMD, TcpReader, TcpWriterCommand, TcpWriter, TcpWriterCMD, TcpReaderConn};
+use node::NodeCommand;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread;
@@ -22,6 +23,7 @@ const RECEIVER_CHANNEL_TOKEN: Token = Token((u32MAX - 1) as usize);
 pub struct TcpNetwork {
     // channel to base networking for transfering commands
     network_channel: Sender<NetworkCommand>,
+    node_channel: Sender<NodeCommand>,
 
     // Sender and Receiver for handling commands for Networking
     sender_channel: Sender<TcpNetworkCommand>,
@@ -56,7 +58,7 @@ pub struct TcpNetworkCommand {
 
 
 impl TcpNetwork {
-    pub fn new(net_chan: Sender<NetworkCommand>) -> TcpNetwork {
+    pub fn new(net_chan: Sender<NetworkCommand>, node_chan: Sender<NodeCommand>) -> TcpNetwork {
         let (s, r) = channel::<TcpNetworkCommand>();
         TcpNetwork {
             network_channel: net_chan,
@@ -66,7 +68,8 @@ impl TcpNetwork {
             writer_channels: vec![],
             poll: Poll::new().expect("Unable to create TCP network POLL service"),
             readers_index: 0,
-            pending_connections: Slab::with_capacity(1024)
+            pending_connections: Slab::with_capacity(1024),
+            node_channel: node_chan
         }
     }
 
@@ -79,13 +82,13 @@ impl TcpNetwork {
         // saving channels for later communication
         // and starting reader/writer services as separate threads
         for _ in 0..concurrency {
-            let mut r = TcpReader::new(self.sender_channel.clone(), self.network_channel.clone());
+            let mut r = TcpReader::new(self.sender_channel.clone(), self.network_channel.clone(), self.node_channel.clone());
             self.reader_channels.push(r.channel());
             thread::spawn(move || {
                 r.start();
             });
 
-            let mut w = TcpWriter::new(self.sender_channel.clone(), self.network_channel.clone());
+            let mut w = TcpWriter::new(self.sender_channel.clone(), self.network_channel.clone(), self.node_channel.clone());
             self.writer_channels.push(w.channel());
             thread::spawn(move || {
                 w.start();
@@ -296,7 +299,7 @@ impl TcpNetwork {
                 let _ = self.network_channel.send(NetworkCommand {
                     cmd: NetworkCMD::HandleNewConnection,
                     connection: vec![Connection::from_tcp(&conn, writer.clone(), true)],
-                    data: vec![]
+                    event: vec![]
                 });
 
                 let _ = reader.send(TcpReaderCommand{

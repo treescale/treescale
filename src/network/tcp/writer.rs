@@ -6,6 +6,7 @@ use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
 use network::tcp::{TcpNetworkCommand, TcpWriterConn};
 use network::{NetworkCommand};
+use node::{NodeCommand, NodeCMD};
 use std::process;
 use std::u32::MAX as u32MAX;
 use std::sync::Arc;
@@ -19,6 +20,7 @@ pub struct TcpWriter {
 
     // Channel to base Networking for passing commands to it
     pub network_channel: Sender<NetworkCommand>,
+    node_channel: Sender<NodeCommand>,
 
     // Sender and Receiver for handling commands for TcpReader
     sender_channel: Sender<TcpWriterCommand>,
@@ -44,7 +46,8 @@ pub struct TcpWriterCommand {
 }
 
 impl TcpWriter {
-    pub fn new(tcp_net: Sender<TcpNetworkCommand>, net: Sender<NetworkCommand>) -> TcpWriter {
+    pub fn new(tcp_net: Sender<TcpNetworkCommand>
+        , net: Sender<NetworkCommand>, node_chan: Sender<NodeCommand>) -> TcpWriter {
         let (s, r) = channel::<TcpWriterCommand>();
         TcpWriter {
             tcp_net_channel: tcp_net,
@@ -52,7 +55,8 @@ impl TcpWriter {
             sender_channel: s,
             receiver_channel: r,
             poll: Poll::new().expect("Unable to create Poll Service for TcpReader"),
-            connections: Slab::with_capacity(1024)
+            connections: Slab::with_capacity(1024),
+            node_channel: node_chan
         }
     }
 

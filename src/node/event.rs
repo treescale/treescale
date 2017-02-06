@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use std::io::{Result, Error, ErrorKind};
+use std::mem;
+use std::u32::MAX as u32MAX;
 
 pub struct Event {
     pub path: String,
@@ -8,6 +10,42 @@ pub struct Event {
     pub target: String,
     pub public_data: String,
     pub data: Vec<u8>,
+}
+
+/// Parse BigEndian Number from given bytes
+/// NOTE: we will get only first 4 bytes from buffer
+#[inline(always)]
+fn parse_number(buffer: &[u8]) -> u32 {
+    if buffer.len() < 4 {
+        return u32MAX;
+    }
+
+    return unsafe {
+        let a = [
+            buffer[0], buffer[1],
+            buffer[2], buffer[3],
+        ];
+        u32::from_be(mem::transmute::<[u8; 4], u32>(a))
+    };
+}
+
+/// Converting given number to BigEndian Bytes
+#[inline(always)]
+fn encode_number(buffer:&mut [u8], number: u32) -> bool {
+    if buffer.len() < 4 {
+        return false;
+    }
+
+    let endian_bytes = unsafe {
+        mem::transmute::<u32, [u8; 4]>(number.to_be())
+    };
+
+    buffer[0] = endian_bytes[0];
+    buffer[1] = endian_bytes[1];
+    buffer[2] = endian_bytes[2];
+    buffer[3] = endian_bytes[3];
+
+    return true;
 }
 
 impl Event {
@@ -102,7 +140,7 @@ impl Event {
         let mut offset = 0;
 
         // writing full data length only
-        BigEndian::write_u32(&mut len_buf, (data_len - 4) as u32);
+        encode_number(&mut len_buf, (data_len - 4) as u32);
         buf[0..4].copy_from_slice(len_buf.as_slice());
         offset += 4;
 
@@ -159,7 +197,7 @@ impl Event {
         }
 
         offset += 4;
-        let endian_len = BigEndian::read_u32(endian_bytes.as_slice()) as usize;
+        let endian_len = parse_number(endian_bytes.as_slice()) as usize;
         if endian_len > (data_len - offset) {
             return Err(Error::new(ErrorKind::InvalidData, "error decoding given data"));
         }
@@ -178,7 +216,7 @@ impl Event {
     #[inline(always)]
     fn write_field(len_buf: &mut Vec<u8>, buf: &mut Vec<u8>, data: &[u8], filed_len: usize, offset: usize) -> Result<()> {
         // Writing Path
-        BigEndian::write_u32(len_buf, (filed_len) as u32);
+        encode_number(len_buf, (filed_len) as u32);
         let mut off = offset;
         buf[off..off + 4].copy_from_slice(len_buf.as_slice());
         off += 4;
