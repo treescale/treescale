@@ -27,7 +27,8 @@ pub struct TcpReaderConn {
     // 4 bytes as a u32 (unsigned int32)
     // so we need to keep indexes for that 4 bytes
     endian_bytes: Vec<u8>,
-    endian_bytes_index: usize
+    endian_bytes_index: usize,
+    pub from_server: bool,
 }
 
 pub struct TcpWriterConn {
@@ -43,21 +44,24 @@ pub struct TcpWriterConn {
     // values for keeping write queue
     pub write_queue: Vec<Arc<Vec<u8>>>,
     write_queue_element_index: usize,
+
+    pub from_server: bool,
 }
 
 
 impl TcpReaderConn {
-    pub fn new(socket: TcpStream, token: Token) -> TcpReaderConn {
+    pub fn new(socket: TcpStream) -> TcpReaderConn {
         TcpReaderConn {
             api_version: 0,
             socket: socket,
-            socket_token: token,
+            socket_token: Token(0),
             value: 0,
             pending_length: 0,
             pending_index: 0,
             pending_data: vec![],
             endian_bytes: vec![0; 4],
-            endian_bytes_index: 0
+            endian_bytes_index: 0,
+            from_server: true
         }
     }
 
@@ -94,8 +98,8 @@ impl TcpReaderConn {
 
     /// Registering TCP connection to given POLL event loop
     #[inline(always)]
-    pub fn register(&self, poll: &Poll) -> bool {
-        match poll.register(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
+    pub fn make_readable(&self, poll: &Poll) -> bool {
+        match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => true,
             Err(e) => {
                 warn!("Unable to register connection to Poll service ! -> {}", e);
@@ -242,7 +246,8 @@ impl TcpReaderConn {
                     socket: s,
                     socket_token: self.socket_token,
                     write_queue: vec![],
-                    write_queue_element_index: 0
+                    write_queue_element_index: 0,
+                    from_server: self.from_server
                 })
             },
             Err(e) => {
@@ -256,8 +261,8 @@ impl TcpReaderConn {
 impl TcpWriterConn {
     /// Registering TCP connection to given POLL event loop
     #[inline(always)]
-    pub fn register(&self, poll: &Poll) -> bool {
-        match poll.register(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
+    pub fn make_writable(&self, poll: &Poll) -> bool {
+        match poll.reregister(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
             Ok(_) => true,
             Err(e) => {
                 warn!("Unable to register connection to Poll service as writable ! -> {}", e);

@@ -4,12 +4,13 @@ extern crate mio;
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Events, Token};
 use network::{Network, NetworkCommand, NetworkCMD};
-use node::Event;
+use node::{Event, EVENT_NODE_INIT};
 use std::collections::BTreeMap;
 use std::thread;
 use std::process;
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token(0);
+const CURRENT_API_VERSION: u32 = 1;
 pub type EventCallback = Box<Fn(&Event, &mut Node) -> bool>;
 
 pub struct Node {
@@ -24,7 +25,13 @@ pub struct Node {
     net_chan: Vec<Sender<NetworkCommand>>,
 
     // poll handler for base Node Service
-    poll: Poll
+    poll: Poll,
+
+    // keeping current node API version for sending during client requests
+    current_api_version: u32,
+
+    // keeping current node Value for sending it during client requests
+    current_value: u64
 }
 
 pub enum NodeCMD {
@@ -42,14 +49,16 @@ pub struct NodeConfig {
 }
 
 impl Node {
-    pub fn new() -> Node {
+    pub fn new(current_value: u64) -> Node {
         let (s, r) = channel::<NodeCommand>();
         Node {
             callbacks: BTreeMap::new(),
             sender_channel: s,
             receiver_channel: r,
             poll: Poll::new().expect("Unable to create Poll service for Base Node service"),
-            net_chan: vec![]
+            net_chan: vec![],
+            current_value: current_value,
+            current_api_version: CURRENT_API_VERSION
         }
     }
 
@@ -61,7 +70,7 @@ impl Node {
     pub fn start(&mut self, conf: NodeConfig) {
         // starting networking and keeping channel
         // for later communication
-        let mut network = Network::new(conf.tcp_address.as_str(), self.channel());
+        let mut network = Network::new(conf.tcp_address.as_str(), self.channel(), self.current_api_version, self.current_value);
         self.net_chan = vec![network.channel()];
         thread::spawn(move || {
             network.start(conf.concurrency);
@@ -74,6 +83,9 @@ impl Node {
                 process::exit(1);
             }
         }
+
+        // Sending event about node init!
+        self.init_event();
 
         // making events for handling 5K events at once
         let mut events: Events = Events::with_capacity(5000);
@@ -101,6 +113,18 @@ impl Node {
                 }
             }
         }
+    }
+
+    #[inline(always)]
+    fn init_event(&self) {
+        let mut e =  Event::default();
+        e.name = String::from(EVENT_NODE_INIT);
+        e.target = String::from("local");
+
+        let _ = self.sender_channel.send(NodeCommand {
+            cmd: NodeCMD::HandleDataEvent,
+            event: vec![e]
+        });
     }
 
     #[inline(always)]
@@ -168,7 +192,23 @@ impl Node {
         let _ = self.net_chan[0].send(NetworkCommand{
             cmd: NetworkCMD::HandleEventData,
             connection: vec![],
-            event: vec![event]
+            event: vec![event],
+            client_address: String::new()
+        });
+    }
+
+    #[inline(always)]
+    pub fn tcp_connect(&self, address: &str) {
+        if self.net_chan.len() == 0 {
+            warn!("We don't have active networking service to make client connection");
+            return;
+        }
+
+        let _ = self.net_chan[0].send(NetworkCommand{
+            cmd: NetworkCMD::TCPClientConnection,
+            connection: vec![],
+            event: vec![],
+            client_address: String::from(address)
         });
     }
 }

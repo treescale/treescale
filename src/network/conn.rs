@@ -13,13 +13,13 @@ pub enum ConnectionType {
 /// Base Connection structure for handling base information of connection
 pub struct Connection {
     pub value: u64,
-    pub socket_token: Token,
     pub api_version: u32,
     pub conn_type: ConnectionType,
     pub from_server: bool,
 
     // writer command for TCP connection or None if this is not a TCP connection
     tcp_writer_chan: Vec<Sender<TcpWriterCommand>>,
+    tcp_writer_token: Vec<Token>
 }
 
 impl Connection {
@@ -27,16 +27,16 @@ impl Connection {
     pub fn from_tcp(tcp_conn: &TcpReaderConn, writer: Sender<TcpWriterCommand>, from_server: bool) -> Connection {
         Connection {
             value: tcp_conn.value,
-            socket_token: tcp_conn.socket_token,
             api_version: tcp_conn.api_version,
             conn_type: ConnectionType::TCP,
             from_server: from_server,
-            tcp_writer_chan: vec![writer]
+            tcp_writer_chan: vec![writer],
+            tcp_writer_token: vec![tcp_conn.socket_token]
         }
     }
 
     #[inline(always)]
-    pub fn write(&self, data: Arc<Vec<u8>>) {
+    pub fn write_tcp(&self, data: Arc<Vec<u8>>) {
         if self.tcp_writer_chan.len() == 0 {
             return;
         }
@@ -45,7 +45,7 @@ impl Connection {
             cmd: TcpWriterCMD::WriteData,
             conn: vec![],
             data: vec![data],
-            token: vec![self.socket_token],
+            token: self.tcp_writer_token.clone(),
         });
     }
 }

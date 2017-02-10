@@ -4,9 +4,9 @@ extern crate mio;
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, Token, PollOpt, Events};
 use network::Connection;
-use node::{NodeCommand, Event};
+use node::{NodeCommand, Event, NodeCMD, EVENT_ON_CONNECTION_OPEN};
 use std::collections::BTreeMap;
-use network::tcp::TcpNetwork;
+use network::tcp::{TcpNetwork, TcpNetworkCommand, TcpNetworkCMD};
 use std::thread;
 use std::process;
 use std::sync::Arc;
@@ -30,25 +30,36 @@ pub struct Network {
     // address for binding TCP server
     tcp_address: String,
 
+    // channel for sending commands to TCP networking
+    tcp_channel: Vec<Sender<TcpNetworkCommand>>,
+
     // poll handler for base Networking
-    poll: Poll
+    poll: Poll,
+
+    // keeping current node API version for sending during client requests
+    current_api_version: u32,
+
+    // keeping current node Value for sending it during client requests
+    current_value: u64
 }
 
 /// Enumeration for commands available for Networking
 pub enum NetworkCMD {
     HandleNewConnection,
     HandleEventData,
+    TCPClientConnection
 }
 
 /// Base structure for transferring command over loops to Networking
 pub struct NetworkCommand {
     pub cmd: NetworkCMD,
     pub connection: Vec<Connection>,
-    pub event: Vec<Event>
+    pub event: Vec<Event>,
+    pub client_address: String
 }
 
 impl Network {
-    pub fn new(tcp_address: &str, node_chan: Sender<NodeCommand>) -> Network {
+    pub fn new(tcp_address: &str, node_chan: Sender<NodeCommand>, api_version: u32, current_value: u64) -> Network {
         let (s, r) = channel::<NetworkCommand>();
         Network {
             connections: BTreeMap::new(),
@@ -56,7 +67,10 @@ impl Network {
             receiver_channel: r,
             tcp_address: String::from(tcp_address),
             poll: Poll::new().expect("Unable to make POLL service for base networking !"),
-            node_channel: node_chan
+            node_channel: node_chan,
+            current_api_version: api_version,
+            current_value: current_value,
+            tcp_channel: vec![]
         }
     }
 
@@ -69,7 +83,8 @@ impl Network {
     /// this will start also TCP networking and his own POLL service
     pub fn start(&mut self, concurrency: usize) {
         // starting TCP networking
-        let mut tcp_net = TcpNetwork::new(self.channel(), self.node_channel.clone());
+        let mut tcp_net = TcpNetwork::new(self.channel(), self.node_channel.clone(), self.current_api_version, self.current_value);
+        self.tcp_channel.push(tcp_net.channel());
         let c = concurrency;
         let addr = self.tcp_address.clone();
         thread::spawn(move ||{
@@ -121,7 +136,18 @@ impl Network {
                 }
 
                 let conn = command.connection.remove(0);
+
+                let mut e =  Event::default();
+                e.name = String::from(EVENT_ON_CONNECTION_OPEN);
+                e.from = conn.value;
+                e.target = String::from("local");
+
                 self.connections.insert(conn.value, conn);
+
+                let _ = self.node_channel.send(NodeCommand {
+                    cmd: NodeCMD::HandleDataEvent,
+                    event: vec![e]
+                });
             }
             NetworkCMD::HandleEventData => {
                 if command.event.len() == 0 {
@@ -149,9 +175,29 @@ impl Network {
                 // we don't need event anymore
                 drop(event);
                 while !conns_to_send.is_empty() {
-                    conns_to_send.remove(0).write(event_data.clone());
+                    conns_to_send.remove(0).write_tcp(event_data.clone());
                 }
             }
+            NetworkCMD::TCPClientConnection => {
+                if command.client_address.len() == 0 {
+                    return;
+                }
+
+                self.tcp_connect(command.client_address.clone());
+            }
         }
+    }
+
+    #[inline(always)]
+    pub fn tcp_connect(&self, address: String) {
+        if self.tcp_channel.len() != 1 {
+            warn!("We don't have TCP networking service for making client connection");
+            return;
+        }
+
+        let _ = self.tcp_channel[0].send(TcpNetworkCommand{
+            cmd: TcpNetworkCMD::ClientConnection,
+            client_address: address
+        });
     }
 }

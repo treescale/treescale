@@ -120,16 +120,17 @@ impl TcpWriter {
                     return;
                 }
 
-                let conn = command.conn.remove(0);
+                let mut conn = command.conn.remove(0);
                 if self.connections.vacant_entry().is_none() {
                     let conns_len = self.connections.len();
                     self.connections.reserve_exact(conns_len);
                 }
 
                 let entry = self.connections.vacant_entry().unwrap();
+                conn.socket_token = entry.index();
                 // if we are unable to register connection to this poll service
                 // then just moving to the next connection, by just closing this one
-                if !conn.register(&self.poll) {
+                if !conn.make_writable(&self.poll) {
                     drop(conn);
                     return;
                 }
@@ -150,7 +151,7 @@ impl TcpWriter {
                 let ref mut conn = self.connections[token];
                 conn.write_queue.append(&mut command.data);
                 // making connection writable
-                conn.register(&self.poll);
+                conn.make_writable(&self.poll);
             }
         }
     }
