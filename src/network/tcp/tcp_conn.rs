@@ -292,6 +292,7 @@ impl TcpWriterConn {
                         return None;
                     }
                 };
+
                 self.write_queue_element_index += write_len;
                 if self.write_queue_element_index < data.len() {
                     return Some(false);
@@ -303,6 +304,7 @@ impl TcpWriterConn {
             // so this data is written, removing it from Queue
             // and moving to the next data
             self.write_queue.remove(0);
+            self.write_queue_element_index = 0;
         }
 
         Some(true)

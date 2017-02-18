@@ -32,7 +32,6 @@ impl Event {
         let data_len = data.len();
 
         if data.len() <= 6 * 4 {
-            println!("{:?}", data.len());
             return Err(Error::new(ErrorKind::InvalidData, "Event data is too short to convert it!!"));
         }
 
