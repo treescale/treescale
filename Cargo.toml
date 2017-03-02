@@ -4,9 +4,7 @@ version = "0.1.0"
 authors = ["Tigran Bayburtsyan <tigran@bayburtsyan.com>"]
 
 [dependencies]
-mio = "0.6"
-num = "0.1"
-byteorder = "0.5"
+mio = "0.6.4"
 log = "0.3"
 num_cpus = "1.2.0"
 slab = "0.3.0"
