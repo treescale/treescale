@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 extern crate mio;
 extern crate slab;
+extern crate poolter;
 
 use self::mio::channel::{channel, Sender, Receiver};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
@@ -9,6 +10,7 @@ use network::{NetworkCommand};
 use node::{NodeCommand, Event, NodeCMD};
 use std::process;
 use std::u32::MAX as u32MAX;
+use self::poolter::PoolTer;
 
 type Slab<T> = slab::Slab<T, Token>;
 const RECEIVER_CHANNEL_TOKEN: Token = Token(u32MAX as usize);
@@ -30,7 +32,10 @@ pub struct TcpReader {
     poll: Poll,
 
     // List of connections handled by this reader service
-    connections: Slab<TcpReaderConn>
+    connections: Slab<TcpReaderConn>,
+
+    // therad pool handler
+    pool: PoolTer
 }
 
 pub enum TcpReaderCMD {
@@ -53,7 +58,8 @@ impl TcpReader {
             receiver_channel: r,
             poll: Poll::new().expect("Unable to create Poll Service for TcpReader"),
             connections: Slab::with_capacity(1024),
-            node_channel: node_chan
+            node_channel: node_chan,
+            pool: PoolTer::init()
         }
     }
 
@@ -161,21 +167,26 @@ impl TcpReader {
                     break;
                 }
 
-                // parsing event from given data
-                let event = match Event::from_raw(&data_opt.unwrap()) {
-                    Ok(e) => e,
-                    Err(e) => {
-                        warn!("Unable to convert recived data to event! -> {}", e);
-                        return;
-                    }
-                };
+                let data = data_opt.unwrap();
+                let chan = self.node_channel.clone();
 
-                // sending event to Node service to process over handlers
-                // then send over networking if we need to send it
-                let _ = self.node_channel.send(NodeCommand{
-                    cmd: NodeCMD::HandleDataEvent,
-                    event: vec![event],
-                });
+                self.pool.exec(Box::new(move || {
+                    // parsing event from given data
+                    let event = match Event::from_raw(&data) {
+                        Ok(e) => e,
+                        Err(e) => {
+                            warn!("Unable to convert recived data to event! -> {}", e);
+                            return;
+                        }
+                    };
+
+                    // sending event to Node service to process over handlers
+                    // then send over networking if we need to send it
+                    let _ = chan.send(NodeCommand{
+                        cmd: NodeCMD::HandleDataEvent,
+                        event: vec![event],
+                    });
+                }));
             }
         }
 
