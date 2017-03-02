@@ -8,6 +8,9 @@ use log::{LogLevelFilter, LogRecord, LogLevel, LogMetadata};
 use node::{Node, Event, NodeConfig, EVENT_ON_CONNECTION_OPEN, EVENT_NODE_INIT};
 use std::env;
 use helpers::Path;
+use std::fs::File;
+use std::io::Read;
+use std::sync::Arc;
 
 struct SimpleLogger;
 
@@ -23,12 +26,14 @@ impl log::Log for SimpleLogger {
     }
 }
 
-fn send_test_event(node: &mut Node, value: u64) {
+fn send_test_event(node: &mut Node, value: u64, buff_x: Arc<Vec<Vec<u8>>>) {
     let mut e = Event::default();
     e.path = Path::new();
     e.name = String::from("test");
     e.target = String::from("tree2");
     e.path.mul(value * value);
+    e.data = buff_x[0].clone();
+    e.from = node.current_value;
     node.emit(e);
 }
 
@@ -40,6 +45,11 @@ fn main() {
         max_log_level.set(LogLevelFilter::Info);
         Box::new(SimpleLogger)
     });
+
+    let mut buff_x: Vec<u8> = vec![];
+    let mut f = File::open("/Users/tigran/Downloads/out.mp4").unwrap();
+    let _ = f.read_to_end(&mut buff_x);
+    let cc = Arc::new(vec![buff_x]);
 
     if args[1] == String::from("tree1") {
         let mut node = Node::new(2);
@@ -58,17 +68,17 @@ fn main() {
             true
         }));
 
-        node.on("test", Box::new(|event: &Event, node:&mut Node| -> bool {
-            println!("Test Event -> {:?}", event.target);
-            send_test_event(node, 5);
+        node.on("test", Box::new(move |event: &Event, node:&mut Node| -> bool {
+            // println!("Test Event -> {:?}", event.data.len());
+            send_test_event(node, event.from, cc.clone());
             true
         }));
 
         node.start(conf);
     } else {
-        let mut node = Node::new(5);
+        let mut node = Node::new(3);
         let conf = NodeConfig {
-            tcp_address: String::from("0.0.0.0:8889"),
+            tcp_address: String::from("0.0.0.0:8859"),
             concurrency: 2
         };
 
@@ -78,15 +88,18 @@ fn main() {
             true
         }));
 
-        node.on(EVENT_ON_CONNECTION_OPEN, Box::new(|event: &Event, node:&mut Node| -> bool {
+        let second = cc.clone();
+
+        node.on(EVENT_ON_CONNECTION_OPEN, Box::new(move |event: &Event, node:&mut Node| -> bool {
             println!("Connected To -> {:?}", event.from);
-            send_test_event(node, 2);
+            send_test_event(node, 2, cc.clone());
             true
         }));
 
-        node.on("test", Box::new(|event: &Event, node:&mut Node| -> bool {
-            println!("Test Event -> {:?}", event.target);
-            send_test_event(node ,2);
+
+        node.on("test", Box::new(move |event: &Event, node:&mut Node| -> bool {
+            println!("Test Event -> {:?}", event.data.len());
+            send_test_event(node ,2, second.clone());
             true
         }));
 

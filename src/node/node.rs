@@ -31,7 +31,7 @@ pub struct Node {
     current_api_version: u32,
 
     // keeping current node Value for sending it during client requests
-    current_value: u64
+    pub current_value: u64
 }
 
 pub enum NodeCMD {
