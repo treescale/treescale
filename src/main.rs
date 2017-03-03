@@ -47,7 +47,7 @@ fn main() {
     });
 
     let mut buff_x: Vec<u8> = vec![];
-    let mut f = File::open("/Users/tigran/Downloads/phantomjs-2.1.1-macosx.zip").unwrap();
+    let mut f = File::open("/Users/tigran/Downloads/out.mp4").unwrap();
     let _ = f.read_to_end(&mut buff_x);
     let cc = Arc::new(vec![buff_x]);
 
