@@ -10,5 +10,7 @@
     "rust.checkOnSave": false,
     "rust.checkWith": "check",
     "rust.useJsonErrors": false,
-    "rust.useNewErrorFormat": false
+    "rust.useNewErrorFormat": false,
+
+    "cSpell.language": "en"
 }
