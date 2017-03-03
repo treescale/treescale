@@ -31,7 +31,7 @@ pub struct Node {
     current_api_version: u32,
 
     // keeping current node Value for sending it during client requests
-    pub current_value: u64
+    pub current_value: u64,
 }
 
 pub enum NodeCMD {
@@ -40,12 +40,12 @@ pub enum NodeCMD {
 
 pub struct NodeCommand {
     pub cmd: NodeCMD,
-    pub event: Vec<Event>
+    pub event: Vec<Event>,
 }
 
 pub struct NodeConfig {
     pub tcp_address: String,
-    pub concurrency: usize
+    pub concurrency: usize,
 }
 
 impl Node {
@@ -58,7 +58,7 @@ impl Node {
             poll: Poll::new().expect("Unable to create Poll service for Base Node service"),
             net_chan: vec![],
             current_value: current_value,
-            current_api_version: CURRENT_API_VERSION
+            current_api_version: CURRENT_API_VERSION,
         }
     }
 
@@ -70,14 +70,20 @@ impl Node {
     pub fn start(&mut self, conf: NodeConfig) {
         // starting networking and keeping channel
         // for later communication
-        let mut network = Network::new(conf.tcp_address.as_str(), self.channel(), self.current_api_version, self.current_value);
+        let mut network = Network::new(conf.tcp_address.as_str(),
+                                       self.channel(),
+                                       self.current_api_version,
+                                       self.current_value);
         self.net_chan = vec![network.channel()];
         thread::spawn(move || {
             network.start(conf.concurrency);
         });
 
-        match self.poll.register(&self.receiver_channel, RECEIVER_CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
-            Ok(_) => {},
+        match self.poll.register(&self.receiver_channel,
+                                 RECEIVER_CHANNEL_TOKEN,
+                                 Ready::readable(),
+                                 PollOpt::edge()) {
+            Ok(_) => {}
             Err(e) => {
                 warn!("Unable to register channel receiver for Node POLL -> {}", e);
                 process::exit(1);
@@ -106,7 +112,7 @@ impl Node {
                             }
                             // if we got error, then data is unavailable
                             // and breaking receive loop
-                            Err(_) => break
+                            Err(_) => break,
                         }
                     }
                     continue;
@@ -117,13 +123,13 @@ impl Node {
 
     #[inline(always)]
     fn init_event(&self) {
-        let mut e =  Event::default();
+        let mut e = Event::default();
         e.name = String::from(EVENT_NODE_INIT);
         e.target = String::from("local");
 
         let _ = self.sender_channel.send(NodeCommand {
             cmd: NodeCMD::HandleDataEvent,
-            event: vec![e]
+            event: vec![e],
         });
     }
 
@@ -148,7 +154,7 @@ impl Node {
         let mut ret_val = true;
         let cbs = match self.callbacks.remove(&event.name) {
             Some(c) => c,
-            None => return ret_val
+            None => return ret_val,
         };
 
         for cb in &cbs {
@@ -189,11 +195,11 @@ impl Node {
             return;
         }
 
-        let _ = self.net_chan[0].send(NetworkCommand{
+        let _ = self.net_chan[0].send(NetworkCommand {
             cmd: NetworkCMD::HandleEventData,
             connection: vec![],
             event: vec![event],
-            client_address: String::new()
+            client_address: String::new(),
         });
     }
 
@@ -204,11 +210,11 @@ impl Node {
             return;
         }
 
-        let _ = self.net_chan[0].send(NetworkCommand{
+        let _ = self.net_chan[0].send(NetworkCommand {
             cmd: NetworkCMD::TCPClientConnection,
             connection: vec![],
             event: vec![],
-            client_address: String::from(address)
+            client_address: String::from(address),
         });
     }
 }
