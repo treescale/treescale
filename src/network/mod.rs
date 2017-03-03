@@ -1,8 +1,13 @@
+#![allow(dead_code)]
 mod net;
 mod conn;
-mod config;
 mod tcp;
 
 pub use self::net::Network;
 pub use self::conn::Connection;
-pub use self::config::NetworkConfig;
+
+// main configuration for Networking
+pub struct NetworkConfig {
+    server_address: String,
+    concurrency: usize,
+}
