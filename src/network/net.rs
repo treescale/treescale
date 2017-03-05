@@ -3,6 +3,7 @@ extern crate mio;
 
 use std::error::Error;
 use network::Connection;
+use network::tcp::TcpNetwork;
 use std::collections::BTreeMap;
 use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
@@ -13,6 +14,7 @@ use std::u32::MAX as u32MAX;
 
 const RECEIVER_CHANNEL_TOKEN: Token = Token((u32MAX - 1) as usize);
 const LOOP_EVENTS_COUNT: usize = 64000;
+pub type ConnectionsMap = BTreeMap<String, Connection>;
 
 pub enum NetworkCMD {
 
@@ -28,7 +30,7 @@ pub struct Network {
     node_value: u64,
 
     // main collection for connections
-    connections: BTreeMap<u64, Connection>,
+    connections: ConnectionsMap,
 
     // channels for handling Networking command transfer
     sender_chan: Sender<NetworkCommand>,
@@ -39,6 +41,9 @@ pub struct Network {
 
     // poll service for handling events
     poll: Poll,
+
+    // TCP networking
+    tcp_net: TcpNetwork
 }
 
 impl Network {
@@ -55,11 +60,13 @@ impl Network {
 
         Network {
             node_value: value,
-            connections: BTreeMap::new(),
+            connections: ConnectionsMap::new(),
             sender_chan: s,
             receiver_chan: r,
-            config: config,
             poll: poll,
+            tcp_net: TcpNetwork::new(config.server_address.as_str()),
+
+            config: config,
         }
     }
 
@@ -75,6 +82,9 @@ impl Network {
                 process::exit(1);
             }
         }
+
+        // registering TCP network server
+        self.tcp_net.register(&mut self.poll);
 
         // making events for handling 5K events at once
         let mut events: Events = Events::with_capacity(LOOP_EVENTS_COUNT);
@@ -103,6 +113,13 @@ impl Network {
                             }
                         }
                     }
+
+                    // passing event to TCP networking
+                    if self.tcp_net.ready(token, &mut self.poll, &mut self.connections) {
+                        // if token found in TCP actions moving on
+                        continue;
+                    }
+
                     continue;
                 }
             }
