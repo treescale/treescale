@@ -6,11 +6,8 @@
     "rust.cargoPath": "/Users/tigran/.cargo/bin/cargo",
     "rust.cargoHomePath": "/Users/tigran/.cargo",
     "rust.cargoEnv": null,
-    "rust.formatOnSave": true,
-    "rust.checkOnSave": false,
-    "rust.checkWith": "check",
-    "rust.useJsonErrors": false,
-    "rust.useNewErrorFormat": false,
+    "rust.actionOnSave": "check",
+    "rust.showOutput": false,
 
     "cSpell.language": "en"
 }

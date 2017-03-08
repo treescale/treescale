@@ -95,7 +95,7 @@ impl Network {
             }
 
             for event in events.iter() {
-                let token = event.token();
+                let (token, kind) = (event.token(), event.kind());
                 if token == RECEIVER_CHANNEL_TOKEN {
                     // trying to get commands while there is available data
                     loop {
@@ -115,7 +115,7 @@ impl Network {
                     }
 
                     // passing event to TCP networking
-                    if self.tcp_net.ready(token, &mut self.poll, &mut self.connections) {
+                    if self.tcp_net.ready(token, kind, &mut self.poll, &mut self.connections) {
                         // if token found in TCP actions moving on
                         continue;
                     }

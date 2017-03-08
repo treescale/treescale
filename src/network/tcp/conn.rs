@@ -9,9 +9,15 @@ use std::error::Error;
 use logger::Log;
 
 pub struct TcpReaderConn {
+    // connection API version for handling network upgrades
+    api_version: u32,
+
     // Tcp socket and reader token
     socket: TcpStream,
     socket_token: Token,
+
+    // this connection coming from server or client connection
+    from_server: bool,
 
     // token for connection as an identification
     conn_token: String,
@@ -43,16 +49,18 @@ pub struct TcpWriterConn {
 
 impl TcpReaderConn {
     #[inline(always)]
-    pub fn new(sock: TcpStream) -> TcpReaderConn {
+    pub fn new(sock: TcpStream, token: Token, from_server: bool) -> TcpReaderConn {
         TcpReaderConn {
+            api_version: 0,
             socket: sock,
-            socket_token: Token(0),
+            socket_token: token,
             conn_token: String::new(),
             pending_data_len: 0,
             pending_data_index: 0,
             pending_data: VecDeque::new(),
             pending_endian: vec![],
-            pending_endian_index: 0
+            pending_endian_index: 0,
+            from_server: from_server
         }
     }
 
@@ -70,8 +78,48 @@ impl TcpReaderConn {
     }
 
     #[inline(always)]
-    pub fn read_endian() {
-        // TOOD: start reading endian
+    pub fn read_endian() -> Option<(bool, u32)> {
+        unimplemented!()
+        // Some((false, 0))
+    }
+
+    #[inline(always)]
+    pub fn from_server(&self) -> bool {
+        self.from_server
+    }
+
+    /// Reading API version as a big endian as a first handshake between connections
+    /// Will return (False, N) if there is not enough data to parse
+    /// Will return None if there is some problem with connection and we need to close it
+    #[inline(always)]
+    pub fn read_api_version(&mut self) -> Option<(bool, u32)> {
+        unimplemented!()
+        // Some((false, 0))
+    }
+
+    /// Reading connection Token and Prime Value combination as a second phase of handshake
+    /// Will return (false, Token, N) if there is not enough data to parse
+    /// Will return None if there is connection error and we need to close it
+    #[inline(always)]
+    pub fn read_token_value(&mut self) -> Option<(bool, String, u64)> {
+        unimplemented!()
+        // Some((false, String::default(), 0))
+    }
+
+    #[inline(always)]
+    pub fn read_data(&mut self) -> Option<(bool, Vec<Vec<u8>>)> {
+        unimplemented!()
+        // Some((false, vec![]))
+    }
+
+    #[inline(always)]
+    pub fn version(&self) -> u32 {
+        self.api_version
+    }
+
+    #[inline(always)]
+    pub fn set_version(&mut self, version: u32) {
+        self.api_version = version;
     }
 }
 

@@ -20,3 +20,12 @@ pub struct Connection {
     // is this connection coming from server or client
     from_server: bool,
 }
+
+impl Connection {
+
+    /// Checking API version, if it's not correct function will return false
+    #[inline(always)]
+    pub fn check_api_version(version: u32) -> bool {
+        version > 0 && version < 500
+    }
+}
