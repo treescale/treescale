@@ -7,20 +7,21 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::error::Error;
 use logger::Log;
+use std::net::Shutdown;
 
 pub struct TcpReaderConn {
     // connection API version for handling network upgrades
-    api_version: u32,
+    pub api_version: u32,
 
     // Tcp socket and reader token
     socket: TcpStream,
     socket_token: Token,
 
     // this connection coming from server or client connection
-    from_server: bool,
+    pub from_server: bool,
 
     // token for connection as an identification
-    conn_token: String,
+    pub conn_token: String,
 
     // pending data information
     pending_data_len: usize,
@@ -39,7 +40,7 @@ pub struct TcpWriterConn {
     socket_token: Token,
 
     // token for connection as an identification
-    conn_token: String,
+    pub conn_token: String,
 
     // data queue for writing it to connection
     writable: VecDeque<Arc<Vec<u8>>>,
@@ -113,13 +114,11 @@ impl TcpReaderConn {
     }
 
     #[inline(always)]
-    pub fn version(&self) -> u32 {
-        self.api_version
-    }
-
-    #[inline(always)]
-    pub fn set_version(&mut self, version: u32) {
-        self.api_version = version;
+    pub fn close(&self) {
+        match self.socket.shutdown(Shutdown::Both) {
+            Ok(_) => {},
+            Err(e) => Log::error("Error while trying to close connection", e.description())
+        }
     }
 }
 

@@ -3,7 +3,7 @@ mod net;
 mod conn;
 mod tcp;
 
-pub use self::net::{Network, ConnectionsMap};
+pub use self::net::{Network, ConnectionsMap, NetworkCommand, NetworkCMD};
 pub use self::conn::Connection;
 
 // main configuration for Networking

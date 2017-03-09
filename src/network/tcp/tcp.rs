@@ -1,10 +1,10 @@
 #![allow(dead_code)]
-extern crate slab;
 extern crate mio;
 
 use self::mio::{Token, Poll, Ready, PollOpt};
+use self::mio::channel::Sender;
 use self::mio::tcp::{TcpListener, TcpStream};
-use network::tcp::{TcpReaderConn};
+use network::tcp::{TcpReaderConn, Slab, TcpReader, TcpReaderCommand, TcpWriter, TcpWriterCommand};
 use network::{ConnectionsMap, Connection};
 use std::error::Error;
 use logger::Log;
@@ -14,7 +14,6 @@ use std::str::FromStr;
 use std::u32::MAX as u32MAX;
 
 const SERVER_SOCKET_TOKEN: Token = Token((u32MAX - 2) as usize);
-type Slab<T> = slab::Slab<T, Token>;
 const CONNECTION_COUNT_PRE_ALLOC: usize = 1024;
 
 // Main struct to handle TCP networking
@@ -24,6 +23,11 @@ pub struct TcpNetwork {
 
     // server socket for TCP listener
     server_socket: TcpListener,
+
+    // list of channels for TCP reader/writer
+    reader_channels: Vec<Sender<TcpReaderCommand>>,
+    writer_channels: Vec<Sender<TcpWriterCommand>>,
+    rw_index: usize
 }
 
 impl TcpNetwork {
@@ -48,7 +52,10 @@ impl TcpNetwork {
 
         TcpNetwork {
             pending_connections: Slab::with_capacity(CONNECTION_COUNT_PRE_ALLOC),
-            server_socket: server_socket
+            server_socket: server_socket,
+            reader_channels: vec![],
+            writer_channels: vec![],
+            rw_index: 0
         }
     }
 
@@ -126,39 +133,68 @@ impl TcpNetwork {
     /// Main function for reading data from connections, if there is something to read
     #[inline(always)]
     fn readable(&mut self, token: Token, poll: &mut Poll, conns: &mut ConnectionsMap) {
-        let close_conn = {
+        let (mut close_conn, token_value) = {
             let ref mut conn = self.pending_connections[token];
-            if !Connection::check_api_version(conn.version()) {
+            if !Connection::check_api_version(conn.api_version) {
                 match conn.read_api_version() {
                     Some((done, version)) => {
                         // if we done reading API version
                         if done {
                             if !Connection::check_api_version(version) {
                                 Log::warn("API version of TCP connection is wrong", version.to_string().as_str());
-                                true // If API version is wrong, close connection
+                                (true, None) // If API version is wrong, close connection
                             } else {
                                 // setting API version for later usage
-                                conn.set_version(version);
-                                false
+                                conn.api_version = version;
+                                (false, None)
                             }
                         } else {
                             // if there is still data, just returning and waiting more data
-                            false
+                            (false, None)
                         }
                     }
-                    None => true // Close connection
+                    None => (true, None) // Close connection
                 }
             } else {
                 match conn.read_token_value() {
                     Some((done, conn_token, value)) => {
-                        unimplemented!()
-                        // false
+                        // if we got here then we got Token and Value Handshake
+                        // Accepting connection and moving it to one of the readers/writers
+                    
+                        if done {
+                            (true, Some((conn_token, value)))
+                        } else {
+                            (false, None)
+                        }
                     }
 
-                    None => true // Close connection
+                    None => (true, None) // Close connection
                 }
             }
         };
+
+        if !token_value.is_none() {
+            let (token_str, value) = token_value.unwrap();
+            let writer_conn = self.pending_connections[token].make_writer();
+            // if we can't create writer connection
+            // just closing accepted connection
+            if writer_conn.is_none() {
+                close_conn = true
+            } else {
+                let (index, reader, writer) = self.get_read_writer();
+                let mut reader_conn = self.pending_connections.remove(token).unwrap();
+                let mut writer_conn = writer_conn.unwrap();
+                reader_conn.conn_token = token_str.clone();
+                writer_conn.conn_token = token_str.clone();
+                Implement Reader Writer Commands
+                let _ = reader.send(TcpReaderCommand {});
+                let _ = writer.send(TcpWriterCommand {});
+                conns.insert(token_str.clone()
+                , Connection::new(
+                    token_str.clone(), value, index, reader_conn.from_server
+                ));
+            }
+        }
 
         if close_conn {
             self.close_connection(token);
@@ -173,6 +209,23 @@ impl TcpNetwork {
 
     #[inline(always)]
     fn close_connection(&mut self, token: Token) {
-        unimplemented!()
+        match self.pending_connections.remove(token) {
+            Some(conn) => {
+                    conn.close();
+                    // dropping connection object from memory and closing it
+                    drop(conn);
+                },
+            None => {}
+        }
+    }
+
+    #[inline(always)]
+    fn get_read_writer(&mut self) -> (usize, Sender<TcpReaderCommand>, Sender<TcpWriterCommand>) {
+        if self.rw_index >= self.reader_channels.len() {
+            self.rw_index = 0;
+        }
+        let i = self.rw_index;
+        self.rw_index += 1;
+        (i, self.reader_channels[i].clone(), self.writer_channels[i].clone())
     }
 }
