@@ -8,6 +8,7 @@ pub use self::conn::Connection;
 
 // main configuration for Networking
 pub struct NetworkConfig {
+    api_version: u32,
     server_address: String,
     concurrency: usize,
 }

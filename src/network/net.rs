@@ -47,7 +47,7 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn new(value: u64, config: NetworkConfig) -> Network {
+    pub fn new(value: u64, token: String, config: NetworkConfig) -> Network {
         let (s, r) = channel::<NetworkCommand>();
         let poll = match Poll::new() {
             Ok(p) => p,
@@ -58,13 +58,16 @@ impl Network {
             }
         };
 
+        // generating handshake information
+        let handshake = Network::generate_handshake(value, token.clone(), config.api_version);
+
         Network {
             node_value: value,
             connections: ConnectionsMap::new(),
+            tcp_net: TcpNetwork::new(config.server_address.as_str(), config.concurrency, s.clone(), handshake),
             sender_chan: s,
             receiver_chan: r,
             poll: poll,
-            tcp_net: TcpNetwork::new(config.server_address.as_str()),
 
             config: config,
         }
@@ -131,5 +134,11 @@ impl Network {
         match command.cmd {
             _ => {}
         }
+    }
+
+    #[inline(always)]
+    fn generate_handshake(value: u64, token: String, api_version: u32) -> Vec<u8> {
+        unimplemented!()
+        // vec![]
     }
 }

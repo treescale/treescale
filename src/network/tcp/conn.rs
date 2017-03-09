@@ -14,7 +14,7 @@ pub struct TcpReaderConn {
     pub api_version: u32,
 
     // Tcp socket and reader token
-    socket: TcpStream,
+    pub socket: TcpStream,
     socket_token: Token,
 
     // this connection coming from server or client connection
@@ -22,6 +22,7 @@ pub struct TcpReaderConn {
 
     // token for connection as an identification
     pub conn_token: String,
+    pub conn_value: u64,
 
     // pending data information
     pending_data_len: usize,
@@ -56,6 +57,7 @@ impl TcpReaderConn {
             socket: sock,
             socket_token: token,
             conn_token: String::new(),
+            conn_value: 0,
             pending_data_len: 0,
             pending_data_index: 0,
             pending_data: VecDeque::new(),

@@ -4,22 +4,25 @@ extern crate mio;
 use self::mio::{Token, Poll, Ready, PollOpt};
 use self::mio::channel::Sender;
 use self::mio::tcp::{TcpListener, TcpStream};
-use network::tcp::{TcpReaderConn, Slab, TcpReader, TcpReaderCommand, TcpWriter, TcpWriterCommand};
-use network::{ConnectionsMap, Connection};
+use network::tcp::{TcpReaderConn, Slab
+                    , TcpReader, TcpReaderCommand, TcpReaderCMD
+                    , TcpWriter, TcpWriterCommand, TcpWriterCMD
+                    , CONNECTION_COUNT_PRE_ALLOC, SERVER_SOCKET_TOKEN};
+use network::{ConnectionsMap, Connection, NetworkCommand};
 use std::error::Error;
 use logger::Log;
 use std::process;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use std::u32::MAX as u32MAX;
-
-const SERVER_SOCKET_TOKEN: Token = Token((u32MAX - 2) as usize);
-const CONNECTION_COUNT_PRE_ALLOC: usize = 1024;
+use std::io::{Write};
+use std::thread;
+use std::collections::{BTreeMap};
 
 // Main struct to handle TCP networking
 pub struct TcpNetwork {
     // pending tcp connections, which just accepted but not sent API version and Prime Value
     pending_connections: Slab<TcpReaderConn>,
+    pending_write_queue: BTreeMap<Token, Vec<u8>>,
 
     // server socket for TCP listener
     server_socket: TcpListener,
@@ -27,11 +30,17 @@ pub struct TcpNetwork {
     // list of channels for TCP reader/writer
     reader_channels: Vec<Sender<TcpReaderCommand>>,
     writer_channels: Vec<Sender<TcpWriterCommand>>,
-    rw_index: usize
+    rw_index: usize,
+
+    // keeping current Node [4bytes API version][4 bytes len]token[8 bytes value] combination
+    // for direct responses on client/server connections
+    // this will be generated inside "init" function
+    node_handshake: Vec<u8>
 }
 
 impl TcpNetwork {
-    pub fn new(server_address: &str) -> TcpNetwork {
+    pub fn new(server_address: &str, concurrency: usize, net_chan: Sender<NetworkCommand>
+            , handshake_info: Vec<u8>) -> TcpNetwork {
         // making TcpListener for making server socket
         let addr = match SocketAddr::from_str(server_address) {
             Ok(a) => a,
@@ -50,12 +59,31 @@ impl TcpNetwork {
             }
         };
 
+        // Starting reader and writer services based on concurrency
+        let mut readers: Vec<Sender<TcpReaderCommand>> = vec![];
+        let mut writers: Vec<Sender<TcpWriterCommand>> = vec![];
+        for _ in 0..concurrency {
+            let mut r = TcpReader::new(net_chan.clone());
+            readers.push(r.channel());
+            thread::spawn(move || {
+                r.start();
+            });
+
+            let mut w = TcpWriter::new(net_chan.clone());
+            writers.push(w.channel());
+            thread::spawn(move || {
+                w.start();
+            });
+        }
+
         TcpNetwork {
             pending_connections: Slab::with_capacity(CONNECTION_COUNT_PRE_ALLOC),
             server_socket: server_socket,
-            reader_channels: vec![],
-            writer_channels: vec![],
-            rw_index: 0
+            reader_channels: readers,
+            writer_channels: writers,
+            rw_index: 0,
+            pending_write_queue: BTreeMap::new(),
+            node_handshake: handshake_info
         }
     }
 
@@ -173,26 +201,22 @@ impl TcpNetwork {
             }
         };
 
+        // if we got token and value 
+        // moving connection from pending to main connections list
         if !token_value.is_none() {
             let (token_str, value) = token_value.unwrap();
-            let writer_conn = self.pending_connections[token].make_writer();
-            // if we can't create writer connection
-            // just closing accepted connection
-            if writer_conn.is_none() {
-                close_conn = true
-            } else {
-                let (index, reader, writer) = self.get_read_writer();
-                let mut reader_conn = self.pending_connections.remove(token).unwrap();
-                let mut writer_conn = writer_conn.unwrap();
-                reader_conn.conn_token = token_str.clone();
-                writer_conn.conn_token = token_str.clone();
-                Implement Reader Writer Commands
-                let _ = reader.send(TcpReaderCommand {});
-                let _ = writer.send(TcpWriterCommand {});
-                conns.insert(token_str.clone()
-                , Connection::new(
-                    token_str.clone(), value, index, reader_conn.from_server
-                ));
+            let ref mut conn = self.pending_connections[token];
+            conn.conn_token = token_str.clone();
+            conn.conn_value = value;
+            // adding handshake information to send
+            self.pending_write_queue.insert(token, self.node_handshake.clone());
+            // making connection writable to send data
+            match poll.reregister(&conn.socket, token, Ready::writable(), PollOpt::edge()) {
+                Ok(_) => {},
+                Err(e) => {
+                    Log::error("Unable to make Tcp connection writable from TcpNetworking", e.description());
+                    close_conn = true
+                }
             }
         }
 
@@ -204,7 +228,32 @@ impl TcpNetwork {
     /// Main function for writing to pending connections, while they are in main networking loop
     #[inline(always)]
     fn writable(&mut self, token: Token, poll: &mut Poll, conns: &mut ConnectionsMap) {
-        let ref mut conn = self.pending_connections[token];
+        // if we don't have nothing to write for this connection just returning
+        if !self.pending_write_queue.contains_key(&token) {
+            return;
+        }
+
+        let (token_str, value) = {
+            let ref mut conn = self.pending_connections[token];
+            let mut write_data = self.pending_write_queue.remove(&token).unwrap();
+
+            let write_len = match conn.socket.write(&mut write_data) {
+                Ok(n) => n,
+                Err(_) => return
+            };
+
+            if write_len < write_data.len() {
+                self.pending_write_queue.insert(token, Vec::from(&write_data[write_len..]));
+                // keeping connection writable because we still have some data to write
+                return;
+            }
+
+            (conn.conn_token.clone(), conn.conn_value)
+        };
+
+        // if we have written handshake information
+        // accepting connection and transferring it to reader/writer
+        self.accept_transfer_conn(poll, token, token_str.clone(), value, conns);
     }
 
     #[inline(always)]
@@ -227,5 +276,43 @@ impl TcpNetwork {
         let i = self.rw_index;
         self.rw_index += 1;
         (i, self.reader_channels[i].clone(), self.writer_channels[i].clone())
+    }
+
+    fn accept_transfer_conn(&mut self, poll: &mut Poll, token: Token, token_str: String, value: u64, conns: &mut ConnectionsMap) -> bool {
+        let writer_conn = self.pending_connections[token].make_writer();
+        // if we can't create writer connection
+        // just closing accepted connection
+        if writer_conn.is_none() {
+            true
+        } else {
+            let (index, reader, writer) = self.get_read_writer();
+            let mut reader_conn = self.pending_connections.remove(token).unwrap();
+            // removing connection from current poll service
+            match poll.deregister(&reader_conn.socket) {
+                Ok(_) => {},
+                Err(e) => Log::error("Unable to deregister Tcp Connection from Networking poll service", e.description())
+            }
+
+            let mut writer_conn = writer_conn.unwrap();
+            reader_conn.conn_token = token_str.clone();
+            writer_conn.conn_token = token_str.clone();
+
+            let main_conn = Connection::new(
+                token_str.clone(), value, index, reader_conn.from_server
+            );
+
+            let mut reader_cmd = TcpReaderCommand::default();
+            reader_cmd.cmd = TcpReaderCMD::HANDLE_CONNECTION;
+            reader_cmd.conn.push(reader_conn);
+            let _ = reader.send(reader_cmd);
+
+            let mut writer_cmd = TcpWriterCommand::default();
+            writer_cmd.cmd = TcpWriterCMD::HANDLE_CONNECTION;
+            writer_cmd.conn.push(writer_conn);
+            let _ = writer.send(writer_cmd);
+            conns.insert(token_str.clone(), main_conn);
+
+            false
+        }
     }
 }
