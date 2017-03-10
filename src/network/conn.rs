@@ -1,9 +1,6 @@
 #![allow(dead_code)]
 extern crate mio;
 
-use self::mio::Token;
-use self::mio::channel::Sender;
-
 pub enum SocketType {
     NONE,
     TCP,

@@ -10,7 +10,7 @@ use network::tcp::{TcpReaderConn, Slab
                     , CONNECTION_COUNT_PRE_ALLOC, SERVER_SOCKET_TOKEN};
 use network::{ConnectionsMap, Connection, NetworkCommand};
 use std::error::Error;
-use logger::Log;
+use helper::Log;
 use std::process;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -138,7 +138,7 @@ impl TcpNetwork {
         };
 
         // inserting connection to our pending connections list
-        entry.insert(TcpReaderConn::new(socket, token, true));
+        entry.insert(TcpReaderConn::new(socket, token, from_server));
     }
 
     /// Main function for accepting TCP connections in Networking loop
@@ -160,7 +160,7 @@ impl TcpNetwork {
 
     /// Main function for reading data from connections, if there is something to read
     #[inline(always)]
-    fn readable(&mut self, token: Token, poll: &mut Poll, conns: &mut ConnectionsMap) {
+    fn readable(&mut self, token: Token, poll: &mut Poll, _: &mut ConnectionsMap) {
         let (mut close_conn, token_value) = {
             let ref mut conn = self.pending_connections[token];
             if !Connection::check_api_version(conn.api_version) {
@@ -302,12 +302,12 @@ impl TcpNetwork {
             );
 
             let mut reader_cmd = TcpReaderCommand::default();
-            reader_cmd.cmd = TcpReaderCMD::HANDLE_CONNECTION;
+            reader_cmd.cmd = TcpReaderCMD::HandleConnection;
             reader_cmd.conn.push(reader_conn);
             let _ = reader.send(reader_cmd);
 
             let mut writer_cmd = TcpWriterCommand::default();
-            writer_cmd.cmd = TcpWriterCMD::HANDLE_CONNECTION;
+            writer_cmd.cmd = TcpWriterCMD::HandleConnection;
             writer_cmd.conn.push(writer_conn);
             let _ = writer.send(writer_cmd);
             conns.insert(token_str.clone(), main_conn);

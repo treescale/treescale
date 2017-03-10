@@ -7,7 +7,7 @@ use network::NetworkCommand;
 
 pub enum TcpReaderCMD {
     NONE,
-    HANDLE_CONNECTION
+    HandleConnection
 }
 
 pub struct TcpReaderCommand {

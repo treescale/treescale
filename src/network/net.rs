@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Token, Poll, Ready, PollOpt, Events};
 use network::NetworkConfig;
-use logger::Log;
+use helper::{Log, NetHelper};
 use std::process;
 use std::u32::MAX as u32MAX;
 
@@ -136,9 +136,44 @@ impl Network {
         }
     }
 
+    /// Generating Handshake information for sending it with every connection
     #[inline(always)]
     fn generate_handshake(value: u64, token: String, api_version: u32) -> Vec<u8> {
-        unimplemented!()
-        // vec![]
+        let (mut offset, text_len) = (0, token.len());
+        // making buffer
+        // [4 bytes API Number] + [4 bytes text length number] + [text length numbers] + [8 bytes for prime number version]
+        let mut buffer: Vec<u8> = vec![0; (4 + 4 + text_len + 8)];
+        let text_bytes = token.into_bytes();
+
+        // writing API version
+        let mut tmp_offset = NetHelper::u32_to_bytes(api_version, &mut buffer, offset);
+        if tmp_offset == 0 {
+            Log::error("Unable to write API Version BigEndian number during generating handshake", "returned 0");
+            return vec![];
+        }
+        offset += tmp_offset;
+
+        // Writing text length
+        tmp_offset = NetHelper::u32_to_bytes(text_len as u32, &mut buffer, offset);
+        if tmp_offset == 0 {
+            Log::error("Unable to write Token Length BigEndian number during generating handshake", "returned 0");
+            return vec![];
+        }
+        offset += tmp_offset;
+
+        // Adding text bytes
+        for i in 0..text_len {
+            buffer[offset + i] = text_bytes[i];
+        }
+        offset += text_len;
+
+        // Writing Prime Value
+        tmp_offset = NetHelper::u64_to_bytes(value, &mut buffer, offset);
+        if tmp_offset == 0 {
+            Log::error("Unable to write Prime Value BigEndian number during generating handshake", "returned 0");
+            return vec![];
+        }
+
+        buffer
     }
 }

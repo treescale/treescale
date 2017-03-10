@@ -7,7 +7,7 @@ use network::NetworkCommand;
 
 pub enum TcpWriterCMD {
     NONE,
-    HANDLE_CONNECTION,
+    HandleConnection,
 }
 
 pub struct TcpWriterCommand {

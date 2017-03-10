@@ -6,7 +6,7 @@ use self::mio::tcp::TcpStream;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::error::Error;
-use logger::Log;
+use helper::Log;
 use std::net::Shutdown;
 
 pub struct TcpReaderConn {
