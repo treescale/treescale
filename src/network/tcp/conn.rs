@@ -9,8 +9,9 @@ use std::sync::Arc;
 use std::error::Error;
 use helper::Log;
 use std::net::Shutdown;
-use std::io::{Read, ErrorKind};
+use std::io::{Read, ErrorKind, Write};
 
+/// TCP connection for Reader Event Loop
 pub struct TcpReaderConn {
     // connection API version for handling network upgrades
     pub api_version: u32,
@@ -37,6 +38,7 @@ pub struct TcpReaderConn {
     pending_endian_index: usize
 }
 
+/// TCP connection for writer event loop
 pub struct TcpWriterConn {
     // Tcp socket and writer token
     socket: TcpStream,
@@ -265,5 +267,52 @@ impl TcpWriterConn {
             writable: VecDeque::new(),
             writable_data_index: 0
         }
+    }
+
+    /// Main function to write to TCP connection
+    /// It will add data to "writable" as a write queue
+    #[inline(always)]
+    pub fn write(&mut self, data: Arc<Vec<u8>>) {
+        self.writable.push_back(data);
+    }
+
+    /// Tying to flush all data what we have right now in our socket
+    /// Returns None if there is a connection error
+    /// Returns Some(true) if queue is now empty
+    /// Returns Some(false) if we still have something in queue
+    pub fn flush(&mut self) -> Option<bool> {
+        loop {
+            let data = match self.writable.front() {
+                Some(d) => d,
+                None => break // there is no data in queue
+            };
+
+            let write_len = match self.socket.write(&data[self.writable_data_index..]) {
+                Ok(n) => n,
+                Err(e) => {
+                    // if we got WouldBlock, then this is Non Blocking socket
+                    // and data still not available for this, so it's not a connection error
+                    if e.kind() == ErrorKind::WouldBlock {
+                        return Some(false)
+                    }
+
+                    return None;
+                }
+            };
+
+            // if socket is unable to write all data that we have
+            // then moving forward index and waiting until next time
+            if write_len + self.writable_data_index < data.len() {
+                self.writable_data_index += write_len;
+                return Some(false);
+            }
+
+            // if we got here then our data is written
+            // so we need to reset index for next data
+            // current data would be deleted automatically after this cycle
+            self.writable_data_index = 0;
+        }
+
+        Some(true)
     }
 }
