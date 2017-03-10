@@ -10,6 +10,7 @@ impl NetHelper {
     /// Converting u32 integer to BigEndian bytes
     /// Returns 0 if it is unable to make it
     /// Returns final offset in buffer after adding bytes to it
+    #[inline(always)]
     pub fn u32_to_bytes(number: u32, buffer: &mut Vec<u8>, offset: usize) -> usize {
         if buffer.len() - offset < 4 {
             return 0;
@@ -30,6 +31,7 @@ impl NetHelper {
     /// Converting u64 integer to BigEndian bytes
     /// Returns 0 if it is unable to make it
     /// Returns final offset in buffer after adding bytes to it
+    #[inline(always)]
     pub fn u64_to_bytes(number: u64, buffer: &mut Vec<u8>, offset: usize) -> usize {
         if buffer.len() - offset < 8 {
             return 0;
@@ -49,5 +51,39 @@ impl NetHelper {
         buffer[offset + 7] = endian_bytes[7];
 
         offset + 4
+    }
+
+    /// Parse given BigEndian bytes into u32 number
+    #[inline(always)]
+    pub fn bytes_to_u32(buffer: &Vec<u8>, offset: usize) -> (bool, u32) {
+        if buffer.len() + offset < 4 {
+            return (false, 0);
+        }
+
+        (true, unsafe {
+            let a = [
+                buffer[offset + 0], buffer[offset + 1],
+                buffer[offset + 2], buffer[offset + 3],
+            ];
+            u32::from_be(mem::transmute::<[u8; 4], u32>(a))
+        })
+    }
+
+    /// Parse given BigEndian bytes into u64 number
+    #[inline(always)]
+    pub fn bytes_to_u64(buffer: &Vec<u8>, offset: usize) -> (bool, u64) {
+        if buffer.len() + offset < 8 {
+            return (false, 0);
+        }
+
+        (true, unsafe {
+            let a = [
+                buffer[offset + 0], buffer[offset + 1],
+                buffer[offset + 2], buffer[offset + 3],
+                buffer[offset + 4], buffer[offset + 5],
+                buffer[offset + 6], buffer[offset + 7],
+            ];
+            u64::from_be(mem::transmute::<[u8; 8], u64>(a))
+        })
     }
 }

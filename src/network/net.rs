@@ -153,8 +153,8 @@ impl Network {
         }
         offset += tmp_offset;
 
-        // Writing text length
-        tmp_offset = NetHelper::u32_to_bytes(text_len as u32, &mut buffer, offset);
+        // Writing text length with more 8 bytes for value
+        tmp_offset = NetHelper::u32_to_bytes((text_len + 8) as u32, &mut buffer, offset);
         if tmp_offset == 0 {
             Log::error("Unable to write Token Length BigEndian number during generating handshake", "returned 0");
             return vec![];
