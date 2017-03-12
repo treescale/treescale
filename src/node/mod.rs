@@ -1,4 +1,5 @@
 mod node;
 mod event;
+mod handler;
 
-pub use self::event::EventHandler;
+pub use self::handler::EventHandler;
