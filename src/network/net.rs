@@ -36,9 +36,6 @@ pub struct Network {
     sender_chan: Sender<NetworkCommand>,
     receiver_chan: Receiver<NetworkCommand>,
 
-    // network configuration
-    config: NetworkConfig,
-
     // poll service for handling events
     poll: Poll,
 
@@ -47,7 +44,7 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn new(value: u64, token: String, config: NetworkConfig) -> Network {
+    pub fn new(value: u64, token: String, config: &NetworkConfig) -> Network {
         let (s, r) = channel::<NetworkCommand>();
         let poll = match Poll::new() {
             Ok(p) => p,
@@ -68,8 +65,6 @@ impl Network {
             sender_chan: s,
             receiver_chan: r,
             poll: poll,
-
-            config: config,
         }
     }
 

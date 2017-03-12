@@ -12,3 +12,14 @@ pub struct NetworkConfig {
     server_address: String,
     concurrency: usize,
 }
+
+
+impl NetworkConfig {
+    pub fn default() -> NetworkConfig {
+        NetworkConfig {
+            api_version: 0,
+            server_address: String::from("0.0.0.0:8000"),
+            concurrency: 1
+        }
+    }
+}
