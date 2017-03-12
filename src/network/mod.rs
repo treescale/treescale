@@ -8,9 +8,9 @@ pub use self::conn::Connection;
 
 // main configuration for Networking
 pub struct NetworkConfig {
-    api_version: u32,
-    server_address: String,
-    concurrency: usize,
+    pub api_version: u32,
+    pub server_address: String,
+    pub concurrency: usize,
 }
 
 
@@ -18,7 +18,7 @@ impl NetworkConfig {
     pub fn default() -> NetworkConfig {
         NetworkConfig {
             api_version: 0,
-            server_address: String::from("0.0.0.0:8000"),
+            server_address: String::new(),
             concurrency: 1
         }
     }
