@@ -41,8 +41,8 @@ pub struct TcpReaderConn {
 /// TCP connection for writer event loop
 pub struct TcpWriterConn {
     // Tcp socket and writer token
-    socket: TcpStream,
-    socket_token: Token,
+    pub socket: TcpStream,
+    pub socket_token: Token,
 
     // token for connection as an identification
     pub conn_token: String,
@@ -314,5 +314,13 @@ impl TcpWriterConn {
         }
 
         Some(true)
+    }
+
+    #[inline(always)]
+    pub fn close(&self) {
+        match self.socket.shutdown(Shutdown::Both) {
+            Ok(_) => {},
+            Err(e) => Log::error("Error while trying to close connection", e.description())
+        }
     }
 }
