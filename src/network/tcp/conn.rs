@@ -18,7 +18,7 @@ pub struct TcpReaderConn {
 
     // Tcp socket and reader token
     pub socket: TcpStream,
-    socket_token: Token,
+    pub socket_token: Token,
 
     // this connection coming from server or client connection
     pub from_server: bool,

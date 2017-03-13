@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 extern crate mio;
+extern crate threadpool;
 
 use self::mio::channel::{channel, Receiver, Sender};
 use network::tcp::{Slab, TcpWriterConn, CONNECTION_COUNT_PRE_ALLOC};
 use network::NetworkCommand;
+use self::threadpool::ThreadPool;
 
 pub enum TcpWriterCMD {
     NONE,
@@ -43,7 +45,7 @@ impl TcpWriter {
             net_chan: net_chan,
             sender_chan: s,
             receiver_chan: r,
-            connections: Slab::with_capacity(CONNECTION_COUNT_PRE_ALLOC)
+            connections: Slab::with_capacity(CONNECTION_COUNT_PRE_ALLOC),
         }
     }
 
@@ -52,7 +54,7 @@ impl TcpWriter {
         self.sender_chan.clone()
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self, thread_pool: ThreadPool) {
         
     }
 }

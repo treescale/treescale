@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 extern crate mio;
+extern crate threadpool;
 
 use self::mio::{Token, Poll, Ready, PollOpt};
 use self::mio::channel::Sender;
@@ -17,6 +18,7 @@ use std::str::FromStr;
 use std::io::{Write};
 use std::thread;
 use std::collections::{BTreeMap};
+use self::threadpool::ThreadPool;
 
 // Main struct to handle TCP networking
 pub struct TcpNetwork {
@@ -40,7 +42,7 @@ pub struct TcpNetwork {
 
 impl TcpNetwork {
     pub fn new(server_address: &str, concurrency: usize, net_chan: Sender<NetworkCommand>
-            , handshake_info: Vec<u8>) -> TcpNetwork {
+            , handshake_info: Vec<u8>, thread_pool: ThreadPool) -> TcpNetwork {
         // making TcpListener for making server socket
         let addr = match SocketAddr::from_str(server_address) {
             Ok(a) => a,
@@ -65,14 +67,16 @@ impl TcpNetwork {
         for _ in 0..concurrency {
             let mut r = TcpReader::new(net_chan.clone());
             readers.push(r.channel());
+            let pool = thread_pool.clone();
             thread::spawn(move || {
-                r.start();
+                r.start(pool);
             });
 
             let mut w = TcpWriter::new(net_chan.clone());
+            let pool = thread_pool.clone();
             writers.push(w.channel());
             thread::spawn(move || {
-                w.start();
+                w.start(pool);
             });
         }
 

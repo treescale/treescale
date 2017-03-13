@@ -1,27 +1,31 @@
 #![allow(dead_code)]
 extern crate mio;
+extern crate threadpool;
 
+use self::threadpool::ThreadPool;
 use std::error::Error;
 use network::Connection;
 use network::tcp::TcpNetwork;
 use std::collections::BTreeMap;
 use self::mio::channel::{Sender, Receiver, channel};
-use self::mio::{Token, Poll, Ready, PollOpt, Events};
-use network::NetworkConfig;
+use self::mio::{Poll, Ready, PollOpt, Events};
+use network::{NetworkConfig, RECEIVER_CHANNEL_TOKEN, LOOP_EVENTS_COUNT};
 use helper::{Log, NetHelper};
 use std::process;
-use std::u32::MAX as u32MAX;
+use node::Event;
 
-const RECEIVER_CHANNEL_TOKEN: Token = Token((u32MAX - 1) as usize);
-const LOOP_EVENTS_COUNT: usize = 64000;
 pub type ConnectionsMap = BTreeMap<String, Connection>;
 
 pub enum NetworkCMD {
-
+    NONE,
+    HandleEvent,
+    CloseConnection
 }
 
 pub struct NetworkCommand {
-    cmd: NetworkCMD,
+    pub cmd: NetworkCMD,
+    pub token: Vec<String>,
+    pub event: Vec<Event>
 }
 
 pub struct Network {
@@ -57,14 +61,14 @@ impl Network {
 
         // generating handshake information
         let handshake = Network::generate_handshake(value, token.clone(), config.api_version);
-
+        let thread_pool = ThreadPool::new(config.concurrency);
         Network {
             node_value: value,
             connections: ConnectionsMap::new(),
-            tcp_net: TcpNetwork::new(config.server_address.as_str(), config.concurrency, s.clone(), handshake),
+            tcp_net: TcpNetwork::new(config.server_address.as_str(), config.concurrency, s.clone(), handshake, thread_pool.clone()),
             sender_chan: s,
             receiver_chan: r,
-            poll: poll,
+            poll: poll
         }
     }
 
@@ -111,13 +115,12 @@ impl Network {
                             }
                         }
                     }
+                    continue;
+                }
 
-                    // passing event to TCP networking
-                    if self.tcp_net.ready(token, kind, &mut self.poll, &mut self.connections) {
-                        // if token found in TCP actions moving on
-                        continue;
-                    }
-
+                // passing event to TCP networking
+                if self.tcp_net.ready(token, kind, &mut self.poll, &mut self.connections) {
+                    // if token found in TCP actions moving on
                     continue;
                 }
             }
@@ -170,5 +173,15 @@ impl Network {
         }
 
         buffer
+    }
+}
+
+impl NetworkCommand {
+    pub fn default() -> NetworkCommand {
+        NetworkCommand {
+            cmd: NetworkCMD::NONE,
+            token: vec![],
+            event: vec![]
+        }
     }
 }
