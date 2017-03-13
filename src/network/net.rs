@@ -181,6 +181,9 @@ impl Network {
         buffer
     }
 
+
+    /// Send event based on Event Path
+    #[inline(always)]
     pub fn emit(&mut self, event: Event) {
         let mut tcp_writer_tokens: Vec<Vec<String>> = vec![Vec::new(); self.tcp_net.writer_channels.len()];
         let mut ev = event;
@@ -211,8 +214,47 @@ impl Network {
             return;
         }
 
-        let tcp_writer_channels = self.tcp_net.writer_channels.clone();
+        self.write_event_pool(tcp_writer_tokens, ev);
+    }
 
+
+    pub fn emit_api(&mut self, api_tokens: Vec<String>, event: Event) {
+        let mut tcp_writer_tokens: Vec<Vec<String>> = vec![Vec::new(); self.tcp_net.writer_channels.len()];
+        let mut have_content = false;
+        for (token, conn) in &mut self.connections {
+            for api_token in &api_tokens {
+                let str = token.clone();
+                let str2 = api_token.clone();
+                if str == str2 {
+                    match conn.get_identity() {
+                        Some(ref identity) => {
+                            match identity.socket_type {
+                                SocketType::TCP => {
+                                    tcp_writer_tokens[identity.writer_index].push(str);
+                                    have_content = true;
+                                }
+                                SocketType::NONE => {}
+                            }
+                        },
+
+                        /// TODO: we need to close connection if we don't have an identity in it
+                        None => {}
+                    };
+                }
+            }
+        }
+
+        if !have_content {
+            return;
+        }
+
+        self.write_event_pool(tcp_writer_tokens, event);
+    }
+
+    #[inline(always)]
+    fn write_event_pool(&mut self, tokens: Vec<Vec<String>>, ev: Event) {
+        let tcp_writer_channels = self.tcp_net.writer_channels.clone();
+        let mut tcp_writer_tokens = tokens;
         // if we got here then we have something inside our writer tokens, so we need
         // to parse Event into raw data and send it over writer channels
         self.thread_pool.execute(move || {
