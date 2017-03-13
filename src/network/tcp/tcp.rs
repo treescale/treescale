@@ -9,7 +9,7 @@ use network::tcp::{TcpReaderConn, Slab
                     , TcpReader, TcpReaderCommand, TcpReaderCMD
                     , TcpWriter, TcpWriterCommand, TcpWriterCMD
                     , CONNECTION_COUNT_PRE_ALLOC, SERVER_SOCKET_TOKEN};
-use network::{ConnectionsMap, Connection, NetworkCommand};
+use network::{ConnectionsMap, Connection, ConnectionIdentity, SocketType, NetworkCommand};
 use std::error::Error;
 use helper::Log;
 use std::process;
@@ -30,8 +30,8 @@ pub struct TcpNetwork {
     server_socket: TcpListener,
 
     // list of channels for TCP reader/writer
-    reader_channels: Vec<Sender<TcpReaderCommand>>,
-    writer_channels: Vec<Sender<TcpWriterCommand>>,
+    pub reader_channels: Vec<Sender<TcpReaderCommand>>,
+    pub writer_channels: Vec<Sender<TcpWriterCommand>>,
     rw_index: usize,
 
     // keeping current Node [4bytes API version][4 bytes len]token[8 bytes value] combination
@@ -301,20 +301,35 @@ impl TcpNetwork {
             reader_conn.conn_token = token_str.clone();
             writer_conn.conn_token = token_str.clone();
 
-            let main_conn = Connection::new(
-                token_str.clone(), value, index, reader_conn.from_server
-            );
+            // Adding connection identity to connection
+            // or adding new connection with it
+            let conn_identity = ConnectionIdentity{
+                writer_index: index,
+                socket_type: SocketType::TCP
+            };
 
+            if conns.contains_key(&token_str) {
+                conns.get_mut(&token_str).unwrap().set_identity(conn_identity);
+            } else {
+                let mut main_conn = Connection::new(
+                    token_str.clone(), value, reader_conn.from_server
+                );
+
+                main_conn.set_identity(conn_identity);
+                conns.insert(token_str.clone(), main_conn);
+            }
+
+            // sending connection to TCP reader
             let mut reader_cmd = TcpReaderCommand::default();
             reader_cmd.cmd = TcpReaderCMD::HandleConnection;
             reader_cmd.conn.push(reader_conn);
             let _ = reader.send(reader_cmd);
 
+            // Sending connection to tcp writer
             let mut writer_cmd = TcpWriterCommand::default();
             writer_cmd.cmd = TcpWriterCMD::HandleConnection;
             writer_cmd.conn.push(writer_conn);
             let _ = writer.send(writer_cmd);
-            conns.insert(token_str.clone(), main_conn);
 
             false
         }

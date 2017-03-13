@@ -6,7 +6,7 @@ mod conn;
 mod tcp;
 
 pub use self::net::{Network, ConnectionsMap, NetworkCommand, NetworkCMD};
-pub use self::conn::Connection;
+pub use self::conn::{Connection, ConnectionIdentity, SocketType};
 use std::u32::MAX as u32MAX;
 use self::mio::Token;
 

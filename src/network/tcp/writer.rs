@@ -22,7 +22,7 @@ pub enum TcpWriterCMD {
 pub struct TcpWriterCommand {
     pub cmd: TcpWriterCMD,
     pub conn: Vec<TcpWriterConn>,
-    pub socket_token: Vec<Token>,
+    pub conn_token: Vec<String>,
     pub data: Vec<Arc<Vec<u8>>>
 }
 
@@ -46,7 +46,7 @@ impl TcpWriterCommand {
         TcpWriterCommand {
             cmd: TcpWriterCMD::NONE,
             conn: vec![],
-            socket_token: vec![],
+            conn_token: vec![],
             data: vec![]
         }
     }
@@ -156,26 +156,19 @@ impl TcpWriter {
                 entry.insert(conn);
             }
             TcpWriterCMD::WriteData => {
-                if command.socket_token.len() == 0 {
-                    return;
-                }
+                while !command.conn_token.is_empty() {
+                    let token = command.conn_token.remove(0);
+                    for conn in &mut self.connections {
+                        if conn.conn_token == token {
+                            while !command.data.is_empty() {
+                                // popping out first element
+                                conn.write(command.data.remove(0), &self.poll);
+                            }
 
-                // we will send data only one connection at a time
-                let token = command.socket_token.remove(0);
-                if !self.connections.contains(token) {
-                    return;
-                }
-
-                {
-                    let ref mut conn = self.connections[token];
-                    while !command.data.is_empty() {
-                        // popping out first element
-                        conn.write(command.data.remove(0));
+                            break;
+                        }
                     }
                 }
-
-                // making writable to flush added content
-                self.make_writable(&self.connections[token]);
             }
             TcpWriterCMD::NONE => {}
         }
@@ -216,14 +209,6 @@ impl TcpWriter {
             self.connections[token].close();
             // then removing it and closing connection with it
             self.connections.remove(token);
-        }
-    }
-
-    #[inline(always)]
-    fn make_writable(&self, conn: &TcpWriterConn) {
-        match self.poll.reregister(&conn.socket, conn.socket_token, Ready::writable(), PollOpt::edge()) {
-            Ok(_) => {},
-            Err(e) => Log::error("Unable to re-register connection as writable for TcpWriter POLL", e.description())
         }
     }
 }

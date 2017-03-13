@@ -9,10 +9,12 @@ use network::tcp::TcpNetwork;
 use std::collections::BTreeMap;
 use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Poll, Ready, PollOpt, Events};
-use network::{NetworkConfig, RECEIVER_CHANNEL_TOKEN, LOOP_EVENTS_COUNT};
+use network::{NetworkConfig, RECEIVER_CHANNEL_TOKEN, LOOP_EVENTS_COUNT, SocketType};
+use network::tcp::{TcpWriterCommand, TcpWriterCMD};
 use helper::{Log, NetHelper};
 use std::process;
 use node::Event;
+use std::sync::Arc;
 
 pub type ConnectionsMap = BTreeMap<String, Connection>;
 
@@ -44,7 +46,10 @@ pub struct Network {
     poll: Poll,
 
     // TCP networking
-    tcp_net: TcpNetwork
+    tcp_net: TcpNetwork,
+
+    // keeping thread pool here
+    thread_pool: ThreadPool
 }
 
 impl Network {
@@ -68,7 +73,8 @@ impl Network {
             tcp_net: TcpNetwork::new(config.server_address.as_str(), config.concurrency, s.clone(), handshake, thread_pool.clone()),
             sender_chan: s,
             receiver_chan: r,
-            poll: poll
+            poll: poll,
+            thread_pool: thread_pool
         }
     }
 
@@ -173,6 +179,62 @@ impl Network {
         }
 
         buffer
+    }
+
+    pub fn emit(&mut self, event: Event) {
+        let mut tcp_writer_tokens: Vec<Vec<String>> = vec![Vec::new(); self.tcp_net.writer_channels.len()];
+        let mut ev = event;
+        let mut have_content = false;
+        for (token, conn) in &mut self.connections {
+            // checking if we have connection inside path
+            if !ev.path.dividable(conn.value) {
+                continue;
+            }
+
+            match conn.get_identity() {
+                Some(ref identity) => {
+                    match identity.socket_type {
+                        SocketType::TCP => {
+                            tcp_writer_tokens[identity.writer_index].push(token.clone());
+                            have_content = true;
+                        }
+                        SocketType::NONE => {}
+                    }
+                },
+
+                /// TODO: we need to close connection if we don't have an identity in it
+                None => {}
+            };
+        }
+
+        if !have_content {
+            return;
+        }
+
+        let tcp_writer_channels = self.tcp_net.writer_channels.clone();
+
+        // if we got here then we have something inside our writer tokens, so we need
+        // to parse Event into raw data and send it over writer channels
+        self.thread_pool.execute(move || {
+
+            let data = match ev.to_raw() {
+                Some(d) => Arc::new(d),
+                None => return
+            };
+
+            // Sending tcp data
+            for i in 0..tcp_writer_tokens.len() {
+                if tcp_writer_tokens[i].len() == 0 {
+                    continue;
+                }
+
+                let mut cmd = TcpWriterCommand::default();
+                cmd.cmd = TcpWriterCMD::WriteData;
+                cmd.data.push(data.clone());
+                cmd.conn_token = tcp_writer_tokens.remove(i);
+                let _ = tcp_writer_channels[i].send(cmd);
+            }
+        });
     }
 }
 

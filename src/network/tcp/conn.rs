@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 extern crate mio;
 
-use self::mio::Token;
+use self::mio::{Token, Poll, Ready, PollOpt};
 use self::mio::tcp::TcpStream;
 use helper::NetHelper;
 use std::collections::VecDeque;
@@ -272,7 +272,14 @@ impl TcpWriterConn {
     /// Main function to write to TCP connection
     /// It will add data to "writable" as a write queue
     #[inline(always)]
-    pub fn write(&mut self, data: Arc<Vec<u8>>) {
+    pub fn write(&mut self, data: Arc<Vec<u8>>, poll: &Poll) {
+        match poll.register(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
+            Ok(_) => {},
+            Err(e) => {
+                Log::error("Unable to make TCP connection writable in POLL service", e.description());
+                return;
+            }
+        };
         self.writable.push_back(data);
     }
 

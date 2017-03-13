@@ -6,31 +6,40 @@ pub enum SocketType {
     TCP,
 }
 
+pub struct ConnectionIdentity {
+    pub writer_index: usize,
+    pub socket_type: SocketType
+}
+
 pub struct Connection {
     // Connection token for unique Node access
-    token: String,
+    pub token: String,
 
     // accepted connection prime value for unique identification
     // and path calculation
     // NOTE: if value is 0 then this connection is API connection
-    value: u64,
+    pub value: u64,
 
-    // Socket token for handling socket actions from Slab
-    writer_index: usize,
-    socket_type: SocketType,
+    // List fo connection identities, for giving
+    // ability to make multiple connections from single node service
+    identities: Vec<ConnectionIdentity>,
+
+    // index for load balancing for write requests
+    // over connection identities
+    identity_index: usize,
 
     // is this connection coming from server or client
-    from_server: bool,
+    pub from_server: bool,
 }
 
 impl Connection {
-    pub fn new(token: String, value: u64, wr_index: usize, from_server: bool) -> Connection {
+    pub fn new(token: String, value: u64, from_server: bool) -> Connection {
         Connection {
             token: token,
             value: value,
-            socket_type: SocketType::NONE,
+            identities: vec![],
             from_server: from_server,
-            writer_index: wr_index
+            identity_index: 0
         }
     }
 
@@ -38,5 +47,30 @@ impl Connection {
     #[inline(always)]
     pub fn check_api_version(version: u32) -> bool {
         version > 0 && version < 500
+    }
+
+    /// Setting Identity for this connection
+    /// this will add new identity to existing list
+    #[inline(always)]
+    pub fn set_identity(&mut self, identity: ConnectionIdentity) {
+        self.identities.push(identity);
+    }
+
+    /// Load balancing over identities and returning one of them
+    /// Returns None is connection don't have any identities
+    #[inline(always)]
+    pub fn get_identity(&mut self) -> Option<&ConnectionIdentity> {
+        if self.identities.len() == 0 {
+            return None;
+        }
+
+        if self.identity_index >= self.identities.len() {
+            self.identity_index = 0;
+        }
+
+        let i = self.identity_index;
+        self.identity_index += 1;
+
+        Some(&self.identities[i])
     }
 }
