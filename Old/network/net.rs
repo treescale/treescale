@@ -222,7 +222,6 @@ impl <'a> Network <'a> {
         self.write_event_pool(tcp_writer_tokens, ev);
     }
 
-
     pub fn emit_api(&mut self, api_tokens: Vec<String>, event: Event) {
         let mut tcp_writer_tokens: Vec<Vec<String>> = vec![Vec::new(); self.tcp_net.writer_channels.len()];
         let mut have_content = false;
