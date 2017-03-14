@@ -4,7 +4,7 @@ extern crate mio;
 use network::Network;
 use node::{EventHandler, Event, NodeConfig};
 
-pub struct Node {
+pub struct Node<'a> {
     // Token for current Node
     pub token: String,
 
@@ -12,7 +12,7 @@ pub struct Node {
     pub value: u64,
 
     // Main networking object for current Node
-    pub network: Network,
+    pub network: Network<'a>,
 
     // Event Handler for current Node
     pub event: EventHandler,
@@ -28,7 +28,7 @@ pub struct NodeCommand {
     pub event: Event
 }
 
-impl Node {
+impl <'a> Node <'a> {
     /// Making New Node Service
     pub fn new(config: &NodeConfig) -> Node {
         Node {
@@ -40,7 +40,8 @@ impl Node {
     }
 
     /// Starting Node by starting networking
-    pub fn start(&mut self) {
+    pub fn start(&'a mut self) {
+        self.network.event_handler = Some(&self.event);
         self.network.start();
     }
 

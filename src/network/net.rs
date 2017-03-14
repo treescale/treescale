@@ -13,7 +13,7 @@ use network::{NetworkConfig, RECEIVER_CHANNEL_TOKEN, LOOP_EVENTS_COUNT, SocketTy
 use network::tcp::{TcpWriterCommand, TcpWriterCMD};
 use helper::{Log, NetHelper};
 use std::process;
-use node::{Event, EventHandler, Node};
+use node::{Event, EventHandler};
 use std::sync::Arc;
 
 pub type ConnectionsMap = BTreeMap<String, Connection>;
@@ -30,7 +30,7 @@ pub struct NetworkCommand {
     pub event: Vec<Event>
 }
 
-pub struct Network {
+pub struct Network <'a> {
     // value for current Node which will help to send handshake information first
     // All depends on this unique value
     node_value: u64,
@@ -46,13 +46,15 @@ pub struct Network {
     poll: Poll,
 
     // TCP networking
-    tcp_net: TcpNetwork,
+    tcp_net: TcpNetwork<'a>,
 
     // keeping thread pool here
-    thread_pool: ThreadPool
+    thread_pool: ThreadPool,
+
+    pub event_handler: Option<&'a EventHandler>,
 }
 
-impl Network {
+impl <'a> Network <'a> {
     pub fn new(value: u64, token: String, config: &NetworkConfig) -> Network {
         let (s, r) = channel::<NetworkCommand>();
         let poll = match Poll::new() {
@@ -74,7 +76,8 @@ impl Network {
             sender_chan: s,
             receiver_chan: r,
             poll: poll,
-            thread_pool: thread_pool
+            thread_pool: thread_pool,
+            event_handler: None
         }
     }
 

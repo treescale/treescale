@@ -19,10 +19,11 @@ use std::io::{Write, ErrorKind};
 use std::thread;
 use std::collections::{BTreeMap};
 use self::threadpool::ThreadPool;
-use node::{Event, MAX_API_VERSION, EventHandler};
+use node::{MAX_API_VERSION, EventHandler
+           , EVENT_ON_CONNECTION_OPEN, EVENT_ON_CONNECTION_CHANNEL_OPEN};
 
 // Main struct to handle TCP networking
-pub struct TcpNetwork {
+pub struct TcpNetwork<'a> {
     // pending tcp connections, which just accepted but not sent API version and Prime Value
     pending_connections: Slab<TcpReaderConn>,
     pending_write_queue: BTreeMap<Token, Vec<u8>>,
@@ -38,10 +39,12 @@ pub struct TcpNetwork {
     // keeping current Node [4bytes API version][4 bytes len]token[8 bytes value] combination
     // for direct responses on client/server connections
     // this will be generated inside "init" function
-    node_handshake: Vec<u8>
+    node_handshake: Vec<u8>,
+
+    pub event_handler: Option<&'a EventHandler>,
 }
 
-impl TcpNetwork {
+impl <'a> TcpNetwork <'a> {
     pub fn new(server_address: &str, concurrency: usize, net_chan: Sender<NetworkCommand>
             , handshake_info: Vec<u8>, thread_pool: ThreadPool) -> TcpNetwork {
         // making TcpListener for making server socket
@@ -88,7 +91,8 @@ impl TcpNetwork {
             writer_channels: writers,
             rw_index: 0,
             pending_write_queue: BTreeMap::new(),
-            node_handshake: handshake_info
+            node_handshake: handshake_info,
+            event_handler: None
         }
     }
 
@@ -287,6 +291,7 @@ impl TcpNetwork {
         (i, self.reader_channels[i].clone(), self.writer_channels[i].clone())
     }
 
+    #[inline(always)]
     fn accept_transfer_conn(&mut self, poll: &mut Poll, token: Token
                             , token_str: String, value: u64
                             , conns: &mut ConnectionsMap) -> bool {
@@ -317,6 +322,7 @@ impl TcpNetwork {
 
             if conns.contains_key(&token_str) {
                 conns.get_mut(&token_str).unwrap().set_identity(conn_identity);
+                self.trigger_event(EVENT_ON_CONNECTION_CHANNEL_OPEN, token_str.clone(), vec![]);
             } else {
                 let mut main_conn = Connection::new(
                     token_str.clone(), value, reader_conn.from_server
@@ -324,6 +330,7 @@ impl TcpNetwork {
 
                 main_conn.set_identity(conn_identity);
                 conns.insert(token_str.clone(), main_conn);
+                self.trigger_event(EVENT_ON_CONNECTION_OPEN, token_str.clone(), vec![]);
             }
 
             // sending connection to TCP reader
@@ -340,5 +347,15 @@ impl TcpNetwork {
 
             false
         }
+    }
+
+    #[inline(always)]
+    fn trigger_event(&self, name: &str, from: String, data: Vec<u8>) {
+        if self.event_handler.is_none() {
+            return;
+        }
+
+        let ev = self.event_handler.unwrap();
+        ev.trigger_local(name, from, data);
     }
 }
