@@ -41,7 +41,7 @@ pub struct TcpNetwork<'a> {
     // this will be generated inside "init" function
     node_handshake: Vec<u8>,
 
-    pub event_handler: Option<&'a EventHandler>,
+    pub event_handler: Vec<&'a mut EventHandler<'a>>,
 }
 
 impl <'a> TcpNetwork <'a> {
@@ -92,7 +92,7 @@ impl <'a> TcpNetwork <'a> {
             rw_index: 0,
             pending_write_queue: BTreeMap::new(),
             node_handshake: handshake_info,
-            event_handler: None
+            event_handler: vec![]
         }
     }
 
@@ -136,8 +136,17 @@ impl <'a> TcpNetwork <'a> {
 
         let entry = self.pending_connections.vacant_entry().unwrap();
         let token = entry.index();
+
+        let mut sock_kind = Ready::readable();
+
+        // if we got connection from client, we need to send current node information first
+        if !from_server {
+            self.pending_write_queue.insert(token, self.node_handshake.clone());
+            sock_kind = Ready::writable();
+        }
+
         // registering connection to networking loop
-        match poll.register(&socket, token, Ready::readable(), PollOpt::edge()) {
+        match poll.register(&socket, token, sock_kind, PollOpt::edge()) {
             Ok(_) => {},
             Err(e) => {
                 Log::error("Unable to register TCP accepted connection to Networking POLL", e.description());
@@ -349,12 +358,34 @@ impl <'a> TcpNetwork <'a> {
     }
 
     #[inline(always)]
-    fn trigger_event(&self, name: &str, from: String, data: Vec<u8>) {
-        if self.event_handler.is_none() {
+    fn trigger_event(&mut self, name: &str, from: String, data: Vec<u8>) {
+        if self.event_handler.len() == 0 {
             return;
         }
 
-        let ev = self.event_handler.unwrap();
-        ev.trigger_local(name, from, data);
+        self.event_handler[0].trigger_local(name, from, data);
+    }
+
+    #[inline(always)]
+    pub fn connect(&mut self, address: &str, poll: &mut Poll) {
+        // making TcpListener for making server socket
+        let addr = match SocketAddr::from_str(address) {
+            Ok(a) => a,
+            Err(e) => {
+                Log::error(format!("Unable to parse given client address {}", address).as_str(), e.description());
+                process::exit(1);
+            }
+        };
+
+        let sock = match TcpStream::connect(&addr) {
+            Ok(s) => s,
+            Err(e) => {
+                Log::error(format!("Error while trying to connect {}", address).as_str(), e.description());
+                process::exit(1);
+            }
+        };
+
+        // making TcpReader connection, registering it and adding to pending connections list
+        self.insert_conn(sock, false, poll);
     }
 }

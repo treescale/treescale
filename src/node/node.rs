@@ -15,7 +15,7 @@ pub struct Node<'a> {
     pub network: Network<'a>,
 
     // Event Handler for current Node
-    pub event: EventHandler,
+    pub event: EventHandler<'a>
 }
 
 pub enum  NodeCMD {
@@ -41,7 +41,8 @@ impl <'a> Node <'a> {
 
     /// Starting Node by starting networking
     pub fn start(&'a mut self) {
-        self.network.event_handler = Some(&self.event);
+        self.event.set_node(self);
+        self.network.event_handler = vec![&mut self.event];
         self.network.start();
     }
 
@@ -56,5 +57,11 @@ impl <'a> Node <'a> {
     #[inline(always)]
     pub fn emit_api(&mut self, event: Event, tokens: Vec<String>) {
         self.network.emit_api(tokens, event)
+    }
+
+    /// Just a shortcut function for making TCP client connections
+    #[inline(always)]
+    pub fn connect_tcp(&mut self, address: &str) {
+        self.network.connect_tcp(address);
     }
 }

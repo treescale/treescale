@@ -12,6 +12,7 @@ pub use self::config::{NodeConfig, MainConfig};
 pub const MAX_API_VERSION: u32 = 1000;
 
 /// DEFAULT EVENT NAMES DEFINED
+pub const EVENT_ON_NODE_INIT: &'static str = "__||on_node_init||__";
 pub const EVENT_ON_CONNECTION_OPEN: &'static str = "__||on_connection_open||__";
 pub const EVENT_ON_CONNECTION_CHANNEL_OPEN: &'static str = "__||on_connection_channel_open||__";
 pub const EVENT_ON_CONNECTION_CLOSE: &'static str = "__||on_connection_close||__";

@@ -13,7 +13,7 @@ use network::{NetworkConfig, RECEIVER_CHANNEL_TOKEN, LOOP_EVENTS_COUNT, SocketTy
 use network::tcp::{TcpWriterCommand, TcpWriterCMD};
 use helper::{Log, NetHelper};
 use std::process;
-use node::{Event, EventHandler};
+use node::{Event, EventHandler, EVENT_ON_NODE_INIT};
 use std::sync::Arc;
 
 pub type ConnectionsMap = BTreeMap<String, Connection>;
@@ -51,7 +51,7 @@ pub struct Network <'a> {
     // keeping thread pool here
     thread_pool: ThreadPool,
 
-    pub event_handler: Option<&'a EventHandler>,
+    pub event_handler: Vec<&'a mut EventHandler<'a>>,
 }
 
 impl <'a> Network <'a> {
@@ -77,7 +77,7 @@ impl <'a> Network <'a> {
             receiver_chan: r,
             poll: poll,
             thread_pool: thread_pool,
-            event_handler: None
+            event_handler: vec![]
         }
     }
 
@@ -96,6 +96,8 @@ impl <'a> Network <'a> {
 
         // registering TCP network server
         self.tcp_net.register(&mut self.poll);
+
+        self.trigger_event(EVENT_ON_NODE_INIT, String::from("local"), vec![]);
 
         // making events for handling 5K events at once
         let mut events: Events = Events::with_capacity(LOOP_EVENTS_COUNT);
@@ -280,6 +282,21 @@ impl <'a> Network <'a> {
                 let _ = tcp_writer_channels[i].send(cmd);
             }
         });
+    }
+
+    /// Making client TCP connection
+    #[inline(always)]
+    pub fn connect_tcp(&mut self, address: &str) {
+        self.tcp_net.connect(address, &mut self.poll);
+    }
+
+    #[inline(always)]
+    fn trigger_event(&mut self, name: &str, from: String, data: Vec<u8>) {
+        if self.event_handler.len() == 0 {
+            return;
+        }
+
+        self.event_handler[0].trigger_local(name, from, data);
     }
 }
 

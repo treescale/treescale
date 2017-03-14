@@ -15,6 +15,7 @@ pub struct NodeConfig {
 
 pub struct MainConfig {
     pub node: NodeConfig,
+    pub connect_to: String
     // TODO: here also could be resolver configurations
 }
 
@@ -33,7 +34,8 @@ impl MainConfig {
     /// Getting default main configurations
     pub fn default() -> MainConfig {
         MainConfig {
-            node: NodeConfig::default()
+            node: NodeConfig::default(),
+            connect_to: String::new()
         }
     }
 
@@ -65,6 +67,12 @@ impl MainConfig {
                             .long("value")
                             .value_name("NODE_VALUE")
                             .help("Value for identifying current node over value. If this is an API client, then value would be 0")
+                            .takes_value(true))
+                        .arg(Arg::with_name("connect_to")
+                            .short("c")
+                            .long("connect")
+                            .value_name("CONNECT_TO_NODE")
+                            .help("Connect to node with specific address")
                             .takes_value(true))
                         .get_matches();
 
@@ -103,7 +111,10 @@ impl MainConfig {
             None => 0
         };
 
-        println!("Prime Value - {}", config.node.value);
+        config.connect_to = String::from(match matches.value_of("connect") {
+            Some(s) => s,
+            None => ""
+        });
 
         config
     }
