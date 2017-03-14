@@ -58,4 +58,15 @@ impl EventHandler {
             }
         }
     }
+
+    /// Function to trigger events from local functions
+    #[inline(always)]
+    pub fn trigger_local(&self, name: &str, from: String, data: Vec<u8>) {
+        let mut ev = Event::default();
+        ev.from = from;
+        ev.name = String::from(name);
+        ev.data = data;
+
+
+    }
 }

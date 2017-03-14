@@ -88,4 +88,23 @@ impl NetHelper {
             u64::from_be(mem::transmute::<[u8; 8], u64>(a))
         })
     }
+
+    /// Checking if given Node value is valid or not
+    /// Which means we will check it is Prime Number or not
+    pub fn validate_value(value: u64) -> bool {
+        match value {
+            0 | 1 => false,
+            2 => true,
+            3 => true,
+            _ => {
+                for i in 2..(value/2) {
+                    if value % i == 0 {
+                        return false
+                    }
+                }
+
+                true
+            }
+        }
+    }
 }

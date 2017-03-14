@@ -13,7 +13,7 @@ use network::{NetworkConfig, RECEIVER_CHANNEL_TOKEN, LOOP_EVENTS_COUNT, SocketTy
 use network::tcp::{TcpWriterCommand, TcpWriterCMD};
 use helper::{Log, NetHelper};
 use std::process;
-use node::Event;
+use node::{Event, EventHandler, Node};
 use std::sync::Arc;
 
 pub type ConnectionsMap = BTreeMap<String, Connection>;

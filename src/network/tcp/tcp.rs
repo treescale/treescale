@@ -11,7 +11,7 @@ use network::tcp::{TcpReaderConn, Slab
                     , CONNECTION_COUNT_PRE_ALLOC, SERVER_SOCKET_TOKEN};
 use network::{ConnectionsMap, Connection, ConnectionIdentity, SocketType, NetworkCommand};
 use std::error::Error;
-use helper::Log;
+use helper::{Log, NetHelper};
 use std::process;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -19,6 +19,7 @@ use std::io::{Write, ErrorKind};
 use std::thread;
 use std::collections::{BTreeMap};
 use self::threadpool::ThreadPool;
+use node::{Event, MAX_API_VERSION, EventHandler};
 
 // Main struct to handle TCP networking
 pub struct TcpNetwork {
@@ -175,7 +176,7 @@ impl TcpNetwork {
                 match conn.read_api_version() {
                     Some((done, version)) => {
                         // if we done reading API version
-                        if done {
+                        if done && version < MAX_API_VERSION {
                             if !Connection::check_api_version(version) {
                                 Log::warn("API version of TCP connection is wrong", version.to_string().as_str());
                                 (true, None) // If API version is wrong, close connection
@@ -197,7 +198,7 @@ impl TcpNetwork {
                         // if we got here then we got Token and Value Handshake
                         // Accepting connection and moving it to one of the readers/writers
                     
-                        if done {
+                        if done && NetHelper::validate_value(value) && conn_token.len() >= 8 {
                             (true, Some((conn_token, value)))
                         } else {
                             (false, None)
@@ -286,7 +287,9 @@ impl TcpNetwork {
         (i, self.reader_channels[i].clone(), self.writer_channels[i].clone())
     }
 
-    fn accept_transfer_conn(&mut self, poll: &mut Poll, token: Token, token_str: String, value: u64, conns: &mut ConnectionsMap) -> bool {
+    fn accept_transfer_conn(&mut self, poll: &mut Poll, token: Token
+                            , token_str: String, value: u64
+                            , conns: &mut ConnectionsMap) -> bool {
         let writer_conn = self.pending_connections[token].make_writer();
         // if we can't create writer connection
         // just closing accepted connection
