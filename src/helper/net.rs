@@ -25,7 +25,8 @@ impl NetHelper {
         buffer[offset + 2] = endian_bytes[2];
         buffer[offset + 3] = endian_bytes[3];
 
-        offset + 4
+        // how many bytes we have written
+        4
     }
 
     /// Converting u64 integer to BigEndian bytes
@@ -50,7 +51,8 @@ impl NetHelper {
         buffer[offset + 6] = endian_bytes[6];
         buffer[offset + 7] = endian_bytes[7];
 
-        offset + 4
+        // how many bytes we have written
+        8
     }
 
     /// Parse given BigEndian bytes into u32 number

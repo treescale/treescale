@@ -43,4 +43,17 @@ impl Node {
     pub fn start(&mut self) {
         self.network.start();
     }
+
+    /// Just a shortcut function for emitting event
+    #[inline(always)]
+    pub fn emit(&mut self, event: Event) {
+        self.network.emit(event)
+    }
+
+    /// Just a shortcut function for emitting event to API
+    /// Based on specific API tokens, probably load balanced
+    #[inline(always)]
+    pub fn emit_api(&mut self, event: Event, tokens: Vec<String>) {
+        self.network.emit_api(tokens, event)
+    }
 }

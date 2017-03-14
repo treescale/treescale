@@ -60,6 +60,12 @@ impl MainConfig {
                             .value_name("NUM_CPU")
                             .help("Concurrency level for networking operations, default is all available cores")
                             .takes_value(true))
+                        .arg(Arg::with_name("value")
+                            .short("p")
+                            .long("value")
+                            .value_name("NODE_VALUE")
+                            .help("Value for identifying current node over value. If this is an API client, then value would be 0")
+                            .takes_value(true))
                         .get_matches();
 
         config.node.token = String::from(match matches.value_of("token") {
@@ -82,6 +88,22 @@ impl MainConfig {
             }
             None => 1
         };
+
+        config.node.value = match matches.value_of("value") {
+            Some(s) => {
+                match s.parse::<u64>() {
+                    Ok(n) => n,
+                    Err(e) => {
+                        Log::error("Defined Node Value is invalid number", e.description());
+                        process::exit(1);
+                    }
+                }
+            }
+
+            None => 0
+        };
+
+        println!("Prime Value - {}", config.node.value);
 
         config
     }

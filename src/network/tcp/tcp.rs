@@ -15,7 +15,7 @@ use helper::Log;
 use std::process;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use std::io::{Write};
+use std::io::{Write, ErrorKind};
 use std::thread;
 use std::collections::{BTreeMap};
 use self::threadpool::ThreadPool;
@@ -152,7 +152,11 @@ impl TcpNetwork {
             let sock = match self.server_socket.accept() {
                 Ok((s, _)) => s,
                 Err(e) => {
-                    Log::error("Unable to accept connection from TCP server socket", e.description());
+                    // if we got WouldBlock, then this is Non Blocking socket
+                    // and data still not available for this, so it's not a connection error
+                    if e.kind() != ErrorKind::WouldBlock {
+                        Log::error("Unable to accept connection from TCP server socket", e.description());
+                    }
                     return;
                 }
             };
