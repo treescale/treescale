@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 extern crate mio;
 
+use node::MAX_API_VERSION;
+
 pub enum SocketType {
     NONE,
     TCP,
@@ -46,7 +48,7 @@ impl Connection {
     /// Checking API version, if it's not correct function will return false
     #[inline(always)]
     pub fn check_api_version(version: u32) -> bool {
-        version > 0 && version < 500
+        version > 0 && version < MAX_API_VERSION
     }
 
     /// Setting Identity for this connection

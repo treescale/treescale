@@ -65,7 +65,7 @@ impl TcpReaderConn {
             pending_data_len: 0,
             pending_data_index: 0,
             pending_data: vec![],
-            pending_endian: vec![],
+            pending_endian: vec![0; 4],
             pending_endian_index: 0,
             from_server: from_server
         }

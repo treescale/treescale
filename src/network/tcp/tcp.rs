@@ -19,7 +19,7 @@ use std::io::{Write, ErrorKind};
 use std::thread;
 use std::collections::{BTreeMap};
 use self::threadpool::ThreadPool;
-use node::{MAX_API_VERSION, EventHandler
+use node::{EventHandler
            , EVENT_ON_CONNECTION_OPEN, EVENT_ON_CONNECTION_CHANNEL_OPEN};
 
 // Main struct to handle TCP networking
@@ -117,8 +117,7 @@ impl <'a> TcpNetwork <'a> {
         } else if self.pending_connections.contains(token) {
             if kind == Ready::readable() {
                 self.readable(token, poll, conns);
-            }
-            if kind == Ready::writable() {
+            } else if kind == Ready::writable() {
                 self.writable(token, poll, conns);
             }
             return true
@@ -180,7 +179,7 @@ impl <'a> TcpNetwork <'a> {
                 match conn.read_api_version() {
                     Some((done, version)) => {
                         // if we done reading API version
-                        if done && version < MAX_API_VERSION {
+                        if done {
                             if !Connection::check_api_version(version) {
                                 Log::warn("API version of TCP connection is wrong", version.to_string().as_str());
                                 (true, None) // If API version is wrong, close connection
