@@ -43,7 +43,10 @@ pub struct TcpConnection {
     // data queue for writing it to connection
     writable: VecDeque<Arc<Vec<u8>>>,
     // index for current partial data to write
-    writable_data_index: usize
+    writable_data_index: usize,
+
+    // checking if this connection writable or not
+    is_writable: bool
 }
 
 impl TcpConnection {
@@ -63,7 +66,8 @@ impl TcpConnection {
             pending_endian: vec![],
             pending_endian_index: 0,
             writable: VecDeque::new(),
-            writable_data_index: 0
+            writable_data_index: 0,
+            is_writable: false
         }
     }
 
@@ -83,7 +87,7 @@ impl TcpConnection {
 
     /// Making connection writable for given POLL service
     #[inline(always)]
-    pub fn make_readable(&self, poll: &Poll) -> bool {
+    pub fn make_readable(&mut self, poll: &Poll) -> bool {
         match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
@@ -91,6 +95,8 @@ impl TcpConnection {
                 return false;
             }
         }
+
+        self.is_writable = false;
 
         true
     }
@@ -245,6 +251,31 @@ impl TcpConnection {
         Some((true, self.pending_data.remove(0)))
     }
 
+    /// Reading all data available in socket
+    /// so this will return only if read_once function will send (false, vec![])
+    /// This will help to get all data once and then consume it using single event
+    #[inline(always)]
+    pub fn read_data(&mut self) -> Option<Vec<Vec<u8>>> {
+        let mut total: Vec<Vec<u8>> = vec![];
+        loop {
+            let (done, data) = match self.read_data_once() {
+                Some(d) => d,
+                None => return None
+            };
+
+            // if we need more data then just breaking the loop
+            // and returning what we have right now
+            if !done {
+                break
+            }
+
+            // adding data to our pool
+            total.push(data);
+        }
+
+        Some(total)
+    }
+
     /// Shutting down connection, this would be called before closing connection
     #[inline(always)]
     pub fn close(&self) {
@@ -258,13 +289,14 @@ impl TcpConnection {
     /// It will add data to "writable" as a write queue
     #[inline(always)]
     pub fn write(&mut self, data: Arc<Vec<u8>>, poll: &Poll) {
-        match poll.register(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
-            Ok(_) => {},
-            Err(e) => {
-                Log::error("Unable to make TCP connection writable in POLL service", e.description());
+        if !self.is_writable {
+            if !self.make_writable(poll) {
                 return;
             }
-        };
+
+            self.is_writable = true;
+        }
+
         self.writable.push_back(data);
     }
 

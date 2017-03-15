@@ -24,6 +24,7 @@ impl Networking for Node {
     fn notify(&mut self, command: &mut NetworkCommand) {
         match command.cmd {
             NetworkCMD::None => {}
+            NetworkCMD::ConnectionClose => {}
         }
     }
 

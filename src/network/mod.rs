@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod main;
 mod channel;
 mod conn;
@@ -8,3 +9,5 @@ pub use self::conn::Connection;
 pub use self::tcp::{TcpNetwork
                     , TcpHandlerCommand, TcpHandlerCMD
                     , Slab , TcpConnection};
+
+pub const CONNECTION_COUNT_PRE_ALLOC: usize = 1024;
