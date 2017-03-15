@@ -186,7 +186,6 @@ impl <'a> Network <'a> {
         buffer
     }
 
-
     /// Send event based on Event Path
     #[inline(always)]
     pub fn emit(&mut self, event: Event) {
