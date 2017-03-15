@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use node::Node;
 use event::Event;
 
@@ -65,5 +66,22 @@ impl EventHandler for Node {
         ev.data = data;
 
         self.trigger(&ev);
+    }
+}
+
+pub enum EventCMD {
+    None
+}
+
+pub struct EventCommand {
+    cmd: EventCMD
+}
+
+impl EventCommand {
+    #[inline(always)]
+    pub fn new() -> EventCommand {
+        EventCommand {
+            cmd: EventCMD::None
+        }
     }
 }

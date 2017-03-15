@@ -2,13 +2,11 @@ extern crate mio;
 extern crate slab;
 
 mod main;
-mod reader;
-mod writer;
+mod handler;
 mod conn;
 
 pub use self::main::TcpNetwork;
-pub use self::reader::{TcpReaderCMD, TcpReaderCommand};
-pub use self::writer::{TcpWriterCMD, TcpWriterCommand};
+pub use self::handler::{TcpHandlerCMD, TcpHandlerCommand};
 pub use self::conn::{TcpConnection};
 
 use self::mio::Token;
