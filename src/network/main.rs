@@ -4,12 +4,25 @@ extern crate mio;
 use self::mio::{Ready, PollOpt};
 
 use node::{Node, NET_RECEIVER_CHANNEL_TOKEN};
-use network::{NetworkCommand, NetworkCMD};
+use network::{ConnectionIdentity};
 use config::NetworkingConfig;
 use helper::{Log, NetHelper};
 
 use std::error::Error;
 use std::process;
+
+pub enum NetworkCMD {
+    None,
+    ConnectionClose,
+    HandleConnection
+}
+
+pub struct NetworkCommand {
+    pub cmd: NetworkCMD,
+    pub token: Vec<String>,
+    pub value: Vec<u64>,
+    pub conn_identity: Vec<ConnectionIdentity>
+}
 
 pub trait Networking {
     /// Main function to init Networking
@@ -61,5 +74,16 @@ impl Networking for Node {
         offset += token_len;
         NetHelper::u64_to_bytes(self.value, &mut buffer, offset);
         buffer
+    }
+}
+
+impl NetworkCommand {
+    pub fn new() -> NetworkCommand {
+        NetworkCommand {
+            cmd: NetworkCMD::None,
+            token: vec![],
+            value: vec![],
+            conn_identity: vec![]
+        }
     }
 }
