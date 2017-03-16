@@ -15,6 +15,11 @@ use network::{NetworkCommand, Connection
 use std::collections::BTreeMap;
 
 pub struct Node {
+    /// Node Valid information for identification
+    pub value: u64,
+    pub token: String,
+    pub api_version: u32,
+
     /// Callbacks map for handling it in EventHandler trait
     pub callbacks: BTreeMap<String, Vec<EventCallback>>,
     // channels for handling events from networking
