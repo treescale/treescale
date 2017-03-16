@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 extern crate mio;
 
-use self::mio::{Ready, PollOpt};
+use self::mio::{Ready, PollOpt, Token};
 
 use node::{Node, NET_RECEIVER_CHANNEL_TOKEN};
-use network::{ConnectionIdentity};
+use network::{ConnectionIdentity, Connection, TcpNetwork};
 use config::NetworkingConfig;
 use helper::{Log, NetHelper};
 
@@ -33,15 +33,73 @@ pub trait Networking {
 
     /// Generating handshake information for sending it over networking handshake
     fn handshake_info(&self) -> Vec<u8>;
+
+    /// main input from event loop to networking
+    fn ready(&mut self, token: Token, event_kind: Ready) -> bool;
+}
+
+
+impl NetworkCommand {
+    pub fn new() -> NetworkCommand {
+        NetworkCommand {
+            cmd: NetworkCMD::None,
+            token: vec![],
+            value: vec![],
+            conn_identity: vec![]
+        }
+    }
 }
 
 impl Networking for Node {
     #[inline(always)]
     fn notify(&mut self, command: &mut NetworkCommand) {
         match command.cmd {
+            NetworkCMD::HandleConnection => {
+                // currently supporting only one connection per single command request
+                if command.token.len() != 1
+                    || command.conn_identity.len() != 1
+                    || command.value.len() != 1 {
+                    return;
+                }
+
+                let token = command.token.remove(0);
+                let identity = command.conn_identity.remove(0);
+                let value = command.value.remove(0);
+
+                if !self.connections.contains_key(&token) {
+                    self.connections.insert(token.clone(), Connection::new(token.clone(), value, identity));
+                } else {
+                    // adding connection identity
+                    match self.connections.get_mut(&token) {
+                        Some(conn) => {
+                            conn.add_identity(identity);
+                        }
+                        None => {}
+                    }
+                }
+            }
+            NetworkCMD::ConnectionClose => {
+                // currently supporting only one connection per single command request
+                if command.token.len() != 1 {
+                    return;
+                }
+
+                let token = command.token.remove(0);
+                let identity = command.conn_identity.remove(0);
+                let remove_conn = match self.connections.get_mut(&token) {
+                    Some(conn) => {
+                        conn.rm_identity(identity.socket_token, identity.handler_index);
+                        // if identity count is 0, we need to close connection
+                        conn.identity_count() == 0
+                    },
+                    None => return
+                };
+
+                if remove_conn {
+                    self.connections.remove(&token);
+                }
+            }
             NetworkCMD::None => {}
-            NetworkCMD::ConnectionClose => {}
-            NetworkCMD::HandleConnection => {}
         }
     }
 
@@ -61,6 +119,11 @@ impl Networking for Node {
     }
 
     #[inline(always)]
+    fn ready(&mut self, token: Token, event_kind: Ready) -> bool {
+        self.tcp_ready(token, event_kind)
+    }
+
+    #[inline(always)]
     fn handshake_info(&self) -> Vec<u8> {
         let token_len = self.token.len();
         // adding 4 byte API version
@@ -74,16 +137,5 @@ impl Networking for Node {
         offset += token_len;
         NetHelper::u64_to_bytes(self.value, &mut buffer, offset);
         buffer
-    }
-}
-
-impl NetworkCommand {
-    pub fn new() -> NetworkCommand {
-        NetworkCommand {
-            cmd: NetworkCMD::None,
-            token: vec![],
-            value: vec![],
-            conn_identity: vec![]
-        }
     }
 }
