@@ -3,7 +3,7 @@ extern crate mio;
 
 use helper::Log;
 
-use self::mio::tcp::TcpListener;
+use self::mio::tcp::{TcpListener, TcpStream};
 use self::mio::{Ready, PollOpt, Token};
 use self::mio::channel::Sender;
 
@@ -40,13 +40,22 @@ pub trait TcpNetwork {
 
     /// Function for reading TCP data from pending connections
     fn tcp_readable(&mut self, token: Token);
+
     /// Function for writing TCP data from pending connections
     fn tcp_writable(&mut self, token: Token);
+
     /// closing TCP connection
     fn tcp_close(&mut self, token: Token);
+
     /// getting one of the TCP handler channels
     /// using Round Rubin algorithm
     fn tcp_get_handler(&mut self) -> Sender<TcpHandlerCommand>;
+
+    /// making client connection to given address
+    fn tcp_connect(&mut self, address: &str) -> bool;
+
+    /// Inserting connection socket
+    fn add_connection(&mut self, socket: TcpStream, from_server: bool);
 }
 
 impl TcpNetwork for Node {
@@ -127,24 +136,7 @@ impl TcpNetwork for Node {
                 }
             };
 
-            // inserting connection to pending connections and registering to the loop
-            if self.net_tcp_pending_connections.vacant_entry().is_none() {
-                self.net_tcp_pending_connections.reserve_exact(CONNECTION_COUNT_PRE_ALLOC);
-            }
-
-            let entry = match self.net_tcp_pending_connections.vacant_entry() {
-                Some(e) => e,
-                None => {
-                    Log::error("Unable to insert accepted connection to TcpNetwork pending connections"
-                               , "Not enough place in Slab");
-                    return;
-                }
-            };
-
-            // creating connection and registering to current Node poll service
-            let conn = TcpConnection::new(sock, entry.index(), true);
-            conn.register(&self.poll);
-            entry.insert(conn);
+            self.add_connection(sock, true);
         };
     }
 
@@ -296,6 +288,55 @@ impl TcpNetwork for Node {
         self.net_tcp_handler_index += 1;
 
         self.net_tcp_handler_sender_chan[i].clone()
+    }
+
+    #[inline(always)]
+    fn tcp_connect(&mut self, address: &str) -> bool {
+        let sock_address = match SocketAddr::from_str(address) {
+            Ok(a) => a,
+            Err(e) => {
+                Log::error(format!("Unable to parse address for making connection to TCP server {}", address).as_str(), e.description());
+                return false;
+            }
+        };
+
+        let sock = match TcpStream::connect(&sock_address) {
+            Ok(s) => s,
+            Err(e) => {
+                Log::error(format!("Unable to connect with given tcp address {}", address).as_str(), e.description());
+                return false;
+            }
+        };
+
+        self.add_connection(sock, false);
+        true
+    }
+
+    #[inline(always)]
+    fn add_connection(&mut self, socket: TcpStream, from_server: bool) {
+        // inserting connection to pending connections and registering to the loop
+        if self.net_tcp_pending_connections.vacant_entry().is_none() {
+            self.net_tcp_pending_connections.reserve_exact(CONNECTION_COUNT_PRE_ALLOC);
+        }
+
+        let data = Arc::new(self.handshake_info());
+
+        let entry = match self.net_tcp_pending_connections.vacant_entry() {
+            Some(e) => e,
+            None => {
+                Log::error("Unable to insert accepted connection to TcpNetwork pending connections"
+                           , "Not enough place in Slab");
+                return;
+            }
+        };
+
+        // creating connection and registering to current Node poll service
+        let mut conn = TcpConnection::new(socket, entry.index(), true);
+        conn.register(&self.poll);
+        if !from_server {
+            conn.write(data, &self.poll);
+        }
+        entry.insert(conn);
     }
 }
 
