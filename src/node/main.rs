@@ -9,7 +9,7 @@ use self::mio::tcp::{TcpListener};
 
 use event::{EventCallback, EventCommand};
 use network::{NetworkCommand, Connection
-              , TcpHandlerCMD, TcpHandlerCommand
+              , TcpHandlerCommand
               , Slab, TcpConnection};
 
 use std::collections::BTreeMap;
@@ -32,8 +32,7 @@ pub struct Node {
     pub net_receiver_chan: Receiver<NetworkCommand>,
 
     /// TCP networking params
-    pub net_tcp_reader_sender_chan: Vec<Sender<TcpHandlerCommand>>,
-    pub net_tcp_writer_sender_chan: Vec<Sender<TcpHandlerCommand>>,
+    pub net_tcp_handler_sender_chan: Vec<Sender<TcpHandlerCommand>>,
     // index for load balancing over TCP Reader and Writer channels
     pub net_tcp_handler_index: usize,
     // TCP server socket

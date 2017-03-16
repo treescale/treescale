@@ -97,7 +97,7 @@ impl Path {
     }
 
     #[inline(always)]
-    pub fn dividable(&mut self, number: u64) -> bool {
+    pub fn dividable(&self, number: u64) -> bool {
         if number == 0 {
             return false;
         }

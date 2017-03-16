@@ -5,11 +5,13 @@ use self::mio::Token;
 
 use node::MAX_API_VERSION;
 
+#[derive(Clone)]
 pub enum SocketType {
     NONE,
     TCP,
 }
 
+#[derive(Clone)]
 pub struct ConnectionIdentity {
     pub handler_index: usize,
     pub socket_type: SocketType,
@@ -18,10 +20,10 @@ pub struct ConnectionIdentity {
 
 pub struct Connection {
     /// token for this connection
-    token: String,
+    pub token: String,
 
     /// Prime value for this connection
-    value: u64,
+    pub value: u64,
 
     /// list of identities for this connection
     /// it's basically streams to support data transfer
@@ -64,6 +66,16 @@ impl Connection {
     #[inline(always)]
     pub fn identity_count(&self) -> usize {
         self.identities.len()
+    }
+
+    pub fn get_identity(&mut self) -> ConnectionIdentity {
+        if self.identity_index >= self.identities.len() {
+            self.identity_index = 0;
+        }
+
+        let i = self.identity_index;
+        self.identity_index += 1;
+        self.identities[i].clone()
     }
 
     /// Checking API version, if it's not correct function will return false

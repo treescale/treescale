@@ -9,7 +9,7 @@ use std::sync::Arc;
 use network::tcp::TcpConnection;
 use network::{NetworkCommand, NetworkCMD, Slab, CONNECTION_COUNT_PRE_ALLOC, ConnectionIdentity, SocketType};
 use node::{NET_RECEIVER_CHANNEL_TOKEN, EVENT_LOOP_EVENTS_SIZE};
-use event::{EventCommand, EventCMD, Event};
+use event::Event;
 use helper::Log;
 
 use self::mio::channel::{Sender, Receiver, channel};
@@ -53,9 +53,6 @@ pub struct TcpHandler {
     // channel for networking
     net_chan: Sender<NetworkCommand>,
 
-    // channel for event handler
-    event_chan: Sender<EventCommand>,
-
     // poll service for current writer
     poll: Poll,
 
@@ -69,7 +66,6 @@ pub struct TcpHandler {
 impl TcpHandler {
     /// Making new TCP handler service
     pub fn new(net_chan: Sender<NetworkCommand>
-               , event_chan: Sender<EventCommand>
                , thread_pool: ThreadPool, index: usize) -> TcpHandler {
 
         let (s, r) = channel::<TcpHandlerCommand>();
@@ -79,7 +75,6 @@ impl TcpHandler {
             sender_chan: s,
             receiver_chan: r,
             net_chan: net_chan,
-            event_chan: event_chan,
             poll: match Poll::new() {
                 Ok(p) => p,
                 Err(e) => {
@@ -205,7 +200,7 @@ impl TcpHandler {
                         Ok(_) => {}
                         Err(e) => {
                             Log::error("Unable to send command to networking from TcpHandler"
-                                       , format!("New TCP connection Command for Token - {}", conn.conn_token.clone()).as_str());
+                                       , format!("New TCP connection Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
                         }
                     }
 
@@ -257,13 +252,13 @@ impl TcpHandler {
             return;
         }
 
-        let channel = self.event_chan.clone();
+        let channel = self.net_chan.clone();
 
         // making data parse and command send using separate thread pool
         self.thread_pool.execute(move || {
-            let mut event_cmd = EventCommand::new();
-            event_cmd.cmd = EventCMD::HandleEvent;
-            event_cmd.token = vec![conn_token];
+            let mut event_cmd = NetworkCommand::new();
+            event_cmd.cmd = NetworkCMD::HandleEvent;
+            event_cmd.token.push(conn_token);
             let mut events: Vec<Event> = vec![];
             for data in data_list {
                 events.push(match Event::from_raw(&data) {
@@ -315,7 +310,7 @@ impl TcpHandler {
                 Ok(_) => {}
                 Err(e) => {
                     Log::error("Unable to send command to networking from TcpHandler"
-                               , format!("Connection Close Command for Token - {}", conn.conn_token.clone()).as_str());
+                               , format!("Connection Close Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
                 }
             }
             conn.close();

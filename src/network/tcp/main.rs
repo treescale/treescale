@@ -265,7 +265,7 @@ impl TcpNetwork for Node {
         // removing connection from pending connections list
         let conn = self.net_tcp_pending_connections.remove(token).unwrap();
         // de-registering from current event loop
-        self.poll.deregister(&conn.socket);
+        let _ = self.poll.deregister(&conn.socket);
 
         command.cmd = TcpHandlerCMD::HandleConnection;
         command.conn.push(conn);
@@ -288,14 +288,14 @@ impl TcpNetwork for Node {
 
     #[inline(always)]
     fn tcp_get_handler(&mut self) -> Sender<TcpHandlerCommand> {
-        if self.net_tcp_handler_index >= self.net_tcp_reader_sender_chan.len() {
+        if self.net_tcp_handler_index >= self.net_tcp_handler_sender_chan.len() {
             self.net_tcp_handler_index = 0;
         }
 
         let i = self.net_tcp_handler_index;
         self.net_tcp_handler_index += 1;
 
-        self.net_tcp_reader_sender_chan[i].clone()
+        self.net_tcp_handler_sender_chan[i].clone()
     }
 }
 
