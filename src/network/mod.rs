@@ -6,7 +6,7 @@ mod tcp;
 
 pub use self::channel::{NetworkCMD, NetworkCommand};
 pub use self::main::Networking;
-pub use self::conn::Connection;
+pub use self::conn::{Connection, ConnectionIdentity, SocketType};
 pub use self::tcp::{TcpNetwork
                     , TcpHandlerCommand, TcpHandlerCMD
                     , Slab , TcpConnection};

@@ -1,6 +1,20 @@
 #![allow(dead_code)]
+extern crate  mio;
+
+use self::mio::Token;
 
 use node::MAX_API_VERSION;
+
+pub enum SocketType {
+    NONE,
+    TCP,
+}
+
+pub struct ConnectionIdentity {
+    pub handler_index: usize,
+    pub socket_type: SocketType,
+    pub socket_token: Token
+}
 
 pub struct Connection {
 

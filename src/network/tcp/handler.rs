@@ -7,7 +7,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use network::tcp::TcpConnection;
-use network::{NetworkCommand, NetworkCMD, Slab, CONNECTION_COUNT_PRE_ALLOC};
+use network::{NetworkCommand, NetworkCMD, Slab, CONNECTION_COUNT_PRE_ALLOC, ConnectionIdentity, SocketType};
 use node::{NET_RECEIVER_CHANNEL_TOKEN, EVENT_LOOP_EVENTS_SIZE};
 use event::{EventCommand, EventCMD, Event};
 use helper::Log;
@@ -60,14 +60,17 @@ pub struct TcpHandler {
     poll: Poll,
 
     // keeping thread pool created in Node service
-    thread_pool: ThreadPool
+    thread_pool: ThreadPool,
+
+    // keeping index for this handler for later identification
+    index: usize,
 }
 
 impl TcpHandler {
     /// Making new TCP handler service
     pub fn new(net_chan: Sender<NetworkCommand>
                , event_chan: Sender<EventCommand>
-               , thread_pool: ThreadPool) -> TcpHandler {
+               , thread_pool: ThreadPool, index: usize) -> TcpHandler {
 
         let (s, r) = channel::<TcpHandlerCommand>();
 
@@ -84,7 +87,8 @@ impl TcpHandler {
                     process::exit(1);
                 }
             },
-            thread_pool: thread_pool
+            thread_pool: thread_pool,
+            index: index
         }
     }
 
@@ -186,6 +190,25 @@ impl TcpHandler {
 
                     // adding connection to our connections list
                     conn.socket_token = entry.index();
+
+                    // notifying Networking about new connection accepted
+                    let mut net_cmd = NetworkCommand::new();
+                    net_cmd.cmd = NetworkCMD::HandleConnection;
+                    net_cmd.token.push(conn.conn_token.clone());
+                    net_cmd.value.push(conn.conn_value);
+                    net_cmd.conn_identity.push(ConnectionIdentity {
+                        handler_index: self.index,
+                        socket_type: SocketType::TCP,
+                        socket_token: conn.socket_token
+                    });
+                    match self.net_chan.send(net_cmd) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            Log::error("Unable to send command to networking from TcpHandler"
+                                       , format!("New TCP connection Command for Token - {}", conn.conn_token.clone()).as_str());
+                        }
+                    }
+
                     entry.insert(conn);
                 }
             }
@@ -288,7 +311,13 @@ impl TcpHandler {
             let mut net_cmd = NetworkCommand::new();
             net_cmd.cmd = NetworkCMD::ConnectionClose;
             net_cmd.token = vec![conn.conn_token.clone()];
-            self.net_chan.send(net_cmd);
+            match self.net_chan.send(net_cmd) {
+                Ok(_) => {}
+                Err(e) => {
+                    Log::error("Unable to send command to networking from TcpHandler"
+                               , format!("Connection Close Command for Token - {}", conn.conn_token.clone()).as_str());
+                }
+            }
             conn.close();
         }
         self.connections.remove(token);

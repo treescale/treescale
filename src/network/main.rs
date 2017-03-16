@@ -28,6 +28,7 @@ impl Networking for Node {
         match command.cmd {
             NetworkCMD::None => {}
             NetworkCMD::ConnectionClose => {}
+            NetworkCMD::HandleConnection => {}
         }
     }
 
