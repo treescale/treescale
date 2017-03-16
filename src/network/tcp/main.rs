@@ -55,7 +55,10 @@ pub trait TcpNetwork {
     fn tcp_connect(&mut self, address: &str) -> bool;
 
     /// Inserting connection socket
-    fn add_connection(&mut self, socket: TcpStream, from_server: bool);
+    fn tcp_add_connection(&mut self, socket: TcpStream, from_server: bool);
+
+    /// Transferring connection from pending to one of the TCP handlers
+    fn tcp_transfer_connection(&mut self, token: Token);
 }
 
 impl TcpNetwork for Node {
@@ -136,7 +139,7 @@ impl TcpNetwork for Node {
                 }
             };
 
-            self.add_connection(sock, true);
+            self.tcp_add_connection(sock, true);
         };
     }
 
@@ -215,6 +218,14 @@ impl TcpNetwork for Node {
             return;
         }
 
+        // if we got connection from client connect
+        // then we have already written our handshake information
+        // so we have already also his token value, and we can transfer connection
+        // NOTE: connections from server would be transferred from tcp_writable function
+        if !self.net_tcp_pending_connections[token].from_server {
+            self.tcp_transfer_connection(token);
+        }
+
         // if we got here then we have connection information
         // so now we need to send our handshake information
         // and after write will succeed, we will transfer connection
@@ -251,22 +262,12 @@ impl TcpNetwork for Node {
             return;
         }
 
-        // if we got here then write is done
-        // so moving connection to one of the TCP handlers
-        let mut command = TcpHandlerCommand::new();
-        // removing connection from pending connections list
-        let conn = self.net_tcp_pending_connections.remove(token).unwrap();
-        // de-registering from current event loop
-        let _ = self.poll.deregister(&conn.socket);
-
-        command.cmd = TcpHandlerCMD::HandleConnection;
-        command.conn.push(conn);
-        match self.tcp_get_handler().send(command) {
-            Ok(_) => {},
-            Err(e) => {
-                Log::error("Unable to send HandleConnection command to TCP handler", e.description());
-                return;
-            }
+        // if we got connection from server
+        // then we have already token and value from client connection
+        // so we can transfer connection
+        // NOTE: connections from "tcp_connect" would be transferred from tcp_readable function
+        if self.net_tcp_pending_connections[token].from_server {
+            self.tcp_transfer_connection(token);
         }
     }
 
@@ -308,12 +309,12 @@ impl TcpNetwork for Node {
             }
         };
 
-        self.add_connection(sock, false);
+        self.tcp_add_connection(sock, false);
         true
     }
 
     #[inline(always)]
-    fn add_connection(&mut self, socket: TcpStream, from_server: bool) {
+    fn tcp_add_connection(&mut self, socket: TcpStream, from_server: bool) {
         // inserting connection to pending connections and registering to the loop
         if self.net_tcp_pending_connections.vacant_entry().is_none() {
             self.net_tcp_pending_connections.reserve_exact(CONNECTION_COUNT_PRE_ALLOC);
@@ -337,6 +338,26 @@ impl TcpNetwork for Node {
             conn.write(data, &self.poll);
         }
         entry.insert(conn);
+    }
+
+    fn tcp_transfer_connection(&mut self, token: Token) {
+        // if we got here then write is done
+        // so moving connection to one of the TCP handlers
+        let mut command = TcpHandlerCommand::new();
+        // removing connection from pending connections list
+        let conn = self.net_tcp_pending_connections.remove(token).unwrap();
+        // de-registering from current event loop
+        let _ = self.poll.deregister(&conn.socket);
+
+        command.cmd = TcpHandlerCMD::HandleConnection;
+        command.conn.push(conn);
+        match self.tcp_get_handler().send(command) {
+            Ok(_) => {},
+            Err(e) => {
+                Log::error("Unable to send HandleConnection command to TCP handler", e.description());
+                return;
+            }
+        }
     }
 }
 
