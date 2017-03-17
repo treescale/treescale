@@ -9,7 +9,7 @@ use self::mio::channel::Sender;
 
 use node::{Node, NET_TCP_SERVER_TOKEN};
 use network::{CONNECTION_COUNT_PRE_ALLOC, TcpConnection
-              , Connection, Networking
+              , Connection, Networking, TcpHandler
               , TcpHandlerCommand, TcpHandlerCMD};
 use helper::NetHelper;
 
@@ -19,6 +19,7 @@ use std::process;
 use std::str::FromStr;
 use std::io::ErrorKind;
 use std::sync::Arc;
+use std::thread;
 
 /// TcpNetwork Trait for implementing TCP networking capabilities
 /// On top of Node structure
@@ -69,6 +70,21 @@ impl TcpNetwork for Node {
                 Log::error("Unable to register TCP server to Node POLL service", e.description());
                 process::exit(1);
             }
+        }
+
+        // making TCP handlers based on initial allocated capacity
+        let handlers_count = self.net_tcp_handler_sender_chan.capacity();
+        if handlers_count == 0 {
+            Log::warn("There is no concurrency defined, exiting process!", "From TcpNetworking Registering functionality");
+            process::exit(1);
+        }
+
+        for i in 0..handlers_count {
+            let mut handler = TcpHandler::new(self.net_sender_chan.clone(), self.thread_pool.clone(), i);
+            self.net_tcp_handler_sender_chan.push(handler.channel());
+            thread::spawn(move || {
+                handler.start();
+            });
         }
     }
 
@@ -340,6 +356,7 @@ impl TcpNetwork for Node {
         entry.insert(conn);
     }
 
+    #[inline(always)]
     fn tcp_transfer_connection(&mut self, token: Token) {
         // if we got here then write is done
         // so moving connection to one of the TCP handlers

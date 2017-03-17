@@ -6,7 +6,7 @@ mod handler;
 mod conn;
 
 pub use self::main::TcpNetwork;
-pub use self::handler::{TcpHandlerCMD, TcpHandlerCommand};
+pub use self::handler::{TcpHandlerCMD, TcpHandlerCommand, TcpHandler};
 pub use self::conn::{TcpConnection};
 
 use self::mio::Token;

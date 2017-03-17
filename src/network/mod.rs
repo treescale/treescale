@@ -6,7 +6,7 @@ mod tcp;
 pub use self::main::{Networking, NetworkCMD, NetworkCommand};
 pub use self::conn::{Connection, ConnectionIdentity, SocketType};
 pub use self::tcp::{TcpNetwork
-                    , TcpHandlerCommand, TcpHandlerCMD
+                    , TcpHandlerCommand, TcpHandlerCMD, TcpHandler
                     , Slab , TcpConnection};
 
 pub const CONNECTION_COUNT_PRE_ALLOC: usize = 1024;
