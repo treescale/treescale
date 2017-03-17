@@ -4,12 +4,8 @@ mod event;
 mod network;
 mod config;
 
-use std::collections::BTreeMap;
+use node::Node;
 
 fn main() {
-    let mut data: BTreeMap<usize, String> = BTreeMap::new();
-    for i in 0..10000000 {
-        data.insert(i, String::from("sgsdfgsdfgsdfg"));
-        data.remove(&i).unwrap();
-    }
+    Node::new(&config::parse_args()).start();
 }

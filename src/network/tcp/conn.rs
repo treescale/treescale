@@ -63,7 +63,7 @@ impl TcpConnection {
             pending_data_len: 0,
             pending_data_index: 0,
             pending_data: vec![],
-            pending_endian: vec![],
+            pending_endian: vec![0; 4],
             pending_endian_index: 0,
             writable: VecDeque::new(),
             writable_data_index: 0,
