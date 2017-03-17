@@ -5,7 +5,6 @@ use self::mio::{Ready, PollOpt, Token};
 
 use node::{Node, NET_RECEIVER_CHANNEL_TOKEN};
 use network::{ConnectionIdentity, Connection, TcpNetwork, SocketType, TcpHandlerCommand, TcpHandlerCMD};
-use config::NetworkingConfig;
 use helper::{Log, NetHelper};
 use event::{Event, EventHandler};
 
@@ -30,7 +29,7 @@ pub struct NetworkCommand {
 
 pub trait Networking {
     /// Main function to init Networking
-    fn init(&mut self, config: &NetworkingConfig);
+    fn init_networking(&mut self);
 
     /// Handle Networking channel events as a NetworkCommand
     fn notify(&mut self, command: &mut NetworkCommand);
@@ -39,7 +38,7 @@ pub trait Networking {
     fn handshake_info(&self) -> Vec<u8>;
 
     /// main input from event loop to networking
-    fn ready(&mut self, token: Token, event_kind: Ready) -> bool;
+    fn net_ready(&mut self, token: Token, event_kind: Ready) -> bool;
 
     /// sending event with specific path
     fn emit(&mut self, event: Event);
@@ -130,7 +129,7 @@ impl Networking for Node {
         }
     }
 
-    fn init(&mut self, config: &NetworkingConfig) {
+    fn init_networking(&mut self) {
         // Registering Networking receiver
         match self.poll.register(&self.net_receiver_chan
                                  , NET_RECEIVER_CHANNEL_TOKEN
@@ -144,12 +143,11 @@ impl Networking for Node {
             }
         }
 
-        self.net_tcp_server = Node::make_tcp_server(config.tcp_server_host.as_str());
         self.register_tcp();
     }
 
     #[inline(always)]
-    fn ready(&mut self, token: Token, event_kind: Ready) -> bool {
+    fn net_ready(&mut self, token: Token, event_kind: Ready) -> bool {
         self.tcp_ready(token, event_kind)
     }
 

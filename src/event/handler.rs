@@ -1,10 +1,44 @@
 #![allow(dead_code)]
-use node::Node;
+extern crate mio;
+
+use self::mio::{PollOpt, Ready};
+
+use node::{Node, EVENT_RECEIVER_CHANNEL_TOKEN};
 use event::Event;
+use helper::Log;
+
+use std::error::Error;
+use std::process;
 
 pub type EventCallback = Box<Fn(&Event, &mut Node) -> bool>;
 
+
+pub enum EventCMD {
+    None,
+    HandleEvent
+}
+
+pub struct EventCommand {
+    pub cmd: EventCMD,
+    pub token: Vec<String>,
+    pub event: Vec<Event>
+}
+
+impl EventCommand {
+    #[inline(always)]
+    pub fn new() -> EventCommand {
+        EventCommand {
+            cmd: EventCMD::None,
+            token: vec![],
+            event: vec![]
+        }
+    }
+}
+
+
 pub trait EventHandler {
+    /// Init event handler
+    fn init_event(&mut self);
     /// Adding new callback to event
     /// or adding an event with given name if it's not exists
     fn on(&mut self, name: &str, callback: EventCallback);
@@ -18,9 +52,27 @@ pub trait EventHandler {
 
     /// Function to trigger events from local functions
     fn trigger_local(&mut self, name: &str, from: String, data: Vec<u8>);
+
+    /// handle POLL event and read data from channel
+    fn event_notify(&mut self);
 }
 
 impl EventHandler for Node {
+    fn init_event(&mut self) {
+        // Registering Networking receiver
+        match self.poll.register(&self.event_receiver_chan
+                                 , EVENT_RECEIVER_CHANNEL_TOKEN
+                                 , Ready::readable()
+                                 , PollOpt::edge()) {
+            Ok(_) => {},
+            Err(e) => {
+                Log::error("Unable to register Event Handler receiver channel to Node POLL service"
+                           , e.description());
+                process::exit(1);
+            }
+        }
+    }
+
     #[inline(always)]
     fn on(&mut self, name: &str, callback: EventCallback) {
         let name_str = String::from(name);
@@ -66,5 +118,33 @@ impl EventHandler for Node {
         ev.data = data;
 
         self.trigger(&ev);
+    }
+
+    #[inline(always)]
+    fn event_notify(&mut self) {
+        // trying to get commands while there is available data
+        loop {
+            match self.event_receiver_chan.try_recv() {
+                Ok(cmd) => {
+                    let mut command: EventCommand = cmd;
+                    match command.cmd {
+                        EventCMD::HandleEvent => {
+                            while !command.event.is_empty() {
+                                // triggering given event
+                                self.trigger(&command.event.remove(0));
+                            }
+                        }
+                        EventCMD::None => {}
+                    }
+                }
+                // if we got error, then data is unavailable
+                // and breaking receive loop
+                Err(e) => {
+                    Log::warn("EventHandler receiver channel data is not available",
+                              e.description());
+                    break;
+                }
+            }
+        }
     }
 }

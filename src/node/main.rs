@@ -3,17 +3,18 @@ extern crate mio;
 extern crate threadpool;
 extern crate num_cpus;
 
-use self::mio::Poll;
+use self::mio::{Poll, Events};
 use self::mio::channel::{channel, Sender, Receiver};
 use self::threadpool::ThreadPool;
 use self::mio::tcp::{TcpListener};
 
-use event::{EventCallback, EventCommand};
+use event::{EventCallback, EventCommand, EventHandler};
 use network::{NetworkCommand, Connection
-              , TcpHandlerCommand, TcpNetwork
+              , TcpHandlerCommand, TcpNetwork, Networking
               , Slab, TcpConnection, CONNECTION_COUNT_PRE_ALLOC};
 use config::NodeConfig;
 use helper::Log;
+use node::{EVENT_LOOP_EVENTS_SIZE, EVENT_RECEIVER_CHANNEL_TOKEN};
 
 use std::collections::BTreeMap;
 use std::process;
@@ -86,6 +87,41 @@ impl Node {
                 }
             },
             thread_pool: ThreadPool::new(cpu_count)
+        }
+    }
+
+    /// Starting all services of Node and running event loop
+    pub fn start(&mut self) {
+        // making networking available
+        self.init_networking();
+        // making event handlers available
+        self.init_event();
+
+        // starting base event loop
+        // making events for handling 5K events at once
+        let mut events: Events = Events::with_capacity(EVENT_LOOP_EVENTS_SIZE);
+        loop {
+            let event_count = self.poll.poll(&mut events, None).unwrap();
+            if event_count == 0 {
+                continue;
+            }
+
+            for event in events.iter() {
+                let (token, kind) = (event.token(), event.kind());
+
+                // if we have event for EventHandler, implementing it
+                if token == EVENT_RECEIVER_CHANNEL_TOKEN {
+                    self.event_notify();
+                    continue;
+                }
+
+                // if this is a networking event just moving to the next event
+                // otherwise we will probably check other block implementations
+//                if self.net_ready(token, kind) {
+//                    continue;
+//                }
+                self.net_ready(token, kind);
+            }
         }
     }
 }
