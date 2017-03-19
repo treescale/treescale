@@ -6,7 +6,6 @@ use std::collections::VecDeque;
 use std::io::{ErrorKind, Read, Write};
 use std::net::Shutdown;
 use std::error::Error;
-use std::process;
 
 use helper::{Log, NetHelper};
 
@@ -20,7 +19,6 @@ pub struct TcpConnection {
 
     // Socket for handling connection
     pub socket: TcpStream,
-    pub tcp_net_socket: TcpStream,
     pub socket_token: Token,
 
     // this connection coming from server or client connection
@@ -48,8 +46,7 @@ pub struct TcpConnection {
     writable_data_index: usize,
 
     // checking if this connection writable or not
-    is_writable: bool,
-    pub transferred: bool
+    is_writable: bool
 }
 
 impl TcpConnection {
@@ -58,13 +55,6 @@ impl TcpConnection {
     pub fn new(socket: TcpStream, token: Token, from_server: bool) -> TcpConnection {
         TcpConnection {
             api_version: 0,
-            tcp_net_socket: match socket.try_clone() {
-                Ok(s) => s,
-                Err(e) => {
-                    Log::error("Unable to clone TCP socket", e.description());
-                    process::exit(1);
-                }
-            },
             socket: socket,
             socket_token: token,
             from_server: from_server,
@@ -77,15 +67,14 @@ impl TcpConnection {
             pending_endian_index: 0,
             writable: VecDeque::new(),
             writable_data_index: 0,
-            is_writable: false,
-            transferred: false
+            is_writable: false
         }
     }
 
     /// Registering connection to give POLL service
     #[inline(always)]
     pub fn register(&self, poll: &Poll) -> bool {
-        match poll.register(if self.transferred { &self.socket } else { &self.tcp_net_socket }, self.socket_token, Ready::readable(), PollOpt::edge()) {
+        match poll.register(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
                 Log::error("Unable to register tcp connection to given poll service", e.description());
@@ -99,7 +88,7 @@ impl TcpConnection {
     /// Making connection writable for given POLL service
     #[inline(always)]
     pub fn make_readable(&mut self, poll: &Poll) -> bool {
-        match poll.reregister(if self.transferred { &self.socket } else { &self.tcp_net_socket }, self.socket_token, Ready::readable(), PollOpt::edge()) {
+        match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
                 Log::error("Unable to make tcp connection readable for given poll service", e.description());
@@ -115,7 +104,7 @@ impl TcpConnection {
     /// Making connection writable for given POLL service
     #[inline(always)]
     pub fn make_writable(&mut self, poll: &Poll) -> bool {
-        match poll.reregister(if self.transferred { &self.socket } else { &self.tcp_net_socket }, self.socket_token, Ready::writable(), PollOpt::edge()) {
+        match poll.reregister(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
                 Log::error("Unable to make tcp connection writable for given poll service", e.description());

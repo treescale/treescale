@@ -369,7 +369,7 @@ impl TcpNetwork for Node {
         // removing connection from pending connections list
         let conn = self.net_tcp_pending_connections.remove(token).unwrap();
         // de-registering from current event loop
-        let _ = self.poll.deregister(&conn.tcp_net_socket);
+        let _ = self.poll.deregister(&conn.socket);
 
         command.cmd = TcpHandlerCMD::HandleConnection;
         command.conn.push(conn);

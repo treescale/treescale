@@ -186,11 +186,6 @@ impl TcpHandler {
 //                        continue;
 //                    }
 
-                    // switching to another socket
-                    conn.transferred = true;
-                    // registering connection
-                    conn.register(&self.poll);
-
                     if !conn.make_writable(&self.poll) {
                         Log::warn("Unable make writable TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
                         continue;
