@@ -136,20 +136,17 @@ impl TcpHandler {
                     // if we got some error on one of the connections
                     // we need to close them
                     if kind.is_error() || kind.is_hup() {
-                        println!("Event EE -> {:?}", token);
                         self.close_connection(token);
                         continue;
                     }
 
                     // we only looking for readable connections
                     if kind.is_readable() {
-                        println!("Event R -> {:?}", token);
                         self.readable(token);
                         continue;
                     }
 
                     if kind.is_writable() {
-                        println!("Event W -> {:?}", token);
                         self.writable(token);
                         continue;
                     }

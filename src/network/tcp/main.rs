@@ -119,19 +119,16 @@ impl TcpNetwork for Node {
         }
 
         if self.net_tcp_pending_connections.contains(token) {
-            if event_kind == Ready::readable() {
+            if event_kind.is_readable() {
 
                 self.tcp_readable(token);
 
-            } else if event_kind == Ready::writable() {
+            } else if event_kind.is_writable() {
 
                 self.tcp_writable(token);
 
-            } else if event_kind == Ready::error()
-                || event_kind == Ready::hup() {
-
+            } else if event_kind.is_error() {
                 self.tcp_close(token);
-
             }
 
             return true;

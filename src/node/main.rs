@@ -14,6 +14,7 @@ use network::{NetworkCommand, Connection
 use config::NodeConfig;
 use helper::Log;
 use node::{EVENT_LOOP_EVENTS_SIZE};
+use event::Event;
 
 use std::collections::BTreeMap;
 use std::process;
@@ -113,5 +114,38 @@ impl Node {
                 self.net_ready(token, kind);
             }
         }
+    }
+
+    /// Handling new connection here
+    pub fn on_new_connection(&mut self, token: &String, value: u64) {
+        println!("Got New Connection -> {} {}", token, value);
+    }
+
+    /// Handling new API connection here
+    pub fn on_new_api_connection(&mut self, token: &String) {
+        println!("Got New API Connection -> {}", token);
+    }
+
+    /// Handling new identity/channel from existing connection
+    pub fn on_new_connection_channel(&mut self, token: &String) {
+        println!("Got New Connection Channel -> {}", token);
+    }
+
+    /// Handling Connection Close Functionality
+    pub fn on_connection_close(&mut self, token: &String) {
+        println!("Connection Closed -> {}", token);
+    }
+
+    /// Handling Connection Close Functionality
+    pub fn on_connection_channel_close(&mut self, token: &String) {
+        println!("Connection Channel Closed -> {}", token);
+    }
+
+    /// Handling data/event from connection
+    /// if this function returns "false" then we wouldn't make any emit process for this event
+    /// if this function returns "true" we will continue emitting this event
+    pub fn on_event_data(&mut self, token: &String, event: &Event) -> bool {
+        println!("Got data from connection -> {} -> {}", token, event.name);
+        true
     }
 }

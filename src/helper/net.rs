@@ -93,7 +93,8 @@ impl NetHelper {
     /// Which means we will check it is Prime Number or not
     pub fn validate_value(value: u64) -> bool {
         match value {
-            0 | 1 => false,
+            0 => true,
+            1 => false,
             2 => true,
             3 => true,
             _ => {

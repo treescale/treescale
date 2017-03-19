@@ -82,7 +82,7 @@ pub fn parse_args() -> NodeConfig {
             None => String::new()
         },
 
-        api_version: match matches.value_of("value") {
+        api_version: match matches.value_of("api") {
             Some(v) => match String::from(v).parse::<u32>() {
                 Ok(vv) => vv,
                 Err(e) => {

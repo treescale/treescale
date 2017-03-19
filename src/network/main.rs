@@ -77,6 +77,12 @@ impl Networking for Node {
 
                 if !self.connections.contains_key(&token) {
                     self.connections.insert(token.clone(), Connection::new(token.clone(), value, identity));
+                    // if we have API connection
+                    if value == 0 {
+                        self.on_new_api_connection(&token);
+                    } else { // if we have regular Node connection
+                        self.on_new_connection(&token, value);
+                    }
                 } else {
                     // adding connection identity
                     match self.connections.get_mut(&token) {
@@ -85,6 +91,9 @@ impl Networking for Node {
                         }
                         None => {}
                     }
+
+                    // handling new connection
+                    self.on_new_connection_channel(&token);
                 }
             }
 
@@ -105,24 +114,31 @@ impl Networking for Node {
                     None => return
                 };
 
+                // if we need to close full connection
+                // letting node know about it
                 if remove_conn {
+                    self.on_connection_close(&token);
                     self.connections.remove(&token);
+                } else { // otherwise just handling channel/identity close
+                    self.on_connection_channel_close(&token);
                 }
             }
 
             NetworkCMD::HandleEvent => {
                 // currently supporting only one connection per single command request
-                if command.event.len() != 1 {
+                if command.event.len() != 1 || command.token.len() != 1 {
                     return;
                 }
 
                 while !command.event.is_empty() {
                     let event = command.event.remove(0);
-
-                    // TODO: Handle Event Here
-
-                    // then trying to send event over available connections
-                    self.emit(event);
+                    let token = command.token.remove(0);
+                    // if event processing passing fine
+                    // emitting event based on his path
+                    if self.on_event_data(&token, &event) {
+                        // then trying to send event over available connections
+                        self.emit(event);
+                    }
                 }
             }
 
