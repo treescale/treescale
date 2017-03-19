@@ -3,9 +3,10 @@ extern crate mio;
 
 use std::sync::Arc;
 use std::collections::VecDeque;
-use std::error::Error;
 use std::io::{ErrorKind, Read, Write};
 use std::net::Shutdown;
+use std::error::Error;
+use std::process;
 
 use helper::{Log, NetHelper};
 
@@ -19,6 +20,7 @@ pub struct TcpConnection {
 
     // Socket for handling connection
     pub socket: TcpStream,
+    pub tcp_net_socket: TcpStream,
     pub socket_token: Token,
 
     // this connection coming from server or client connection
@@ -46,7 +48,8 @@ pub struct TcpConnection {
     writable_data_index: usize,
 
     // checking if this connection writable or not
-    is_writable: bool
+    is_writable: bool,
+    pub transferred: bool
 }
 
 impl TcpConnection {
@@ -55,6 +58,13 @@ impl TcpConnection {
     pub fn new(socket: TcpStream, token: Token, from_server: bool) -> TcpConnection {
         TcpConnection {
             api_version: 0,
+            tcp_net_socket: match socket.try_clone() {
+                Ok(s) => s,
+                Err(e) => {
+                    Log::error("Unable to clone TCP socket", e.description());
+                    process::exit(1);
+                }
+            },
             socket: socket,
             socket_token: token,
             from_server: from_server,
@@ -67,14 +77,15 @@ impl TcpConnection {
             pending_endian_index: 0,
             writable: VecDeque::new(),
             writable_data_index: 0,
-            is_writable: false
+            is_writable: false,
+            transferred: false
         }
     }
 
     /// Registering connection to give POLL service
     #[inline(always)]
     pub fn register(&self, poll: &Poll) -> bool {
-        match poll.register(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
+        match poll.register(if self.transferred { &self.socket } else { &self.tcp_net_socket }, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
                 Log::error("Unable to register tcp connection to given poll service", e.description());
@@ -88,7 +99,7 @@ impl TcpConnection {
     /// Making connection writable for given POLL service
     #[inline(always)]
     pub fn make_readable(&mut self, poll: &Poll) -> bool {
-        match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
+        match poll.reregister(if self.transferred { &self.socket } else { &self.tcp_net_socket }, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
                 Log::error("Unable to make tcp connection readable for given poll service", e.description());
@@ -103,8 +114,8 @@ impl TcpConnection {
 
     /// Making connection writable for given POLL service
     #[inline(always)]
-    pub fn make_writable(&self, poll: &Poll) -> bool {
-        match poll.reregister(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
+    pub fn make_writable(&mut self, poll: &Poll) -> bool {
+        match poll.reregister(if self.transferred { &self.socket } else { &self.tcp_net_socket }, self.socket_token, Ready::writable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
                 Log::error("Unable to make tcp connection writable for given poll service", e.description());
@@ -112,6 +123,7 @@ impl TcpConnection {
             }
         }
 
+        self.is_writable = true;
         true
     }
 
@@ -178,11 +190,12 @@ impl TcpConnection {
         // our data contains Token and Value
         // where Value is last 8 bytes
         // so len() - 8 should be text length
-        let text_len = data.len() - 8;
-        if text_len <= 0 {
+        if data.len() <= 8 {
             // if we got wrong API closing connection
             return None;
         }
+
+        let text_len = data.len() - 8;
 
         // Converting our token to string
         let token =  match String::from_utf8(Vec::from(&data[..text_len])) {
@@ -306,35 +319,39 @@ impl TcpConnection {
     /// Returns Some(false) if we still have something in queue
     pub fn flush(&mut self) -> Option<bool> {
         loop {
-            let data = match self.writable.front() {
-                Some(d) => d,
-                None => break // there is no data in queue
-            };
+            {
+                let data = match self.writable.front() {
+                    Some(d) => d,
+                    None => break // there is no data in queue
+                };
 
-            let write_len = match self.socket.write(&data[self.writable_data_index..]) {
-                Ok(n) => n,
-                Err(e) => {
-                    // if we got WouldBlock, then this is Non Blocking socket
-                    // and data still not available for this, so it's not a connection error
-                    if e.kind() == ErrorKind::WouldBlock {
-                        return Some(false)
+                let write_len = match self.socket.write(&data[self.writable_data_index..]) {
+                    Ok(n) => n,
+                    Err(e) => {
+                        // if we got WouldBlock, then this is Non Blocking socket
+                        // and data still not available for this, so it's not a connection error
+                        if e.kind() == ErrorKind::WouldBlock {
+                            return Some(false)
+                        }
+
+                        return None;
                     }
+                };
 
-                    return None;
+                // if socket is unable to write all data that we have
+                // then moving forward index and waiting until next time
+                if write_len + self.writable_data_index < data.len() {
+                    self.writable_data_index += write_len;
+                    return Some(false);
                 }
-            };
 
-            // if socket is unable to write all data that we have
-            // then moving forward index and waiting until next time
-            if write_len + self.writable_data_index < data.len() {
-                self.writable_data_index += write_len;
-                return Some(false);
+                // if we got here then our data is written
+                // so we need to reset index for next data
+                // current data would be deleted automatically after this cycle
+                self.writable_data_index = 0;
             }
-
-            // if we got here then our data is written
-            // so we need to reset index for next data
-            // current data would be deleted automatically after this cycle
-            self.writable_data_index = 0;
+            // if data written deleting from front
+            self.writable.pop_front();
         }
 
         Some(true)

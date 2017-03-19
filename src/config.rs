@@ -14,7 +14,8 @@ pub struct NodeConfig {
     pub value: u64,
     pub token: String,
     pub api_version: u32,
-    pub network: NetworkingConfig
+    pub network: NetworkingConfig,
+    pub parent_address: String
 }
 
 pub struct NetworkingConfig {
@@ -44,6 +45,11 @@ pub fn parse_args() -> NodeConfig {
                             .long("api")
                             .value_name("API_NUMBER")
                             .help("Sets API version for specific type of networking communications, default would be the latest version")
+                            .takes_value(true))
+                    .arg(Arg::with_name("parent")
+                            .short("p")
+                            .long("parent")
+                            .value_name("PARENT_ADDRESS")
                             .takes_value(true))
                     .arg(Arg::with_name("concurrency")
                             .short("c")
@@ -102,6 +108,11 @@ pub fn parse_args() -> NodeConfig {
                 },
                 None => 0
             },
-        }
+        },
+
+        parent_address: match matches.value_of("parent") {
+            Some(v) => String::from(v),
+            None => String::new()
+        },
     }
 }

@@ -51,6 +51,9 @@ pub struct Node {
 
     /// Thread Pool for making background precessing tasks
     pub thread_pool: ThreadPool,
+
+    /// parent address in case if we are doing something directly from command line
+    parent_address: String
 }
 
 
@@ -86,7 +89,8 @@ impl Node {
                     process::exit(1);
                 }
             },
-            thread_pool: ThreadPool::new(cpu_count)
+            thread_pool: ThreadPool::new(cpu_count),
+            parent_address: config.parent_address.clone()
         }
     }
 
@@ -96,6 +100,11 @@ impl Node {
         self.init_networking();
         // making event handlers available
         self.init_event();
+
+        if self.parent_address.len() > 0 {
+            let address = self.parent_address.clone();
+            self.tcp_connect(address.as_str());
+        }
 
         // starting base event loop
         // making events for handling 5K events at once

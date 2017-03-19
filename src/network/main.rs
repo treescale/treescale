@@ -63,6 +63,7 @@ impl Networking for Node {
     fn notify(&mut self, command: &mut NetworkCommand) {
         match command.cmd {
             NetworkCMD::HandleConnection => {
+
                 // currently supporting only one connection per single command request
                 if command.token.len() != 1
                     || command.conn_identity.len() != 1
@@ -89,7 +90,7 @@ impl Networking for Node {
 
             NetworkCMD::ConnectionClose => {
                 // currently supporting only one connection per single command request
-                if command.token.len() != 1 {
+                if command.token.len() != 1 || command.conn_identity.len() != 1 {
                     return;
                 }
 
@@ -148,19 +149,38 @@ impl Networking for Node {
 
     #[inline(always)]
     fn net_ready(&mut self, token: Token, event_kind: Ready) -> bool {
+        if token == NET_RECEIVER_CHANNEL_TOKEN {
+            // trying to get commands while there is available data
+            loop {
+                match self.net_receiver_chan.try_recv() {
+                    Ok(mut cmd) => {
+                        self.notify(&mut cmd);
+                    }
+                    // if we got error, then data is unavailable
+                    // and breaking receive loop
+                    Err(_) => {
+                        break;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         self.tcp_ready(token, event_kind)
     }
 
     #[inline(always)]
     fn handshake_info(&self) -> Vec<u8> {
         let token_len = self.token.len();
+        let total_value_len = token_len + 8;
         // adding 4 byte API version
         // 4 Bytes token string length
         // N bytes for token string
         // 8 bytes for Prime Value
         let mut buffer = vec![0; (4 + 4 + token_len + 8)];
         let mut offset = NetHelper::u32_to_bytes(self.api_version, &mut buffer, 0);
-        offset += NetHelper::u32_to_bytes(token_len as u32, &mut buffer, offset);
+        offset += NetHelper::u32_to_bytes(total_value_len as u32, &mut buffer, offset);
         buffer[offset..offset + token_len].copy_from_slice(self.token.as_bytes());
         offset += token_len;
         NetHelper::u64_to_bytes(self.value, &mut buffer, offset);

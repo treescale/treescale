@@ -122,9 +122,7 @@ impl TcpHandler {
                             }
                             // if we got error, then data is unavailable
                             // and breaking receive loop
-                            Err(e) => {
-                                Log::warn("TcpReader receiver channel data is not available",
-                                          e.description());
+                            Err(_) => {
                                 break;
                             }
                         }
@@ -135,16 +133,25 @@ impl TcpHandler {
 
                 // we tracking events only for our connections
                 if self.connections.contains(token) {
+                    // if we got some error on one of the connections
+                    // we need to close them
+                    if kind.is_error() || kind.is_hup() {
+                        println!("Event EE -> {:?}", token);
+                        self.close_connection(token);
+                        continue;
+                    }
+
                     // we only looking for readable connections
-                    if kind == Ready::readable() {
+                    if kind.is_readable() {
+                        println!("Event R -> {:?}", token);
                         self.readable(token);
                         continue;
                     }
 
-                    // if we got some error on one of the connections
-                    // we need to close them
-                    if kind == Ready::error() || kind == Ready::hup() {
-                        self.close_connection(token);
+                    if kind.is_writable() {
+                        println!("Event W -> {:?}", token);
+                        self.writable(token);
+                        continue;
                     }
                 }
             }
@@ -174,10 +181,16 @@ impl TcpHandler {
 
                     // registering and making connection writable first
                     // just to clear write queue from the beginning
-                    if !conn.register(&self.poll) {
-                        Log::warn("Unable register TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
-                        continue;
-                    }
+//                    if !conn.make_readable(&self.poll) {
+//                        Log::warn("Unable register TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
+//                        continue;
+//                    }
+
+                    // switching to another socket
+                    conn.transferred = true;
+                    // registering connection
+                    conn.register(&self.poll);
+
                     if !conn.make_writable(&self.poll) {
                         Log::warn("Unable make writable TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
                         continue;
@@ -299,6 +312,7 @@ impl TcpHandler {
 
     #[inline(always)]
     fn close_connection(&mut self, token: Token) {
+        println!("Connection Closed -> {:?}", token);
         // sending command to Networking that connection closed
         // or at least one channel was closed for this connection
         {
@@ -306,6 +320,11 @@ impl TcpHandler {
             let mut net_cmd = NetworkCommand::new();
             net_cmd.cmd = NetworkCMD::ConnectionClose;
             net_cmd.token = vec![conn.conn_token.clone()];
+            net_cmd.conn_identity.push(ConnectionIdentity {
+                socket_type: SocketType::TCP,
+                handler_index: self.index,
+                socket_token: token
+            });
             match self.net_chan.send(net_cmd) {
                 Ok(_) => {}
                 Err(e) => {
@@ -313,7 +332,6 @@ impl TcpHandler {
                                , format!("Connection Close Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
                 }
             }
-            conn.close();
         }
         self.connections.remove(token);
     }

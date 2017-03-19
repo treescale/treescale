@@ -240,6 +240,7 @@ impl TcpNetwork for Node {
         // NOTE: connections from server would be transferred from tcp_writable function
         if !self.net_tcp_pending_connections[token].from_server {
             self.tcp_transfer_connection(token);
+            return;
         }
 
         // if we got here then we have connection information
@@ -263,6 +264,9 @@ impl TcpNetwork for Node {
                         return;
                     }
 
+                    // making connection readable because we don't have anything to write
+                    conn.make_readable(&self.poll);
+
                     // letting know to keep connection
                     // so that we can make sure that queue is empty
                     false
@@ -284,6 +288,7 @@ impl TcpNetwork for Node {
         // NOTE: connections from "tcp_connect" would be transferred from tcp_readable function
         if self.net_tcp_pending_connections[token].from_server {
             self.tcp_transfer_connection(token);
+            return;
         }
     }
 
@@ -348,7 +353,7 @@ impl TcpNetwork for Node {
         };
 
         // creating connection and registering to current Node poll service
-        let mut conn = TcpConnection::new(socket, entry.index(), true);
+        let mut conn = TcpConnection::new(socket, entry.index(), from_server);
         conn.register(&self.poll);
         if !from_server {
             conn.write(data, &self.poll);
@@ -364,7 +369,7 @@ impl TcpNetwork for Node {
         // removing connection from pending connections list
         let conn = self.net_tcp_pending_connections.remove(token).unwrap();
         // de-registering from current event loop
-        let _ = self.poll.deregister(&conn.socket);
+        let _ = self.poll.deregister(&conn.tcp_net_socket);
 
         command.cmd = TcpHandlerCMD::HandleConnection;
         command.conn.push(conn);
