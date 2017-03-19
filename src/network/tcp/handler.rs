@@ -307,7 +307,6 @@ impl TcpHandler {
 
     #[inline(always)]
     fn close_connection(&mut self, token: Token) {
-        println!("Connection Closed -> {:?}", token);
         // sending command to Networking that connection closed
         // or at least one channel was closed for this connection
         {
