@@ -8,13 +8,12 @@ use self::mio::channel::{channel, Sender, Receiver};
 use self::threadpool::ThreadPool;
 use self::mio::tcp::{TcpListener};
 
-use event::{EventCallback, EventCommand, EventHandler};
 use network::{NetworkCommand, Connection
               , TcpHandlerCommand, TcpNetwork, Networking
               , Slab, TcpConnection, CONNECTION_COUNT_PRE_ALLOC};
 use config::NodeConfig;
 use helper::Log;
-use node::{EVENT_LOOP_EVENTS_SIZE, EVENT_RECEIVER_CHANNEL_TOKEN};
+use node::{EVENT_LOOP_EVENTS_SIZE};
 
 use std::collections::BTreeMap;
 use std::process;
@@ -25,12 +24,6 @@ pub struct Node {
     pub value: u64,
     pub token: String,
     pub api_version: u32,
-
-    /// Callbacks map for handling it in EventHandler trait
-    pub callbacks: BTreeMap<String, Vec<EventCallback>>,
-    // channels for handling events from networking
-    pub event_sender_chan: Sender<EventCommand>,
-    pub event_receiver_chan: Receiver<EventCommand>,
 
     /// Members for Network trait
     pub connections: BTreeMap<String, Connection>,
@@ -60,7 +53,6 @@ pub struct Node {
 impl Node {
     /// Making new node based on configurations
     pub fn new(config: &NodeConfig) -> Node {
-        let (ev_s, ev_r) = channel::<EventCommand>();
         let (net_s, net_r) = channel::<NetworkCommand>();
 
         let mut cpu_count = config.network.concurrency;
@@ -72,9 +64,6 @@ impl Node {
             value: config.value,
             token: config.token.clone(),
             api_version: config.api_version,
-            callbacks: BTreeMap::new(),
-            event_sender_chan: ev_s,
-            event_receiver_chan: ev_r,
             connections: BTreeMap::new(),
             net_sender_chan: net_s,
             net_receiver_chan: net_r,
@@ -98,8 +87,6 @@ impl Node {
     pub fn start(&mut self) {
         // making networking available
         self.init_networking();
-        // making event handlers available
-        self.init_event();
 
         if self.parent_address.len() > 0 {
             let address = self.parent_address.clone();
@@ -117,12 +104,6 @@ impl Node {
 
             for event in events.iter() {
                 let (token, kind) = (event.token(), event.kind());
-
-                // if we have event for EventHandler, implementing it
-                if token == EVENT_RECEIVER_CHANNEL_TOKEN {
-                    self.event_notify();
-                    continue;
-                }
 
                 // if this is a networking event just moving to the next event
                 // otherwise we will probably check other block implementations

@@ -6,7 +6,7 @@ use self::mio::{Ready, PollOpt, Token};
 use node::{Node, NET_RECEIVER_CHANNEL_TOKEN};
 use network::{ConnectionIdentity, Connection, TcpNetwork, SocketType, TcpHandlerCommand, TcpHandlerCMD};
 use helper::{Log, NetHelper};
-use event::{Event, EventHandler};
+use event::{Event};
 
 use std::error::Error;
 use std::process;
@@ -118,8 +118,8 @@ impl Networking for Node {
 
                 while !command.event.is_empty() {
                     let event = command.event.remove(0);
-                    // triggering event if we have it
-                    self.trigger(&event);
+
+                    // TODO: Handle Event Here
 
                     // then trying to send event over available connections
                     self.emit(event);
