@@ -9,6 +9,7 @@ use std::process;
 use std::error::Error;
 
 pub const APP_VERSION: &'static str = "1.0.34";
+pub const MAX_API_VERSION: u32 = 1000;
 
 pub struct NodeConfig {
     pub value: u64,

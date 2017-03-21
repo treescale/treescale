@@ -9,7 +9,6 @@ pub use self::main::Node;
 use self::mio::Token;
 use std::u32::MAX as u32MAX;
 
-pub const MAX_API_VERSION: u32 = 1000;
 pub const NET_RECEIVER_CHANNEL_TOKEN: Token = Token((u32MAX - 1) as usize);
 pub const NET_TCP_SERVER_TOKEN: Token = Token((u32MAX - 2) as usize);
 

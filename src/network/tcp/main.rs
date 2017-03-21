@@ -127,7 +127,7 @@ impl TcpNetwork for Node {
 
                 self.tcp_writable(token);
 
-            } else if event_kind.is_error() {
+            } else if event_kind.is_error() || event_kind.is_hup() {
                 self.tcp_close(token);
             }
 

@@ -3,7 +3,7 @@ extern crate  mio;
 
 use self::mio::Token;
 
-use node::MAX_API_VERSION;
+use config::MAX_API_VERSION;
 
 #[derive(Clone)]
 pub enum SocketType {
