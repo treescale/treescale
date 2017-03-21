@@ -10,14 +10,14 @@ pub struct Path {
 }
 
 impl Path {
-    #[inline(always)]
+    #[inline]
     pub fn new() -> Path {
         Path {
             parts: vec![]
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn from_bytes(buffer: &[u8]) -> Option<Path> {
         if buffer.len() % 8 != 0 {
             return None;
@@ -36,7 +36,7 @@ impl Path {
         Some(p)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn to_bytes(&self) -> Option<Vec<u8>> {
         let part_count = self.parts.len();
         let path_len = part_count * 8;
@@ -51,12 +51,12 @@ impl Path {
         Some(ret_val)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn len(&self) -> usize {
         self.parts.len() * 8
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn mul(&mut self, number: u64) {
         // we can't have 0 as a path multiplication
         if number == 0 {
@@ -80,7 +80,7 @@ impl Path {
         self.parts[last_index] *= number;
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn div(&mut self, number: u64) -> bool {
         if number == 0 {
             return false;
@@ -96,7 +96,7 @@ impl Path {
         false
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn dividable(&self, number: u64) -> bool {
         if number == 0 {
             return false;

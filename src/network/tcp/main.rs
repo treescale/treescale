@@ -106,7 +106,7 @@ impl TcpNetwork for Node {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_ready(&mut self, token: Token, event_kind: Ready) -> bool {
         if token == NET_TCP_SERVER_TOKEN {
             if event_kind != Ready::readable() {
@@ -137,7 +137,7 @@ impl TcpNetwork for Node {
         false
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_acceptable(&mut self) {
         loop {
             let sock = match self.net_tcp_server.accept() {
@@ -156,7 +156,7 @@ impl TcpNetwork for Node {
         };
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_readable(&mut self, token: Token) {
         // if we got here then we have connection with this token
         let mut close_conn = {
@@ -248,7 +248,7 @@ impl TcpNetwork for Node {
         self.net_tcp_pending_connections[token].write(info, &self.poll);
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_writable(&mut self, token: Token) {
         // if we got here then we have connection with this token
         let close_conn = {
@@ -289,7 +289,7 @@ impl TcpNetwork for Node {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_close(&mut self, token: Token) {
         // just removing connection
         // it would be closed automatically when
@@ -297,7 +297,7 @@ impl TcpNetwork for Node {
         self.net_tcp_pending_connections.remove(token);
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_get_handler(&mut self) -> Sender<TcpHandlerCommand> {
         if self.net_tcp_handler_index >= self.net_tcp_handler_sender_chan.len() {
             self.net_tcp_handler_index = 0;
@@ -309,7 +309,7 @@ impl TcpNetwork for Node {
         self.net_tcp_handler_sender_chan[i].clone()
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_connect(&mut self, address: &str) -> bool {
         let sock_address = match SocketAddr::from_str(address) {
             Ok(a) => a,
@@ -331,7 +331,7 @@ impl TcpNetwork for Node {
         true
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_add_connection(&mut self, socket: TcpStream, from_server: bool) {
         // inserting connection to pending connections and registering to the loop
         if self.net_tcp_pending_connections.vacant_entry().is_none() {
@@ -358,7 +358,7 @@ impl TcpNetwork for Node {
         entry.insert(conn);
     }
 
-    #[inline(always)]
+    #[inline]
     fn tcp_transfer_connection(&mut self, token: Token) {
         // if we got here then write is done
         // so moving connection to one of the TCP handlers

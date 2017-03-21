@@ -87,7 +87,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn channel(&self) -> Sender<TcpHandlerCommand> {
         self.sender_chan.clone()
     }
@@ -155,7 +155,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn notify(&mut self, command: &mut TcpHandlerCommand) {
         match command.cmd {
             TcpHandlerCMD::HandleConnection => {
@@ -234,7 +234,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn readable(&mut self, token: Token) {
         let (close_conn, data_list, conn_token) = {
             let ref mut conn = self.connections[token];
@@ -279,7 +279,7 @@ impl TcpHandler {
         });
     }
 
-    #[inline(always)]
+    #[inline]
     fn writable(&mut self, token: Token) {
         let close_conn = {
             let ref mut conn = self.connections[token];
@@ -302,7 +302,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn close_connection(&mut self, token: Token) {
         // sending command to Networking that connection closed
         // or at least one channel was closed for this connection

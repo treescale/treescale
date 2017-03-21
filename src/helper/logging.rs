@@ -7,7 +7,7 @@ pub struct Log {
 }
 
 impl Log {
-    #[inline(always)]
+    #[inline]
     fn print(log_type: &str, message: &str, err: &str) {
         println!("[{}] [{}] - {} -> {}",
                  UTC::now().to_rfc3339(),
@@ -16,17 +16,17 @@ impl Log {
                  err);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn error(message: &str, err: &str) {
         Log::print("ERROR", message, err);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn info(message: &str, err: &str) {
         Log::print("INFO", message, err);
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn warn(message: &str, err: &str) {
         Log::print("WARNING", message, err);
     }

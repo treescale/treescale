@@ -46,7 +46,7 @@ pub trait Networking {
 
 
 impl NetworkCommand {
-    #[inline(always)]
+    #[inline]
     pub fn new() -> NetworkCommand {
         NetworkCommand {
             cmd: NetworkCMD::None,
@@ -59,7 +59,7 @@ impl NetworkCommand {
 }
 
 impl Networking for Node {
-    #[inline(always)]
+    #[inline]
     fn notify(&mut self, command: &mut NetworkCommand) {
         match command.cmd {
             NetworkCMD::HandleConnection => {
@@ -163,7 +163,7 @@ impl Networking for Node {
         self.register_tcp();
     }
 
-    #[inline(always)]
+    #[inline]
     fn net_ready(&mut self, token: Token, event_kind: Ready) -> bool {
         if token == NET_RECEIVER_CHANNEL_TOKEN {
             // trying to get commands while there is available data
@@ -186,7 +186,7 @@ impl Networking for Node {
         self.tcp_ready(token, event_kind)
     }
 
-    #[inline(always)]
+    #[inline]
     fn handshake_info(&self) -> Vec<u8> {
         let token_len = self.token.len();
         let total_value_len = token_len + 8;
@@ -203,7 +203,7 @@ impl Networking for Node {
         buffer
     }
 
-    #[inline(always)]
+    #[inline]
     fn emit(&mut self, event: Event) {
         let mut tcp_conns_to_send: Vec<Vec<Token>> = vec![Vec::new(); self.net_tcp_handler_sender_chan.len()];
         let mut event = event;

@@ -3,6 +3,10 @@ name = "treenity"
 version = "0.1.0"
 authors = ["Tigran Bayburtsyan <tigran@bayburtsyan.com>"]
 
+[lib]
+name = "treeapi"
+crate-type = ["staticlib"]
+
 [dependencies]
 mio = "0.6.4"
 log = "0.3"
