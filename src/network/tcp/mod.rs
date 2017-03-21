@@ -3,10 +3,11 @@ extern crate slab;
 
 mod main;
 mod handler;
+mod conn;
 
 pub use self::main::TcpNetwork;
 pub use self::handler::{TcpHandlerCMD, TcpHandlerCommand, TcpHandler};
-pub use helper::tcp_conn::{TcpConnection};
+pub use self::conn::{TcpConnection};
 
 use self::mio::Token;
 

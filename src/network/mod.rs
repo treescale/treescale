@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 mod main;
 mod tcp;
+mod conn;
 
 pub use self::main::{Networking, NetworkCMD, NetworkCommand};
-pub use helper::conn::{Connection, ConnectionIdentity, SocketType};
+pub use self::conn::{Connection, ConnectionIdentity, SocketType};
 pub use self::tcp::{TcpNetwork
                     , TcpHandlerCommand, TcpHandlerCMD, TcpHandler
                     , Slab , TcpConnection};
