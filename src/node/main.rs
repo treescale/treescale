@@ -2,6 +2,7 @@
 extern crate mio;
 extern crate threadpool;
 extern crate num_cpus;
+extern crate uuid;
 
 use self::mio::{Poll, Events};
 use self::mio::channel::{channel, Sender, Receiver};
@@ -13,7 +14,7 @@ use network::{NetworkCommand, Connection
               , Slab, TcpConnection, CONNECTION_COUNT_PRE_ALLOC};
 use config::NodeConfig;
 use helper::Log;
-use node::{EVENT_LOOP_EVENTS_SIZE};
+use node::{EVENT_LOOP_EVENTS_SIZE, DEFAULT_API_VERSION};
 use event::Event;
 
 use std::collections::BTreeMap;
@@ -63,8 +64,8 @@ impl Node {
 
         Node {
             value: config.value,
-            token: config.token.clone(),
-            api_version: config.api_version,
+            token: if config.token.len() == 0 { format!("{}", uuid::Uuid::new_v4()) } else { config.token.clone() },
+            api_version: if config.api_version == 0 { DEFAULT_API_VERSION } else { config.api_version },
             connections: BTreeMap::new(),
             net_sender_chan: net_s,
             net_receiver_chan: net_r,
