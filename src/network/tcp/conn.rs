@@ -134,6 +134,7 @@ impl TcpConnection {
 
         // if we got data less than we expected
         if read_len + self.pending_data_index < 4 {
+            self.pending_data_index += read_len;
             return Some((false, 0));
         }
 
@@ -243,6 +244,7 @@ impl TcpConnection {
         };
 
         if self.pending_data_index + read_len < self.pending_data_len {
+            self.pending_data_index += read_len;
             return Some((false, vec![]))
         }
 

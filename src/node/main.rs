@@ -146,7 +146,7 @@ impl Node {
     /// if this function returns "false" then we wouldn't make any emit process for this event
     /// if this function returns "true" we will continue emitting this event
     pub fn on_event_data(&mut self, token: &String, event: &Event) -> bool {
-        println!("Got data from connection -> {} -> {}", token, event.name);
+        println!("Got data from connection -> {} -> {}", token, event.from);
         true
     }
 }

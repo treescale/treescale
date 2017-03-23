@@ -138,7 +138,7 @@ impl Networking for Node {
                     let event = command.event.remove(0);
                     // if event processing passing fine
                     // emitting event based on his path
-                    if self.on_event_data(&token, &event) {
+                    if self.on_event_data(&token, &event) && !event.path.is_zero() {
                         // then trying to send event over available connections
                         self.emit(event);
                     }
@@ -154,7 +154,7 @@ impl Networking for Node {
         match self.poll.register(&self.net_receiver_chan
                                  , NET_RECEIVER_CHANNEL_TOKEN
                                  , Ready::readable()
-                                 , PollOpt::edge()) {
+                                 , PollOpt::level()) {
             Ok(_) => {},
             Err(e) => {
                 Log::error("Unable to register networking receiver channel to Node POLL service"

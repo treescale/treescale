@@ -110,4 +110,9 @@ impl Path {
 
         false
     }
+
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        !(self.parts.len() > 0 && self.parts[0] != 0)
+    }
 }

@@ -94,7 +94,7 @@ impl TcpHandler {
 
     /// Main function to start TCP Handler service as a separate thread if needed
     pub fn start(&mut self) {
-        match self.poll.register(&self.receiver_chan, NET_RECEIVER_CHANNEL_TOKEN, Ready::readable(), PollOpt::edge()) {
+        match self.poll.register(&self.receiver_chan, NET_RECEIVER_CHANNEL_TOKEN, Ready::readable(), PollOpt::level()) {
             Ok(_) => {},
             Err(e) => {
                 Log::error("Unable to register TcpHandler receiver channel", e.description());
@@ -178,7 +178,7 @@ impl TcpHandler {
 
                     // registering and making connection writable first
                     // just to clear write queue from the beginning
-//                    if !conn.make_readable(&self.poll) {
+//                    if !conn.register(&self.poll) {
 //                        Log::warn("Unable register TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
 //                        continue;
 //                    }
