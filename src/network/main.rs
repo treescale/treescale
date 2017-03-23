@@ -114,13 +114,14 @@ impl Networking for Node {
                     None => return
                 };
 
+                // anyway we need to close channel of this connection
+                self.on_connection_channel_close(&token);
+
                 // if we need to close full connection
                 // letting node know about it
                 if remove_conn {
                     self.on_connection_close(&token);
                     self.connections.remove(&token);
-                } else { // otherwise just handling channel/identity close
-                    self.on_connection_channel_close(&token);
                 }
             }
 
