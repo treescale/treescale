@@ -127,13 +127,15 @@ impl Networking for Node {
 
             NetworkCMD::HandleEvent => {
                 // currently supporting only one connection per single command request
-                if command.event.len() != 1 || command.token.len() != 1 {
+                if command.token.len() != 1 {
                     return;
                 }
 
+                // getting token out
+                let token = command.token.remove(0);
+
                 while !command.event.is_empty() {
                     let event = command.event.remove(0);
-                    let token = command.token.remove(0);
                     // if event processing passing fine
                     // emitting event based on his path
                     if self.on_event_data(&token, &event) {

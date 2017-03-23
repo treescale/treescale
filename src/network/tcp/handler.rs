@@ -264,9 +264,8 @@ impl TcpHandler {
             let mut event_cmd = NetworkCommand::new();
             event_cmd.cmd = NetworkCMD::HandleEvent;
             event_cmd.token.push(conn_token);
-            let mut events: Vec<Event> = vec![];
             for data in data_list {
-                events.push(match Event::from_raw(&data) {
+                event_cmd.event.push(match Event::from_raw(&data) {
                     Some(e) => e,
                     None => continue
                 });
