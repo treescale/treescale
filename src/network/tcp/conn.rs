@@ -48,7 +48,7 @@ pub struct TcpConnection {
 
 impl TcpConnection {
     /// Making new TCP connection from accepted socket
-    #[inline]
+    #[inline(always)]
     pub fn new(socket: TcpStream, token: Token, from_server: bool) -> TcpConnection {
         TcpConnection {
             api_version: 0,
@@ -67,13 +67,13 @@ impl TcpConnection {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn add_writable_data(&mut self, data: Arc<Vec<u8>>) {
         self.writable.push_back(data);
     }
 
     /// Registering connection to give POLL service
-    #[inline]
+    #[inline(always)]
     pub fn register(&self, poll: &Poll) -> bool {
         match poll.register(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
@@ -87,7 +87,7 @@ impl TcpConnection {
     }
 
     /// Making connection writable for given POLL service
-    #[inline]
+    #[inline(always)]
     pub fn make_readable(&self, poll: &Poll) -> bool {
         match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
@@ -101,7 +101,7 @@ impl TcpConnection {
     }
 
     /// Making connection writable for given POLL service
-    #[inline]
+    #[inline(always)]
     pub fn make_writable(&self, poll: &Poll) -> bool {
         match poll.reregister(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
             Ok(_) => {}
@@ -114,7 +114,7 @@ impl TcpConnection {
     }
 
     /// Reading Endian number using Networking API
-    #[inline]
+    #[inline(always)]
     pub fn read_endian(&mut self) -> Option<(bool, u32)> {
         let read_len = match self.socket.read(&mut self.pending_endian[self.pending_endian_index..]) {
             Ok(n) => if n == 0 { return None } else { n },
@@ -151,7 +151,7 @@ impl TcpConnection {
     /// Reading API version as a big endian as a first handshake between connections
     /// Will return (False, N) if there is not enough data to parse
     /// Will return None if there is some problem with connection and we need to close it
-    #[inline]
+    #[inline(always)]
     pub fn read_api_version(&mut self) -> Option<(bool, u32)> {
         // API version is actually a BigEndian u32
         // so just reading as a big endian number
@@ -161,7 +161,7 @@ impl TcpConnection {
     /// Reading connection Token and Prime Value combination as a second phase of handshake
     /// Will return (false, Token, N) if there is not enough data to parse
     /// Will return None if there is connection error and we need to close it
-    #[inline]
+    #[inline(always)]
     pub fn read_token_value(&mut self) -> Option<(bool, String, u64)> {
         // reading BigEndian length of token
         let (done, data) = match self.read_data_once() {
@@ -206,7 +206,7 @@ impl TcpConnection {
     /// Reading only one part of data which means that only one
     /// Byte chunk would be returned
     /// This is the base function to read data from socket
-    #[inline]
+    #[inline(always)]
     pub fn read_data_once(&mut self) -> Option<(bool, Vec<u8>)> {
         // fist of all getting BigEndian number to determine how many bytes we need to read
         if self.pending_data_len == 0 {
@@ -255,7 +255,7 @@ impl TcpConnection {
     /// Reading all data available in socket
     /// so this will return only if read_once function will send (false, vec![])
     /// This will help to get all data once and then consume it using single event
-    #[inline]
+    #[inline(always)]
     pub fn read_data(&mut self) -> Option<Vec<Vec<u8>>> {
         let mut total: Vec<Vec<u8>> = vec![];
         loop {
@@ -278,7 +278,7 @@ impl TcpConnection {
     }
 
     /// Shutting down connection, this would be called before closing connection
-    #[inline]
+    #[inline(always)]
     pub fn close(&self) {
         match self.socket.shutdown(Shutdown::Both) {
             Ok(_) => {},
@@ -288,7 +288,7 @@ impl TcpConnection {
 
     /// Main function to write to TCP connection
     /// It will add data to "writable" as a write queue
-    #[inline]
+    #[inline(always)]
     pub fn write(&mut self, data: Arc<Vec<u8>>, poll: &Poll) {
         self.writable.push_back(data);
         self.make_writable(poll);

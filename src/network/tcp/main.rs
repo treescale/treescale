@@ -94,7 +94,7 @@ impl TcpNetwork for Node {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn tcp_ready(&mut self, token: Token, event_kind: Ready) -> bool {
         if token == NET_TCP_SERVER_TOKEN {
             if event_kind != Ready::readable() {
@@ -109,7 +109,7 @@ impl TcpNetwork for Node {
         false
     }
 
-    #[inline]
+    #[inline(always)]
     fn tcp_acceptable(&mut self) {
         loop {
             let sock = match self.net_tcp_server.accept() {
@@ -128,7 +128,7 @@ impl TcpNetwork for Node {
         };
     }
 
-    #[inline]
+    #[inline(always)]
     fn tcp_get_handler(&mut self) -> Sender<TcpHandlerCommand> {
         if self.net_tcp_handler_index >= self.net_tcp_handler_sender_chan.len() {
             self.net_tcp_handler_index = 0;
@@ -140,7 +140,7 @@ impl TcpNetwork for Node {
         self.net_tcp_handler_sender_chan[i].clone()
     }
 
-    #[inline]
+    #[inline(always)]
     fn tcp_connect(&mut self, address: &str) -> bool {
         let sock_address = match SocketAddr::from_str(address) {
             Ok(a) => a,
@@ -162,7 +162,7 @@ impl TcpNetwork for Node {
         true
     }
 
-    #[inline]
+    #[inline(always)]
     fn tcp_transfer_connection(&mut self, sock: TcpStream, from_server: bool) {
         let mut command = TcpHandlerCommand::new();
         command.cmd = TcpHandlerCMD::HandleConnection;

@@ -99,7 +99,7 @@ pub fn parse_args() -> NodeConfig {
                 Some(v) => String::from(v),
                 None => String::from("0.0.0.0:8000")
             },
-            concurrency: match matches.value_of("value") {
+            concurrency: match matches.value_of("concurrency") {
                 Some(v) => match String::from(v).parse::<usize>() {
                     Ok(vv) => vv,
                     Err(e) => {

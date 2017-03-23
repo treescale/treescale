@@ -25,7 +25,7 @@ pub struct EventCommand {
 }
 
 impl EventCommand {
-    #[inline]
+    #[inline(always)]
     pub fn new() -> EventCommand {
         EventCommand {
             cmd: EventCMD::None,
@@ -73,7 +73,7 @@ impl EventHandler for Node {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn on(&mut self, name: &str, callback: EventCallback) {
         let name_str = String::from(name);
         let cbs = match self.callbacks.remove(&name_str) {
@@ -88,12 +88,12 @@ impl EventHandler for Node {
         self.callbacks.insert(name_str, cbs);
     }
 
-    #[inline]
+    #[inline(always)]
     fn rm(&mut self, name: &str) {
         self.callbacks.remove(&String::from(name));
     }
 
-    #[inline]
+    #[inline(always)]
     fn trigger(&mut self, event: &Event) {
         if !self.callbacks.contains_key(&event.name) {
             return;
@@ -110,7 +110,7 @@ impl EventHandler for Node {
         self.callbacks.insert(event.name.clone(), callbacks);
     }
 
-    #[inline]
+    #[inline(always)]
     fn trigger_local(&mut self, name: &str, from: String, data: Vec<u8>) {
         let mut ev = Event::default();
         ev.from = from;
@@ -120,7 +120,7 @@ impl EventHandler for Node {
         self.trigger(&ev);
     }
 
-    #[inline]
+    #[inline(always)]
     fn event_notify(&mut self) {
         // trying to get commands while there is available data
         loop {

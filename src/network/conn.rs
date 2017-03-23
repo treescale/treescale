@@ -38,7 +38,7 @@ pub struct Connection {
 impl Connection {
     /// Making new connection with token, value and identity
     /// Connection should have min. 1 identity
-    #[inline]
+    #[inline(always)]
     pub fn new(token: String, value: u64, identity: ConnectionIdentity) -> Connection {
         Connection {
             token: token,
@@ -48,12 +48,12 @@ impl Connection {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn add_identity(&mut self, identity: ConnectionIdentity) {
         self.identities.push(identity);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn rm_identity(&mut self, socket_token: Token, index: usize) {
         for i in 0..self.identities.len() {
             if self.identities[i].handler_index == index && self.identities[i].socket_token == socket_token {
@@ -63,7 +63,7 @@ impl Connection {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn identity_count(&self) -> usize {
         self.identities.len()
     }
@@ -79,7 +79,7 @@ impl Connection {
     }
 
     /// Checking API version, if it's not correct function will return false
-    #[inline]
+    #[inline(always)]
     pub fn check_api_version(version: u32) -> bool {
         version > 0 && version < MAX_API_VERSION
     }

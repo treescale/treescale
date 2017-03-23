@@ -12,7 +12,7 @@ pub struct Event {
 }
 
 impl Event {
-    #[inline]
+    #[inline(always)]
     pub fn default() -> Event {
         Event {
             path: Path::new(),
@@ -23,7 +23,7 @@ impl Event {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn from_raw(data: &Vec<u8>) -> Option<Event> {
         let mut offset: usize = 0;
         let mut ev = Event::default();
@@ -108,7 +108,7 @@ impl Event {
         Some(ev)
     }
 
-    #[inline]
+    #[inline(always)]
     fn read_field(data: &Vec<u8>, offset: usize, data_len: usize) -> Option<(&[u8], usize)> {
         let (converted, filed_len) = NetHelper::bytes_to_u32(&data, offset);
         let filed_len = filed_len as usize;
@@ -119,7 +119,7 @@ impl Event {
         Some((&data[offset..(offset + filed_len)], filed_len))
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn to_raw(&self) -> Option<Vec<u8>> {
         let (path_len, name_len, from_len, target_len, event_data_len)
               = (self.path.len(), self.name.len(), self.from.len(), self.target.len(), self.data.len());

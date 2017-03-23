@@ -80,7 +80,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn channel(&self) -> Sender<TcpHandlerCommand> {
         self.sender_chan.clone()
     }
@@ -148,7 +148,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn notify(&mut self, command: &mut TcpHandlerCommand) {
         match command.cmd {
             TcpHandlerCMD::HandleConnection => {
@@ -212,7 +212,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn readable(&mut self, token: Token) {
         let accepted = {
             let ref conn: TcpConnection = self.connections[token];
@@ -258,16 +258,10 @@ impl TcpHandler {
             return;
         }
 
-        let channel = self.net_chan.clone();
-
-        // making data parse and command send using separate thread pool
-//        self.thread_pool.execute(move || {
-//
-//        });
-
         let mut event_cmd = NetworkCommand::new();
         event_cmd.cmd = NetworkCMD::HandleEvent;
-        event_cmd.token.push(conn_token);
+        event_cmd.token = vec![conn_token];
+        event_cmd.event.reserve_exact(data_list.len());
         for data in data_list {
             event_cmd.event.push(match Event::from_raw(&data) {
                 Some(e) => e,
@@ -275,13 +269,13 @@ impl TcpHandler {
             });
         }
 
-        match channel.send(event_cmd) {
+        match self.net_chan.send(event_cmd) {
             Ok(_) => {},
             Err(e) => Log::error("Unable to send data over networking channel from TCP Reader", e.description())
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn writable(&mut self, token: Token) {
         let close_conn = {
             let ref mut conn = self.connections[token];
@@ -305,7 +299,7 @@ impl TcpHandler {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn close_connection(&mut self, token: Token) {
         // sending command to Networking that connection closed
         // or at least one channel was closed for this connection
@@ -333,7 +327,7 @@ impl TcpHandler {
         self.connections.remove(token);
     }
 
-    #[inline]
+    #[inline(always)]
     fn read_handshake_info(&mut self, token: Token) -> bool {
         // if we got here then we have connection with this token
         let mut close_conn = {
@@ -416,7 +410,7 @@ impl TcpHandler {
         true
     }
 
-    #[inline]
+    #[inline(always)]
     fn accept_connection(&self, token: Token) {
         let ref conn = self.connections[token];
         // notifying Networking about new connection accepted
