@@ -44,9 +44,6 @@ pub struct TcpConnection {
     writable: VecDeque<Arc<Vec<u8>>>,
     // index for current partial data to write
     writable_data_index: usize,
-
-    // checking if this connection writable or not
-    is_writable: bool
 }
 
 impl TcpConnection {
@@ -66,9 +63,13 @@ impl TcpConnection {
             pending_endian: vec![0; 4],
             pending_endian_index: 0,
             writable: VecDeque::new(),
-            writable_data_index: 0,
-            is_writable: false
+            writable_data_index: 0
         }
+    }
+
+    #[inline]
+    pub fn add_writable_data(&mut self, data: Arc<Vec<u8>>) {
+        self.writable.push_back(data);
     }
 
     /// Registering connection to give POLL service
@@ -87,7 +88,7 @@ impl TcpConnection {
 
     /// Making connection writable for given POLL service
     #[inline]
-    pub fn make_readable(&mut self, poll: &Poll) -> bool {
+    pub fn make_readable(&self, poll: &Poll) -> bool {
         match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
@@ -96,14 +97,12 @@ impl TcpConnection {
             }
         }
 
-        self.is_writable = false;
-
         true
     }
 
     /// Making connection writable for given POLL service
     #[inline]
-    pub fn make_writable(&mut self, poll: &Poll) -> bool {
+    pub fn make_writable(&self, poll: &Poll) -> bool {
         match poll.reregister(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
@@ -111,16 +110,14 @@ impl TcpConnection {
                 return false;
             }
         }
-
-        self.is_writable = true;
         true
     }
 
     /// Reading Endian number using Networking API
     #[inline]
     pub fn read_endian(&mut self) -> Option<(bool, u32)> {
-        let read_len = match self.socket.read(&mut self.pending_endian[self.pending_data_index..]) {
-            Ok(n) => n,
+        let read_len = match self.socket.read(&mut self.pending_endian[self.pending_endian_index..]) {
+            Ok(n) => if n == 0 { return None } else { n },
             Err(e) => {
                 // if we got WouldBlock, then this is Non Blocking socket
                 // and data still not available for this, so it's not a connection error
@@ -133,8 +130,8 @@ impl TcpConnection {
         };
 
         // if we got data less than we expected
-        if read_len + self.pending_data_index < 4 {
-            self.pending_data_index += read_len;
+        if read_len + self.pending_endian_index < 4 {
+            self.pending_endian_index += read_len;
             return Some((false, 0));
         }
 
@@ -231,7 +228,7 @@ impl TcpConnection {
         // if we got here then we have defined pending_data and total length
         // so we need to read data until pending_data_index is equal to length
         let read_len = match self.socket.read(&mut self.pending_data[0][self.pending_data_index..]) {
-            Ok(n) => n,
+            Ok(n) => if n == 0 { return None } else { n },
             Err(e) => {
                 // if we got WouldBlock, then this is Non Blocking socket
                 // and data still not available for this, so it's not a connection error
@@ -293,15 +290,8 @@ impl TcpConnection {
     /// It will add data to "writable" as a write queue
     #[inline]
     pub fn write(&mut self, data: Arc<Vec<u8>>, poll: &Poll) {
-        if !self.is_writable {
-            if !self.make_writable(poll) {
-                return;
-            }
-
-            self.is_writable = true;
-        }
-
         self.writable.push_back(data);
+        self.make_writable(poll);
     }
 
     /// Tying to flush all data what we have right now in our socket

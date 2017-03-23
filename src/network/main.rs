@@ -238,28 +238,26 @@ impl Networking for Node {
 
         let tcp_handler_channels = self.net_tcp_handler_sender_chan.clone();
 
-        self.thread_pool.execute(move || {
-            let data = Arc::new(match event.to_raw() {
-                Some(d) => d,
-                None => return
-            });
+        let data = Arc::new(match event.to_raw() {
+            Some(d) => d,
+            None => return
+        });
 
-            for i in 0..tcp_handler_channels.len() {
-                if tcp_conns_to_send[i].len() == 0 {
-                    continue;
-                }
+        for i in 0..tcp_handler_channels.len() {
+            if tcp_conns_to_send[i].len() == 0 {
+                continue;
+            }
 
-                let mut command = TcpHandlerCommand::new();
-                command.cmd = TcpHandlerCMD::WriteData;
-                command.token = tcp_conns_to_send[i].clone();
-                command.data.push(data.clone());
-                match tcp_handler_channels[i].send(command) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        Log::error("Unable to send data to TcpHandler during emiting event", e.description());
-                    }
+            let mut command = TcpHandlerCommand::new();
+            command.cmd = TcpHandlerCMD::WriteData;
+            command.token = tcp_conns_to_send[i].clone();
+            command.data.push(data.clone());
+            match tcp_handler_channels[i].send(command) {
+                Ok(_) => {},
+                Err(e) => {
+                    Log::error("Unable to send data to TcpHandler during emiting event", e.description());
                 }
             }
-        });
+        }
     }
 }

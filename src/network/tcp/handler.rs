@@ -1,20 +1,18 @@
 #![allow(dead_code)]
 extern crate mio;
-extern crate threadpool;
 
 use std::process;
 use std::error::Error;
 use std::sync::Arc;
 
 use network::tcp::TcpConnection;
-use network::{NetworkCommand, NetworkCMD, Slab, CONNECTION_COUNT_PRE_ALLOC, ConnectionIdentity, SocketType};
+use network::{NetworkCommand, NetworkCMD, Slab, CONNECTION_COUNT_PRE_ALLOC, ConnectionIdentity, SocketType, Connection};
 use node::{NET_RECEIVER_CHANNEL_TOKEN, EVENT_LOOP_EVENTS_SIZE};
 use event::Event;
-use helper::Log;
+use helper::{Log, NetHelper};
 
 use self::mio::channel::{Sender, Receiver, channel};
 use self::mio::{Poll, Ready, PollOpt, Token, Events};
-use self::threadpool::ThreadPool;
 
 pub enum TcpHandlerCMD {
     None,
@@ -56,17 +54,13 @@ pub struct TcpHandler {
     // poll service for current writer
     poll: Poll,
 
-    // keeping thread pool created in Node service
-    thread_pool: ThreadPool,
-
     // keeping index for this handler for later identification
     index: usize,
 }
 
 impl TcpHandler {
     /// Making new TCP handler service
-    pub fn new(net_chan: Sender<NetworkCommand>
-               , thread_pool: ThreadPool, index: usize) -> TcpHandler {
+    pub fn new(net_chan: Sender<NetworkCommand>, index: usize) -> TcpHandler {
 
         let (s, r) = channel::<TcpHandlerCommand>();
 
@@ -82,7 +76,6 @@ impl TcpHandler {
                     process::exit(1);
                 }
             },
-            thread_pool: thread_pool,
             index: index
         }
     }
@@ -176,36 +169,21 @@ impl TcpHandler {
                         }
                     };
 
-                    // registering and making connection writable first
-                    // just to clear write queue from the beginning
-//                    if !conn.register(&self.poll) {
-//                        Log::warn("Unable register TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
-//                        continue;
-//                    }
-
-                    if !conn.make_writable(&self.poll) {
-                        Log::warn("Unable make writable TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
-                        continue;
-                    }
-
                     // adding connection to our connections list
                     conn.socket_token = entry.index();
 
-                    // notifying Networking about new connection accepted
-                    let mut net_cmd = NetworkCommand::new();
-                    net_cmd.cmd = NetworkCMD::HandleConnection;
-                    net_cmd.token.push(conn.conn_token.clone());
-                    net_cmd.value.push(conn.conn_value);
-                    net_cmd.conn_identity.push(ConnectionIdentity {
-                        handler_index: self.index,
-                        socket_type: SocketType::TCP,
-                        socket_token: conn.socket_token
-                    });
-                    match self.net_chan.send(net_cmd) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            Log::error("Unable to send command to networking from TcpHandler"
-                                       , format!("New TCP connection Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
+                    // registering and making connection writable first
+                    // just to clear write queue from the beginning
+                    if !conn.register(&self.poll) {
+                        Log::warn("Unable register TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
+                        continue;
+                    }
+
+                    // if connection is from client, then first of all we need to write handshake information
+                    if !conn.from_server {
+                        if !conn.make_writable(&self.poll) {
+                            Log::warn("Unable make writable TCP connection with TcpHandler POLL service", "Got connection by TcpHandleCommand");
+                            continue;
                         }
                     }
 
@@ -236,6 +214,29 @@ impl TcpHandler {
 
     #[inline]
     fn readable(&mut self, token: Token) {
+        let accepted = {
+            let ref conn: TcpConnection = self.connections[token];
+            Connection::check_api_version(conn.api_version) && conn.conn_token.len() > 0
+        };
+
+        if !accepted {
+            // if we don't have handshake information
+            // trying to read again
+            if !self.read_handshake_info(token) {
+                return
+            }
+
+            // if we got handshake information and connection is from server
+            // making writable to send our handshake information
+            let ref conn: TcpConnection = self.connections[token];
+            if conn.from_server {
+                conn.make_writable(&self.poll);
+            }
+
+            self.accept_connection(token);
+            return
+        }
+
         let (close_conn, data_list, conn_token) = {
             let ref mut conn = self.connections[token];
             match conn.read_data() {
@@ -260,22 +261,24 @@ impl TcpHandler {
         let channel = self.net_chan.clone();
 
         // making data parse and command send using separate thread pool
-        self.thread_pool.execute(move || {
-            let mut event_cmd = NetworkCommand::new();
-            event_cmd.cmd = NetworkCMD::HandleEvent;
-            event_cmd.token.push(conn_token);
-            for data in data_list {
-                event_cmd.event.push(match Event::from_raw(&data) {
-                    Some(e) => e,
-                    None => continue
-                });
-            }
+//        self.thread_pool.execute(move || {
+//
+//        });
 
-            match channel.send(event_cmd) {
-                Ok(_) => {},
-                Err(e) => Log::error("Unable to send data over networking channel from TCP Reader", e.description())
-            }
-        });
+        let mut event_cmd = NetworkCommand::new();
+        event_cmd.cmd = NetworkCMD::HandleEvent;
+        event_cmd.token.push(conn_token);
+        for data in data_list {
+            event_cmd.event.push(match Event::from_raw(&data) {
+                Some(e) => e,
+                None => continue
+            });
+        }
+
+        match channel.send(event_cmd) {
+            Ok(_) => {},
+            Err(e) => Log::error("Unable to send data over networking channel from TCP Reader", e.description())
+        }
     }
 
     #[inline]
@@ -298,6 +301,7 @@ impl TcpHandler {
 
         if close_conn {
             self.close_connection(token);
+            return
         }
     }
 
@@ -307,22 +311,130 @@ impl TcpHandler {
         // or at least one channel was closed for this connection
         {
             let ref conn = self.connections[token];
-            let mut net_cmd = NetworkCommand::new();
-            net_cmd.cmd = NetworkCMD::ConnectionClose;
-            net_cmd.token = vec![conn.conn_token.clone()];
-            net_cmd.conn_identity.push(ConnectionIdentity {
-                socket_type: SocketType::TCP,
-                handler_index: self.index,
-                socket_token: token
-            });
-            match self.net_chan.send(net_cmd) {
-                Ok(_) => {}
-                Err(e) => {
-                    Log::error("Unable to send command to networking from TcpHandler"
-                               , format!("Connection Close Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
+            // if we have accepted connection, notifying about close action
+            if Connection::check_api_version(conn.api_version) && conn.conn_token.len() > 0 {
+                let mut net_cmd = NetworkCommand::new();
+                net_cmd.cmd = NetworkCMD::ConnectionClose;
+                net_cmd.token = vec![conn.conn_token.clone()];
+                net_cmd.conn_identity.push(ConnectionIdentity {
+                    socket_type: SocketType::TCP,
+                    handler_index: self.index,
+                    socket_token: token
+                });
+                match self.net_chan.send(net_cmd) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        Log::error("Unable to send command to networking from TcpHandler"
+                                   , format!("Connection Close Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
+                    }
                 }
             }
         }
         self.connections.remove(token);
+    }
+
+    #[inline]
+    fn read_handshake_info(&mut self, token: Token) -> bool {
+        // if we got here then we have connection with this token
+        let mut close_conn = {
+            let ref mut conn: TcpConnection = self.connections[token];
+            // if we don't have yet API version defined
+            if !Connection::check_api_version(conn.api_version) {
+                match conn.read_api_version() {
+                    Some((done, version)) => {
+                        // if we not done with reading API version
+                        // Just returning and waiting until next readable cycle
+                        if !done {
+                            return false;
+                        }
+
+                        // if we got wrong API version just closing connection
+                        if !Connection::check_api_version(version) {
+                            true
+                        } else {
+                            // if we got valid API version
+                            // saving it as a connection version
+                            conn.api_version = version;
+                            false
+                        }
+                    }
+
+                    // if we have connection error closing it
+                    None => true
+                }
+            } else {
+                false
+            }
+        };
+
+        if close_conn {
+            self.close_connection(token);
+            return false;
+        }
+
+        close_conn = {
+            let ref mut conn: TcpConnection = self.connections[token];
+            // if we don't have token and value form connection
+            if conn.conn_token.len() == 0 {
+                // reading Connection Token and Value
+                match conn.read_token_value() {
+                    Some((done, token_str, value)) => {
+                        // if we not done with reading API version
+                        // Just returning and waiting until next readable cycle
+                        if !done {
+                            return false;
+                        }
+
+                        // checking if we got valid Prime Value or not
+                        // if it's invalid just closing connection
+                        if !NetHelper::validate_value(value) {
+                            true
+                        } else {
+                            // if we done with token and value
+                            // just setting them for connection
+                            // and writing API handshake information
+                            conn.conn_token = token_str;
+                            conn.conn_value = value;
+
+                            false
+                        }
+                    }
+
+                    // if we have connection error closing it
+                    None => true
+                }
+            } else {
+                false
+            }
+        };
+
+        if close_conn {
+            self.close_connection(token);
+            return false;
+        }
+
+        true
+    }
+
+    #[inline]
+    fn accept_connection(&self, token: Token) {
+        let ref conn = self.connections[token];
+        // notifying Networking about new connection accepted
+        let mut net_cmd = NetworkCommand::new();
+        net_cmd.cmd = NetworkCMD::HandleConnection;
+        net_cmd.token.push(conn.conn_token.clone());
+        net_cmd.value.push(conn.conn_value);
+        net_cmd.conn_identity.push(ConnectionIdentity {
+            handler_index: self.index,
+            socket_type: SocketType::TCP,
+            socket_token: conn.socket_token
+        });
+        match self.net_chan.send(net_cmd) {
+            Ok(_) => {}
+            Err(e) => {
+                Log::error("Unable to send command to networking from TcpHandler"
+                           , format!("New TCP connection Command for Token - {} -> {}", conn.conn_token.clone(), e).as_str());
+            }
+        }
     }
 }

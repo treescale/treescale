@@ -1,12 +1,10 @@
 #![allow(dead_code)]
 extern crate mio;
-extern crate threadpool;
 extern crate num_cpus;
 extern crate uuid;
 
 use self::mio::{Poll, Events};
 use self::mio::channel::{channel, Sender, Receiver};
-use self::threadpool::ThreadPool;
 use self::mio::tcp::{TcpListener};
 
 use network::{NetworkCommand, Connection
@@ -44,9 +42,6 @@ pub struct Node {
     /// POLL service for this node thread event loop
     pub poll: Poll,
 
-    /// Thread Pool for making background precessing tasks
-    pub thread_pool: ThreadPool,
-
     /// parent address in case if we are doing something directly from command line
     parent_address: String
 }
@@ -80,7 +75,6 @@ impl Node {
                     process::exit(1);
                 }
             },
-            thread_pool: ThreadPool::new(cpu_count),
             parent_address: config.parent_address.clone()
         }
     }
