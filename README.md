@@ -45,6 +45,7 @@ SSH accesses and run command <code>~$ treescale build</code><br/>
 
 ```
 <b><code>tree.toml</code></b>
+
 ```toml
 # every node will have his local copy of this config inside local small database file for getting all information about Tree
 
@@ -80,17 +81,16 @@ SSH accesses and run command <code>~$ treescale build</code><br/>
     tags=[]
     groups=[]
     childs=["tree6", "tree7"]
-
 ```
 
 # Get Started
 Our System using <a href="https://github.com/boltdb/bolt">BoltDB</a> as a local storage engine, so you need to provide path to local db file <code>TREE_DB_PATH</code>
-environment variable example: <code>export TREE_DB_PATH="./tree.db"</code> . Default Path is <code>/etc/treescale/tree.db</code><br/>
+environment variable example: <code>export TREE_DB_PATH="./tree.db"</code> . Default Path is <code>/etc/treescale/tree.db</code>
 <p>
 For Getting started with our config files which is available in our repository <code>configs/tree.toml, configs/ssh.toml</code> you need to do following commands
 </p>
-```sh
 
+```bash
 # Before using TreeScale you need to have Tree Based infrastructure, 
 # which could be built using configuration files with SSH access and Tree nodes information
 treescale build  --files=configs/tree.toml,configs/ssh.toml
@@ -106,7 +106,6 @@ treescale config restore -f tree.db
 # this command will execute bash command on tree3 server by connecting to tree1 server as an API server
 # it's a base Tree structure path calculation
 treescale api exec -c "uname" -n tree1 -t tree3
-
 ```
 
 # Wiki Pages
