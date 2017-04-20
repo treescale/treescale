@@ -3,6 +3,7 @@ mod node;
 mod event;
 mod network;
 mod config;
+mod graph;
 
 use node::Node;
 
