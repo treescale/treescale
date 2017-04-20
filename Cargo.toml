@@ -1,6 +1,6 @@
 [package]
-name = "treenity"
-version = "0.1.0"
+name = "treescale"
+version = "0.1.1"
 authors = ["Tigran Bayburtsyan <tigran@bayburtsyan.com>"]
 
 [dependencies]
