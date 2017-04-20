@@ -1,6 +1,6 @@
 # TreeScale: Highly scalable PubSub system
 
-TreeScale is a technology Bridlinglows to build real-time applications with highly scalable architecture, using Math Tree/Graph 
+TreeScale is a technology which allows to build real-time PubSab applications with highly scalable architecture, using Math Tree/Graph 
  based scalability instead of standard horizontal scalability.
 
 The goals and main philosophy behind TreeScale:
