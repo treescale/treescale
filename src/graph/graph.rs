@@ -36,3 +36,15 @@ pub struct Graph {
     // Value -> Channel Name
     groups: Subscriptions,
 }
+
+impl Graph {
+    /// Creating new graph system for current Node
+    fn new() -> Graph {
+        Graph {
+            nodes: BTreeMap::new(),
+            events: Subscriptions::new(),
+            channels: Subscriptions::new(),
+            groups: Subscriptions::new()
+        }
+    }
+}
