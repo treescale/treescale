@@ -57,5 +57,5 @@ and full data broadcasting without having Queue based system.
 Generally TreeScale implementing super scalable network communication, so based on that it have a lot of use-cases starting from Mobile Applications, Games and ending with Private datancenter server monitoring.
 So far we have implementations for this use-cases, but we planning a lot more for the future.
 
-- <a href="https://raw.githubusercontent.com/treescale/treescale/master/docs/DockerManagement.md">Docker Orchestration and Infrastructure Management</a><br/>
-- <a href="https://raw.githubusercontent.com/treescale/treescale/master/docs/DockerRegistry.md">Docker Build Service, and Registry</a><br/>
+- <a href="https://github.com/treescale/treescale/blob/master/docs/DockerManagement.md">Docker Orchestration and Infrastructure Management</a><br/>
+- <a href="https://github.com/treescale/treescale/blob/master/docs/DockerRegistry.md">Docker Build Service, and Registry</a><br/>
