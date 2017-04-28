@@ -1,5 +1,7 @@
 # TreeScale: Highly scalable PubSub system
 
+![TreeScale structure animation](https://raw.githubusercontent.com/treescale/treescale/master/animation.gif)
+
 TreeScale is a technology which allows to build real-time PubSab applications with highly scalable architecture, using Math Tree/Graph 
  based scalability instead of standard horizontal scalability.
 
