@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use graph::Subscriptions;
+pub type Subscriptions = BTreeMap<String, Vec<String>>;
 
 /// TreeNode keeping information about individual nodes information
 /// Including subscribed events, channels, groups list
