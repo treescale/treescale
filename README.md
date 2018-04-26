@@ -14,7 +14,7 @@ one application is fully independent from another application and the base commu
 # Building
 For building from source you will need [Rust language](https://rust-lang.org) installed. There is only one command for building this project on all platforms which is supported by Rust.
 
-This project mainly tested on Linux, BSD, Windows, macOS and Android (experimental).
+This project is mainly tested on Linux, BSD, Windows, macOS and Android (experimental).
 
 ```bash
 ~# git clone https://github.com/treescale/treescale
@@ -31,7 +31,7 @@ This project mainly tested on Linux, BSD, Windows, macOS and Android (experiment
 - [x] Distributed Tree/Graph structure with automatic lookup
 - [x] Event path calculation between Tree/Graph nodes
 - [x] API client subscriptions for each node and event delivery
-- [x] Event broadcasting and round rubin load balancing using stateful path calculation
+- [x] Event broadcasting and round robin load balancing using stateful path calculation
 - [ ] API Libraries for major programming languages (JavaScript, Go, Java, Python etc...)
 - [ ] Queue system for each node with persistent storage (probably using RocksDB Key-Value database)
 - [ ] Benchmarking with existing PubSub platforms
