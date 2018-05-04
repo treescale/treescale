@@ -107,18 +107,11 @@ impl TcpHandler {
                 let (token, kind) = (event.token(), event.kind());
                 if token == NET_RECEIVER_CHANNEL_TOKEN {
                     // trying to get commands while there is available data
-                    loop {
-                        match self.receiver_chan.try_recv() {
-                            Ok(cmd) => {
-                                let mut c = cmd;
-                                self.notify(&mut c);
-                            }
-                            // if we got error, then data is unavailable
-                            // and breaking receive loop
-                            Err(_) => {
-                                break;
-                            }
-                        }
+                    // if we got error, then data is unavailable
+                    // and breaking receive loop
+                    while let Ok(cmd) = self.receiver_chan.try_recv() {
+                        let mut c = cmd;
+                        self.notify(&mut c);
                     }
 
                     continue;

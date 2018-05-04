@@ -11,6 +11,7 @@ use event::{Event};
 use std::error::Error;
 use std::process;
 use std::sync::Arc;
+use std::collections::btree_map::Entry::{Occupied, Vacant};
 
 pub enum NetworkCMD {
     None,
@@ -75,25 +76,29 @@ impl Networking for Node {
                 let identity = command.conn_identity.remove(0);
                 let value = command.value.remove(0);
 
-                if !self.connections.contains_key(&token) {
-                    self.connections.insert(token.clone(), Connection::new(token.clone(), value, identity));
+                let contained_token = match self.connections.entry(token.clone()) {
+                    Vacant(entry) => {
+                        entry.insert(Connection::new(token.clone(), value, identity));
+                        false
+                    },
+                    Occupied(mut entry) => {
+                        // adding connection identity
+                        let conn = entry.get_mut();
+                        conn.add_identity(identity);                        
+                        true
+                    },
+                };
+
+                if contained_token {
+                    // handling new connection
+                    self.on_new_connection_channel(&token);
+                } else {
                     // if we have API connection
                     if value == 0 {
                         self.on_new_api_connection(&token);
                     } else { // if we have regular Node connection
                         self.on_new_connection(&token, value);
                     }
-                } else {
-                    // adding connection identity
-                    match self.connections.get_mut(&token) {
-                        Some(conn) => {
-                            conn.add_identity(identity);
-                        }
-                        None => {}
-                    }
-
-                    // handling new connection
-                    self.on_new_connection_channel(&token);
                 }
             }
 
@@ -170,17 +175,10 @@ impl Networking for Node {
     fn net_ready(&mut self, token: Token, event_kind: Ready) -> bool {
         if token == NET_RECEIVER_CHANNEL_TOKEN {
             // trying to get commands while there is available data
-            loop {
-                match self.net_receiver_chan.try_recv() {
-                    Ok(mut cmd) => {
-                        self.notify(&mut cmd);
-                    }
-                    // if we got error, then data is unavailable
-                    // and breaking receive loop
-                    Err(_) => {
-                        break;
-                    }
-                }
+            // if we got error, then data is unavailable
+            // and breaking receive loop
+            while let Ok(mut cmd) = self.net_receiver_chan.try_recv() {
+                self.notify(&mut cmd);
             }
 
             return true;
