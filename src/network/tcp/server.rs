@@ -5,6 +5,7 @@ use self::mio::net::{ TcpListener };
 use std::process;
 use mio::{Poll, Token, Interest, Events};
 use helpers::Log;
+use network::tcp::handler::TcpHandler;
 
 const SERVER_TOKEN: Token = Token(0);
 const SERVER_CAPACITY: usize = 256;
@@ -54,6 +55,8 @@ impl TcpServer {
         // Create storage for events.
         let mut events = Events::with_capacity(SERVER_CAPACITY);
 
+        let tcp_handler_sender = TcpHandler::start();
+
         loop {
             match self.poll.poll(&mut events, None) {
                 Ok(()) => (),
@@ -75,7 +78,7 @@ impl TcpServer {
                     }
                 };
                 Log::info("Got new Client Event", "DROPPING!");
-                drop(tcp_stream);
+                tcp_handler_sender.send_socket(tcp_stream)
             }
         }
     }
