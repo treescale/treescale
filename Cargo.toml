@@ -4,10 +4,6 @@ version = "0.1.1"
 authors = ["Tigran Bayburtsyan <tigran@bayburtsyan.com>"]
 
 [dependencies]
-mio = "= 0.6.4"
-log = "0.3"
-num_cpus = "1.2.0"
-slab = "0.3.0"
-chrono = "0.3"
-clap = "2.20.5"
-uuid = { version = "0.4", features = ["v4"] }
+mio = { version = "0.8.0", features = ["net", "os-poll", "os-ext"] }
+log = "= 0.4.14"
+chrono = "= 0.4.19"

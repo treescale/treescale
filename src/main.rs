@@ -1,12 +1,9 @@
-mod helper;
-mod node;
-mod event;
-mod network;
-mod config;
-mod graph;
+extern crate mio;
 
-use node::Node;
+mod helpers;
+mod network;
 
 fn main() {
-    Node::new(&config::parse_args()).start();
+    let mut server = network::TcpServer::new("127.0.0.1:5000");
+    server.listen();
 }

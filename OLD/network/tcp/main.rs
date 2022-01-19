@@ -153,7 +153,7 @@ impl TcpNetwork for Node {
         let sock = match TcpStream::connect(&sock_address) {
             Ok(s) => s,
             Err(e) => {
-                Log::error(format!("Unable to connect with given tcp address {}", address).as_str(), e.description());
+                Log::error(format!("Unable to connect with given network.tcp address {}", address).as_str(), e.description());
                 return false;
             }
         };

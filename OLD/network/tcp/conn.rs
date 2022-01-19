@@ -78,7 +78,7 @@ impl TcpConnection {
         match poll.register(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
-                Log::error("Unable to register tcp connection to given poll service", e.description());
+                Log::error("Unable to register network.tcp connection to given poll service", e.description());
                 return false;
             }
         }
@@ -92,7 +92,7 @@ impl TcpConnection {
         match poll.reregister(&self.socket, self.socket_token, Ready::readable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
-                Log::error("Unable to make tcp connection readable for given poll service", e.description());
+                Log::error("Unable to make network.tcp connection readable for given poll service", e.description());
                 return false;
             }
         }
@@ -106,7 +106,7 @@ impl TcpConnection {
         match poll.reregister(&self.socket, self.socket_token, Ready::writable(), PollOpt::edge()) {
             Ok(_) => {}
             Err(e) => {
-                Log::error("Unable to make tcp connection writable for given poll service", e.description());
+                Log::error("Unable to make network.tcp connection writable for given poll service", e.description());
                 return false;
             }
         }
