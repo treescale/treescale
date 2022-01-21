@@ -1,13 +1,15 @@
 extern crate mio;
 
+use std::collections::HashMap;
 use std::process;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::mpsc;
 use std::thread::{JoinHandle};
 use std::thread;
-use mio::{Token, Waker, Poll, Events};
-use helpers::Log;
+use mio::{Token, Waker, Poll, Events, Interest};
+use helpers::{get_random_token_from_map, Log};
+use network::tcp::connection::TcpConnection;
 use self::mio::net::{ TcpStream };
 
 const WAKER_TOKEN: Token = Token(0);
@@ -24,6 +26,7 @@ pub struct TcpHandler {
     socket_receiver_channel: Receiver<TcpStream>,
     #[allow(dead_code)]
     poll_waker: Arc<Waker>,
+    connections: HashMap<Token, TcpConnection>,
 }
 
 impl TcpHandler {
@@ -50,7 +53,8 @@ impl TcpHandler {
                 let mut tcp_handler = TcpHandler {
                     poll,
                     socket_receiver_channel: receiver,
-                    poll_waker: waker
+                    poll_waker: waker,
+                    connections: HashMap::new()
                 };
                 tcp_handler.handle_poll()
             })
@@ -70,7 +74,7 @@ impl TcpHandler {
 
             for event in events.iter() {
                 if event.token() == WAKER_TOKEN {
-                    let tcp_socket = match self.socket_receiver_channel.recv() {
+                    let mut tcp_socket = match self.socket_receiver_channel.recv() {
                         Ok(s) => s,
                         Err(e) => {
                             Log::error("Unable to get TCP Socket from TcpHandler", e.to_string().as_str());
@@ -78,7 +82,16 @@ impl TcpHandler {
                         }
                     };
                     Log::info("Just Dropping Tcp Socket", "Tcp Socket");
-                    drop(tcp_socket)
+                    let conn_token = get_random_token_from_map(&self.connections);
+                    match self.poll.registry().register(&mut tcp_socket, conn_token, Interest::READABLE | Interest::WRITABLE) {
+                        Ok(()) => (),
+                        Err(e) => {
+                            Log::error("Unable to Register connection for TcpHandler events", e.to_string().as_str());
+                            drop(tcp_socket);
+                            continue
+                        }
+                    };
+                    self.connections.insert(conn_token, TcpConnection::new(tcp_socket, conn_token));
                 }
             }
         }
