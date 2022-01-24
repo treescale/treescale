@@ -1,11 +1,11 @@
 extern crate mio;
 
-use std::net::SocketAddr;
-use self::mio::net::{ TcpListener };
-use std::process;
-use mio::{Poll, Token, Interest, Events};
+use self::mio::net::TcpListener;
 use helpers::Log;
+use mio::{Events, Interest, Poll, Token};
 use network::tcp::handler::TcpHandler;
+use std::net::SocketAddr;
+use std::process;
 
 const SERVER_TOKEN: Token = Token(0);
 const SERVER_CAPACITY: usize = 256;
@@ -20,7 +20,10 @@ impl TcpServer {
         let parsed_address = match address.parse::<SocketAddr>() {
             Ok(p) => p,
             Err(e) => {
-                Log::error("Unable to parse given server address", e.to_string().as_str());
+                Log::error(
+                    "Unable to parse given server address",
+                    e.to_string().as_str(),
+                );
                 process::exit(1);
             }
         };
@@ -39,15 +42,22 @@ impl TcpServer {
                     Log::error("Unable to start an OS Poll", e.to_string().as_str());
                     process::exit(1);
                 }
-            }
+            },
         }
     }
 
     pub fn listen(&mut self) {
-        match self.poll.registry().register(&mut self.server, SERVER_TOKEN, Interest::READABLE) {
+        match self
+            .poll
+            .registry()
+            .register(&mut self.server, SERVER_TOKEN, Interest::READABLE)
+        {
             Ok(r) => r,
             Err(e) => {
-                Log::error("Unable to register bound server for the events", e.to_string().as_str());
+                Log::error(
+                    "Unable to register bound server for the events",
+                    e.to_string().as_str(),
+                );
                 process::exit(1);
             }
         };
@@ -61,23 +71,28 @@ impl TcpServer {
             match self.poll.poll(&mut events, None) {
                 Ok(()) => (),
                 Err(e) => {
-                    Log::error("Unable to get TcpServer events from Poll", e.to_string().as_str());
-                    continue
+                    Log::error(
+                        "Unable to get TcpServer events from Poll",
+                        e.to_string().as_str(),
+                    );
+                    continue;
                 }
             };
             for event in events.iter() {
                 if event.token() != SERVER_TOKEN {
-                    continue
+                    continue;
                 }
 
                 let (tcp_stream, _) = match self.server.accept() {
                     Ok(c) => c,
                     Err(e) => {
-                        Log::error("Unable to accept client connection in TcpServer", e.to_string().as_str());
-                        continue
+                        Log::error(
+                            "Unable to accept client connection in TcpServer",
+                            e.to_string().as_str(),
+                        );
+                        continue;
                     }
                 };
-                Log::info("Got new Client Event", "DROPPING!");
                 tcp_handler_sender.send_socket(tcp_stream)
             }
         }
