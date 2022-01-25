@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use std::mem;
-
 /// helper functions for network operations
 pub struct NetHelper {}
 
@@ -15,9 +13,9 @@ impl NetHelper {
             return 0;
         }
 
-        let endian_bytes = unsafe { mem::transmute::<u32, [u8; 4]>(number.to_be()) };
+        let endian_bytes: [u8; 4] = number.to_be_bytes();
 
-        buffer[offset + 0] = endian_bytes[0];
+        buffer[offset] = endian_bytes[0];
         buffer[offset + 1] = endian_bytes[1];
         buffer[offset + 2] = endian_bytes[2];
         buffer[offset + 3] = endian_bytes[3];
@@ -35,9 +33,9 @@ impl NetHelper {
             return 0;
         }
 
-        let endian_bytes = unsafe { mem::transmute::<u64, [u8; 8]>(number.to_be()) };
+        let endian_bytes: [u8; 8] = number.to_be_bytes();
 
-        buffer[offset + 0] = endian_bytes[0];
+        buffer[offset] = endian_bytes[0];
         buffer[offset + 1] = endian_bytes[1];
         buffer[offset + 2] = endian_bytes[2];
         buffer[offset + 3] = endian_bytes[3];
@@ -52,20 +50,17 @@ impl NetHelper {
 
     /// Parse given BigEndian bytes into u32 number
     #[inline(always)]
-    pub fn bytes_to_u32(buffer: &Vec<u8>, offset: usize) -> (bool, u32) {
+    pub fn bytes_to_u32(buffer: &[u8], offset: usize) -> (bool, u32) {
         if buffer.len() + offset < 4 {
             return (false, 0);
         }
 
-        (true, unsafe {
-            let a = [
-                buffer[offset + 0],
-                buffer[offset + 1],
-                buffer[offset + 2],
-                buffer[offset + 3],
-            ];
-            u32::from_be(mem::transmute::<[u8; 4], u32>(a))
-        })
+        (true, u32::from_be_bytes([
+            buffer[offset],
+            buffer[offset + 1],
+            buffer[offset + 2],
+            buffer[offset + 3],
+        ]))
     }
 
     /// Parse given BigEndian bytes into u64 number
@@ -75,19 +70,16 @@ impl NetHelper {
             return (false, 0);
         }
 
-        (true, unsafe {
-            let a = [
-                buffer[offset + 0],
-                buffer[offset + 1],
-                buffer[offset + 2],
-                buffer[offset + 3],
-                buffer[offset + 4],
-                buffer[offset + 5],
-                buffer[offset + 6],
-                buffer[offset + 7],
-            ];
-            u64::from_be(mem::transmute::<[u8; 8], u64>(a))
-        })
+        (true, u64::from_be_bytes([
+            buffer[offset],
+            buffer[offset + 1],
+            buffer[offset + 2],
+            buffer[offset + 3],
+            buffer[offset + 4],
+            buffer[offset + 5],
+            buffer[offset + 6],
+            buffer[offset + 7],
+        ]))
     }
 
     /// Checking if given Node value is valid or not

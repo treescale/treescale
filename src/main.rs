@@ -1,4 +1,5 @@
 extern crate mio;
+extern crate core;
 
 mod constants;
 mod helpers;
