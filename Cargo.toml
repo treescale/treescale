@@ -8,3 +8,4 @@ mio = { version = "0.8.0", features = ["net", "os-poll", "os-ext"] }
 log = "= 0.4.14"
 chrono = "= 0.4.19"
 rand = "= 0.8.4"
+num-traits = "0.2.14"

@@ -1,3 +1,3 @@
 mod tcp;
 
-pub use self::tcp::TcpServer;
+pub use self::tcp::{TcpClient, TcpServer};

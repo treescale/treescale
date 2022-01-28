@@ -1,5 +1,7 @@
 extern crate mio;
+extern crate num_traits;
 
+use self::num_traits::cast;
 use constants::CLIENT_API_VERSION_OFFSET;
 use helpers::{Log, NetHelper};
 use mio::net::TcpStream;
@@ -119,8 +121,16 @@ impl TcpConnection {
     /// Main function to write to TCP connection
     /// It will add data to "writable" as a write queue
     #[inline(always)]
-    pub fn write(&mut self, data: Arc<Vec<u8>>, poll: &Poll) {
-        self.writable.push_back(data);
+    pub fn write(&mut self, data: Vec<u8>, poll: &Poll) {
+        let mut length_buffer: Vec<u8> = Vec::new();
+        length_buffer.resize(4, 0);
+        NetHelper::u32_to_bytes(
+            cast(data.len()).expect("Write Data Length Overflow"),
+            length_buffer.as_mut_slice(),
+            0,
+        );
+        length_buffer.extend(data);
+        self.writable.push_back(Arc::new(length_buffer));
         self.make_writable(poll);
     }
 
@@ -177,7 +187,7 @@ impl TcpConnection {
         // so just reading as a big endian number
         match self.read_endian() {
             Some((ok, version)) => {
-                self.from_server = version - CLIENT_API_VERSION_OFFSET > 0;
+                self.from_server = version > CLIENT_API_VERSION_OFFSET;
                 self.api_version = if self.from_server {
                     version - CLIENT_API_VERSION_OFFSET
                 } else {
@@ -187,6 +197,17 @@ impl TcpConnection {
             }
             None => (false, 0),
         }
+    }
+
+    /// Sending API version to connected socket
+    #[inline(always)]
+    pub fn write_api_version(&mut self, version: u32) {
+        let version_bytes: &mut [u8] = &mut [0; 4];
+        NetHelper::u32_to_bytes(version, version_bytes, 0);
+        self.socket
+            .write_all(version_bytes)
+            .expect("Unable to write API version");
+        self.api_version = version;
     }
 
     /// Reading only one part of data which means that only one
@@ -251,8 +272,8 @@ impl TcpConnection {
     /// so this will return only if read_once function will send (false, vec![])
     /// This will help to get all data once and then consume it using single event
     #[inline(always)]
-    pub fn read_data(&mut self) -> Option<Vec<Vec<u8>>> {
-        let mut total: Vec<Vec<u8>> = vec![];
+    pub fn read_data(&mut self) -> Option<Vec<u8>> {
+        let mut total: Vec<u8> = vec![];
         loop {
             let (done, data) = match self.read_data_once() {
                 Some(d) => d,
@@ -266,7 +287,7 @@ impl TcpConnection {
             }
 
             // adding data to our pool
-            total.push(data);
+            total.extend(data);
         }
 
         Some(total)

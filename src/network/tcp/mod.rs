@@ -1,5 +1,7 @@
-mod server;
-mod handler;
+mod client;
 mod connection;
+mod handler;
+mod server;
 
+pub use self::client::TcpClient;
 pub use self::server::TcpServer;

@@ -103,11 +103,16 @@ impl TcpHandler {
                     }
                 } else if let Some(tcp_conn) = self.connections.get_mut(&event_token) {
                     if event.is_readable() {
-                        if tcp_conn.api_version > 0 {
+                        if tcp_conn.api_version == 0 {
                             tcp_conn.read_api_version();
-                            println!("API VERSION -> {}", tcp_conn.api_version);
-                        } else if let Some(data_buffer) = tcp_conn.read_data() {
-                            println!("DATA LENGTH -> {}", data_buffer.len());
+                        }
+
+                        if let Some(data_buffer) = tcp_conn.read_data() {
+                            println!(
+                                "DATA LENGTH -> {}",
+                                String::from_utf8(data_buffer.clone()).expect("NOT A STRING")
+                            );
+                            tcp_conn.write(data_buffer, &self.poll);
                         }
                     } else if event.is_writable() {
                         if let Some(is_done) = tcp_conn.flush_write() {
