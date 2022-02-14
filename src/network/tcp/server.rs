@@ -3,6 +3,7 @@ extern crate mio;
 use self::mio::net::TcpListener;
 use helpers::Log;
 use mio::{Events, Interest, Poll, Token};
+use network::server::{ServerConnectionEventCallback, ServerConnectionEvents};
 use network::tcp::handler::{TcpHandler, TcpHandlerSender};
 use std::net::SocketAddr;
 use std::process;
@@ -96,6 +97,12 @@ impl TcpServer {
                 self.client_handlers[client_handler_index].send_socket(tcp_stream);
                 client_handler_index += 1;
             }
+        }
+    }
+
+    pub fn on(&mut self, event: ServerConnectionEvents, callback: ServerConnectionEventCallback) {
+        for mut handler in self.client_handlers {
+            handler.send_event(event.clone(), callback.clone());
         }
     }
 }
