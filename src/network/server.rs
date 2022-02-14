@@ -1,13 +1,13 @@
 use network::TcpServer;
 use std::sync::Arc;
 
-pub type ServerConnectionEventCallback = Arc<dyn Fn(&Vec<u8>)>;
+pub type ServerConnectionEventCallback = Arc<dyn Fn(&Vec<u8>) -> Vec<u8> + Send + Sync + 'static>;
 
 #[derive(PartialEq, Clone, std::cmp::Eq, std::hash::Hash)]
 pub enum ServerConnectionEvents {
-    OnMessage = 0,
-    OnConnection = 1,
-    OnDisconnect = 3,
+    Message,
+    Connection,
+    Disconnect,
 }
 
 pub struct Server {
@@ -27,6 +27,6 @@ impl Server {
 
     pub fn on_message(&mut self, callback: ServerConnectionEventCallback) {
         self.tcp_server
-            .on(ServerConnectionEvents::OnMessage, callback.clone())
+            .on(ServerConnectionEvents::Message, callback)
     }
 }

@@ -119,14 +119,17 @@ impl TcpHandler {
                         }
 
                         if let Some(data_buffer) = tcp_conn.read_data() {
+                            println!("{:?}", self.event_callbacks.len());
                             if let Some(callbacks) =
-                                self.event_callbacks.get(&ServerConnectionEvents::OnMessage)
+                                self.event_callbacks.get(&ServerConnectionEvents::Message)
                             {
                                 for callback in callbacks {
-                                    callback(&data_buffer);
+                                    let response = callback(&data_buffer);
+                                    if response.len() > 0 {
+                                        tcp_conn.write(response, &self.poll);
+                                    }
                                 }
                             }
-                            // tcp_conn.write(data_buffer, &self.poll);
                         }
                     } else if event.is_writable() {
                         if let Some(is_done) = tcp_conn.flush_write() {
@@ -143,6 +146,8 @@ impl TcpHandler {
     pub fn on(&mut self, event: ServerConnectionEvents, callback: ServerConnectionEventCallback) {
         if let Some(event_callbacks) = self.event_callbacks.get_mut(&event) {
             event_callbacks.push(callback);
+        } else {
+            self.event_callbacks.insert(event, vec![callback]);
         }
     }
 }

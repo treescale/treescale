@@ -101,7 +101,7 @@ impl TcpServer {
     }
 
     pub fn on(&mut self, event: ServerConnectionEvents, callback: ServerConnectionEventCallback) {
-        for mut handler in self.client_handlers {
+        for handler in self.client_handlers.as_slice() {
             handler.send_event(event.clone(), callback.clone());
         }
     }
