@@ -5,6 +5,7 @@ use helpers::{get_random_token_from_map, Log};
 use mio::{Events, Poll, Token, Waker};
 use network::server::{ServerConnectionEventCallback, ServerConnectionEvents};
 use network::tcp::connection::TcpConnection;
+use network::{Connection, ConnectionType};
 use std::collections::HashMap;
 use std::process;
 use std::sync::mpsc;
@@ -123,11 +124,11 @@ impl TcpHandler {
                             if let Some(callbacks) =
                                 self.event_callbacks.get(&ServerConnectionEvents::Message)
                             {
+                                let mut connection_handler =
+                                    Connection::new(&self.poll, ConnectionType::Tcp);
+                                connection_handler.set_tcp_connection(tcp_conn);
                                 for callback in callbacks {
-                                    let response = callback(&data_buffer);
-                                    if response.len() > 0 {
-                                        tcp_conn.write(response, &self.poll);
-                                    }
+                                    callback(&data_buffer, &mut connection_handler);
                                 }
                             }
                         }

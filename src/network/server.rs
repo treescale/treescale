@@ -1,7 +1,8 @@
-use network::TcpServer;
+use network::{Connection, TcpServer};
 use std::sync::Arc;
 
-pub type ServerConnectionEventCallback = Arc<dyn Fn(&Vec<u8>) -> Vec<u8> + Send + Sync + 'static>;
+pub type ServerConnectionEventCallback =
+    Arc<dyn Fn(&Vec<u8>, &mut Connection) + Send + Sync + 'static>;
 
 #[derive(PartialEq, Clone, std::cmp::Eq, std::hash::Hash)]
 pub enum ServerConnectionEvents {
